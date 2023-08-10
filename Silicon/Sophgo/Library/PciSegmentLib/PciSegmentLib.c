@@ -17,8 +17,6 @@
 #include <Library/PciSegmentLib.h>
 #include <Library/UefiLib.h>
 #include <Regs/SophgoPcieRegs.h>
-// #include <IndustryStandard/JH7110.h>
-// #include <IndustryStandard/Pci30.h>
 
 typedef enum {
   PciCfgWidthUint8 = 0,
@@ -32,16 +30,6 @@ typedef enum {
 
 // #define PCIE_RC_CONFIG_ADDR  0x7060000000
 // #define PCIE_EP_CONFIG_ADDR  0x4880000000
-/**
- 
- * 
- */
-// #define GET_SEG_NUM(Address)    (((Address) >> 32) & 0xFFFF)
-// #define GET_BUS_NUM(Address)    (((Address) >> 20) & 0x7F)
-// #define GET_DEV_NUM(Address)    (((Address) >> 15) & 0x1F)
-// #define GET_FUNC_NUM(Address)   (((Address) >> 12) & 0x07)
-// #define GET_REG_NUM(Address)    ((Address) & 0xFFF)
-
 /**
   Assert the validity of a PCI Segment address.
   A valid PCI Segment address should not contain 1's in bits 28..31 and 48..63
@@ -68,188 +56,18 @@ typedef enum {
   (Register) = ((Address)       & 0xfff);  \
 }
 
-/**
-  Given the nature of how we access PCI devices, we ensure that
-  read/write accesses are serialized through the use of a lock.
-**/
-// STATIC
-// EFI_LOCK mPciSegmentReadWriteLock = EFI_INITIALIZE_LOCK_VARIABLE (TPL_HIGH_LEVEL);
-
-//STATIC UINT64 mPciSegmentLastAccess;     /* Avoid repeat CFG_INDEX updates */
-
-#define BIT(nr)              (1 << (nr))
-#define GENMASK(end, start)  (((1ULL << ((end) - (start) + 1)) - 1) << (start))
-//
-// Local Management Registers
-//
-#define CDNS_PCIE_LM_BASE       0x00100000
-//
-// Root Port Registers (PCI configuration space for the root port function)
-//
-#define CDNS_PCIE_RP_BASE       0x00200000
-#define CDNS_PCIE_RP_CAP_OFFSET 0xc0
-//
-// Address Translation Registers
-//
-#define CDNS_PCIE_AT_BASE 0x00400000
-//
-// AXI link down register
-//
-#define CDNS_PCIE_AT_LINKDOWN (CDNS_PCIE_AT_BASE + 0x0824)
-
-//
-// Region r Outbound AXI to PCIe Address Translation Register 0
-//
-#define CDNS_PCIE_AT_OB_REGION_PCI_ADDR0(r) \
-        (CDNS_PCIE_AT_BASE + 0x0000 + ((r) & 0x1f) * 0x0020)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS_MASK    GENMASK(5, 0)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(nbits) \
-         (((nbits) - 1) & CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS_MASK)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN_MASK    GENMASK(19, 12)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(devfn) \
-         (((devfn) << 12) & CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN_MASK)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS_MASK      GENMASK(27, 20)
-#define  CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS(bus) \
-         (((bus) << 20) & CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS_MASK)
-
-//
-// Region r Outbound PCIe Descriptor Register 0
-//
-#define CDNS_PCIE_AT_OB_REGION_DESC0(r) \
-        (CDNS_PCIE_AT_BASE + 0x0008 + ((r) & 0x1f) * 0x0020)
-/* Bit 23 MUST be set in RC mode. */
-#define  CDNS_PCIE_AT_OB_REGION_DESC0_HARDCODED_RID   BIT(23)
-#define  CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN_MASK      GENMASK(31, 24)
-#define  CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN(devfn) \
-         (((devfn) << 24) & CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN_MASK)
-
-#define  CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0 0xa
-#define  CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1 0xb
-
 BOOLEAN PcieIsLinkUp (
   UINTN     ApbBase
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32(ApbBase + CDNS_PCIE_LM_BASE);
+  Value = MmioRead32(ApbBase + PCIE_LM_BASE);
   if ((Value & 0x1)) {
     return TRUE;
   }
   return FALSE;
 }
-
-// STATIC
-// VOID
-// PciMapBus (
-//   IN UINT32       Port,
-//   IN UINT32       LinkId,
-//   IN UINT32       BusNumber,
-//   IN UINT32       DevFn,
-//   IN UINT64       Offset
-//   )
-// {
-//   UINT64     ApbBase;
-//   UINT32     Addr0;
-//   UINT32     Desc0;
-
-//   // ApbBase = PCIE0_CFG_BASE + LinkId * 0x2000000;
-//   ApbBase = PCIE0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
-
-//   // Only the root port (DevFn == 0) is connected to this bus.
-//   // All other PCI devices are behind some bridge hence on another bus.
-//   if (BusNumber == 0x00 ||  BusNumber == 0x40 || BusNumber == 0x80 || BusNumber == 0xc0) {
-//     if (DevFn) {
-//       return NULL;
-//     }
-
-//     return ApbBase + CDNS_PCIE_RP_BASE + (Offset & 0xfff);
-//   }
-
-//   if (!(PcieIsLinkUp(ApbBase)))
-//     return NULL;
-
-//   // Clear AXI link-down status
-//   MmioWrite32 (ApbBase + CDNS_PCIE_AT_LINKDOWN, 0x0);
-
-//   // Update Output registers for AXI region 0.
-//   Addr0 = CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
-//           CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(DevFn) |
-//           CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS(BusNumber);
-//   MmioWrite32 (ApbBase + CDNS_PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
-
-//   // Configuration Type 0 or Type 1 access.
-//   Desc0 = CDNS_PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
-//           CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN(0);
-
-//   // The bus number was alreadly set once for all in Desc1
-//   // by PciHostInitAddressTranslation().
-//   // if (BusNumber == BusNumber + 1)
-//   //   Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
-//   // else
-//   Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
-
-//   MmioWrite32 (ApbBase + CDNS_PCIE_AT_OB_REGION_DESC0(0), Desc0);
-//   // return ep_confbase + (Offset & 0xfff);
-// }
-
-/**
-  Internal worker function to obtain config space base address.
-
-  @param  Address The address that encodes the PCI Bus, Device, Function and
-                  Register.
-
-  @return The value read from the PCI configuration register.
-
-**/
-
-// STATIC
-// UINT64
-// PciSegmentLibGetConfigBase (
-//   IN  UINT64                      Address,
-//   IN  BOOLEAN                     IsWrite,
-//   IN  PCIE_PORT                   Port,
-//   IN  PCIE_LINK_ID                LinkId
-//   // IN  PCI_CFG_WIDTH               Width
-//   )
-// {
-//   UINT32    Segment;
-//   UINT8     Bus;
-//   UINT8     Device;
-//   UINT8     Function;
-//   UINT32    Register;
-//   UINT64    Base;
-//   UINT64    Offset;
-
-//   Base = PCIE0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
-//   // Base = PCIE0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_MANGO_APB;
-//   // Base = PCIE_EP_CONFIG_ADDR;
-//   Offset = Address & 0xFFF;         /* Pick off the 4k register offset, 0x100 ~ 0xFFF */
-//   Address &= 0xFFFF000;            /* Clear the offset leave only the BDF */
-//   // 256-Byte: Offset = Address & 0xFF;
-
-//   /* The root port is at the base of the PCIe register space */
-//   if (Address != 0) {
-//       EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
-//       /*
-//        * There can only be a single device on bus 0x80 (downstream of root).
-//        * Subsequent busses (behind a PCIe switch) can have more.
-//        */
-//       DEBUG ((DEBUG_ERROR, "--%a[%u]: 1 - Base=0x%lx, Offset=0x%lx, Address=0x%lx\n", __FUNCTION__, __LINE__, Base, Offset, Address));
-//       if (Bus != 0x0 && Bus != 0x40 && Bus != 0x80 && Bus != 0xc0)
-//       if (Bus != 0x80 && IsWrite && ((Offset == 0x10) || (Offset == 0x14))) {
-//          return 0xFFFFFFFF;
-//       }
-//       // ignore device > 0 or function > 0 on base bus
-//       if (Device != 0 || Function != 0)
-//       	return 0xFFFFFFFF;
-
-//       DEBUG ((DEBUG_ERROR, "--%a[%u]: 2 - Base=0x%lx, Offset=0x%lx, Address=0x%lx\n", __FUNCTION__, __LINE__, Base, Offset, Address));
-//       return Base + Address + Offset;
-//   }
-//   DEBUG ((DEBUG_ERROR, "--%a[%u]: 3 - Base=0x%lx, Offset=0x%lx, Address=0x%lx\n", __FUNCTION__, __LINE__, Base, Offset, Address));
-//   return Base + Offset;
-// }
 
 STATIC
 UINT32
@@ -383,7 +201,7 @@ PciSegmentLibReadWorker (
       return 0xffffffff;
     }
     // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
-    MmioAddress = PCIE_RC_CONFIG_ADDR + CDNS_PCIE_RP_BASE + Register;
+    MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
     // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d\n", __FUNCTION__, __LINE__, MmioAddress, Width));
     return CpuMemoryServiceRead (MmioAddress, Width);
   }
@@ -394,26 +212,26 @@ PciSegmentLibReadWorker (
   }
 
   // Clear AXI link-down status
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_LINKDOWN, 0x0);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_LINKDOWN, 0x0);
 
   // Update Output registers for AXI region 0.
-  Addr0 = CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
-          CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
-          CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
 
   // Configuration Type 0 or Type 1 access.
-  Desc0 = CDNS_PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
-          CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN(0);
+  Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
+          PCIE_AT_OB_REGION_DESC0_DEVFN(0);
 
   // The bus number was alreadly set once for all in Desc1
   // by PciHostInitAddressTranslation().
   // if (BusNumber == BusNumber + 1)
-    Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
+    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
   // else
-  // Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
+  // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
 
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
 
   // DEBUG ((DEBUG_INIT, "%a[%u]----PCIe Address[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Addr0));
   // DEBUG ((DEBUG_INIT, "%a[%u]----Descriptor[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Desc0));
@@ -467,17 +285,17 @@ PciSegmentLibWriteWorker (
       // return 0xffffffff;
       return Data;
     }
-    /*
-     * Ignore writing to root port BAR registers, in case we get wrong BAR length.
-     * There can only be a single device on bus 1 (downstream of root).
-     * Subsequent busses (behind a PCIe switch) can have more.
-     */
-    if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
-      DEBUG ((DEBUG_WARN, "----error!!!enter 0x10 0x14 branch: Data=0x%lx\n\n", Data));
-      return Data;
-    }
+    // /*
+    //  * Ignore writing to root port BAR registers, in case we get wrong BAR length.
+    //  * There can only be a single device on bus 1 (downstream of root).
+    //  * Subsequent busses (behind a PCIe switch) can have more.
+    //  */
+    // if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
+    //   DEBUG ((DEBUG_WARN, "----error!!!enter 0x10 0x14 branch: Data=0x%lx\n\n", Data));
+    //   return Data;
+    // }
     // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
-    MmioAddress = PCIE_RC_CONFIG_ADDR + CDNS_PCIE_RP_BASE + Register;
+    MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
     // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=%lx!\n", __FUNCTION__, __LINE__, MmioAddress, Width, Data));
     return CpuMemoryServiceWrite (MmioAddress, Width, Data);
   }
@@ -488,26 +306,26 @@ PciSegmentLibWriteWorker (
   }
 
   // Clear AXI link-down status
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_LINKDOWN, 0x0);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_LINKDOWN, 0x0);
 
   // Update Output registers for AXI region 0.
-  Addr0 = CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
-          CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
-          CDNS_PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
 
   // Configuration Type 0 or Type 1 access.
-  Desc0 = CDNS_PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
-          CDNS_PCIE_AT_OB_REGION_DESC0_DEVFN(0);
+  Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
+          PCIE_AT_OB_REGION_DESC0_DEVFN(0);
 
   // The bus number was alreadly set once for all in Desc1
   // by PciHostInitAddressTranslation().
   // if (BusNumber == BusNumber + 1)
-    Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
+    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
   // else
-  // Desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
+  // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
 
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + CDNS_PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
 
   // DEBUG ((DEBUG_INIT, "%a[%u]----PCIe Address[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Addr0));
   // DEBUG ((DEBUG_INIT, "%a[%u]----Descriptor[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Desc0));

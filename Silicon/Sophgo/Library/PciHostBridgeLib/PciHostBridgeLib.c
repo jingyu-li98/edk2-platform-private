@@ -151,16 +151,14 @@ STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
    0,
    0,
    0,
-   TRUE,  //DmaAbove4G
+   TRUE,  // DmaAbove4G
    FALSE,
    FALSE,
    EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM | // combine memory
    EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // support 64-bit memory window
    { 0x80, 0xff, 0 },
    { 0x800000, 0xffffff, 0 }, // IO
-  //  { 0x80000000, 0x87ffffff, 0x4800000000}, // 128MB
-   { 0x80000000, 0x87ffffff, 0}, // 128MB
-  //  { MAX_UINT64, 0, 0 },
+   { 0x80000000, 0x8fffffff, 0 }, // 256 MB
    { 0x4900000000, 0x4b00000000, 0 }, // MemAbove4G
    { MAX_UINT64, 0, 0 }, // PMem < 0x1 0000 0000
    { MAX_UINT64, 0, 0 }, // PMemAbove4G
