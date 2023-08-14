@@ -302,6 +302,38 @@
   gEfiSecurityPkgTokenSpaceGuid.PcdRemovableMediaImageVerificationPolicy|0x04
 !endif
 
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort0CfgBase|0x7060000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort1CfgBase|0x7062000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciCfgLink0ApbBase|0x000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciCfgLink1ApbBase|0x800000
+  #gSG2042PkgTokenSpaceGuid.PcdPciCfgPhyApbBase|0x1000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciCfgMangoApbBase|0x1800000
+
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort0PciRegionBaseAddress|0xb8000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort0PciRegionSize|0x5feffff
+
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort1PciRegionBaseAddress|0xaa000000
+  #gSG2042PkgTokenSpaceGuid.PcdPciPort1PciRegionSize|0x5feffff
+
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb0CpuMemRegionBase|0xB2000000
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb1CpuMemRegionBase|0xB8000000
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb2CpuMemRegionBase|0xAA000000
+
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb0CpuIoRegionBase|0xb7ff0000
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb1CpuIoRegionBase|0xbdff0000
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb2CpuIoRegionBase|0xAfff0000
+
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb0IoBase|0
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb0IoSize|0xffff #64K
+
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb1IoBase|0
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb1IoSize|0xffff #64K
+
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb2IoBase|0
+  #gSG2042PkgTokenSpaceGuid.PcdHb0Rb2IoSize|0xffff #64K
+
+  #gSG2042PkgTokenSpaceGuid.Pcdsoctype|0x1610
+
   #
   # F2 for UI APP
   #

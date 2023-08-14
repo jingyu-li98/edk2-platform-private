@@ -25,6 +25,7 @@ typedef enum {
   PciCfgWidthMax
 } PCI_CFG_WIDTH;
 
+// TODO: retrieve the PCI Express Base Address via a PCD entry
 #define PCIE_RC_CONFIG_ADDR  0x7062000000
 #define PCIE_EP_CONFIG_ADDR  0x4900000000
 
@@ -36,13 +37,6 @@ typedef enum {
 
   @param  A The address to validate.
   @param  M Additional bits to assert to be zero.
-
-  PCIe Memory-­‐Mapped Conﬁguration Space Access:
- ---------------------------------------------------------------------------------------------
- |  PCIEXBAR’s Bits  |  Bus(8-bit)  |  Device(5-bit)  |  Function(3-bit)  |  Offset(12-bit)  |
- |       35:28       |    27:20     |      19:15      |       14:12       |       11:0       |
- ---------------------------------------------------------------------------------------------
-
 **/
 #define ASSERT_INVALID_PCI_SEGMENT_ADDRESS(A,M) \
   ASSERT (((A) & (0xffff0000f0000000ULL | (M))) == 0)
@@ -57,7 +51,7 @@ typedef enum {
 }
 
 BOOLEAN PcieIsLinkUp (
-  UINTN     ApbBase
+  IN UINTN     ApbBase
   )
 {
   UINT32 Value;
@@ -71,7 +65,7 @@ BOOLEAN PcieIsLinkUp (
 
 STATIC
 UINT32
-CpuMemoryServiceRead (
+PciGenericConfigRead32 (
   IN  UINT64                      Address,
   IN  PCI_CFG_WIDTH               Width
   )
@@ -96,7 +90,7 @@ CpuMemoryServiceRead (
 
 STATIC
 UINT32
-CpuMemoryServiceWrite (
+PciGenericConfigWrite32 (
   IN  UINT64                      Address,
   IN  PCI_CFG_WIDTH               Width,
   IN  UINT32                      Data
@@ -190,10 +184,9 @@ PciSegmentLibReadWorker (
   UINT32     Addr0;
   UINT32     Desc0;
 
-  // ApbBase = PCIE0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
+  // ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: Address=%lx, Segment=%d, Bus=%d, Device=%d, Function=%d, Register=%lx!\n", __FUNCTION__, __LINE__, Address, Segment, Bus, Device, Function, Register));
 
   if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
     // ignore device > 0 or function > 0 on base bus
@@ -203,7 +196,7 @@ PciSegmentLibReadWorker (
     // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
     MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
     // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d\n", __FUNCTION__, __LINE__, MmioAddress, Width));
-    return CpuMemoryServiceRead (MmioAddress, Width);
+    return PciGenericConfigRead32 (MmioAddress, Width);
   }
 
   if (!(PcieIsLinkUp(PCIE_RC_CONFIG_ADDR))) {
@@ -232,14 +225,8 @@ PciSegmentLibReadWorker (
   // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
 
   MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
-
-  // DEBUG ((DEBUG_INIT, "%a[%u]----PCIe Address[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Addr0));
-  // DEBUG ((DEBUG_INIT, "%a[%u]----Descriptor[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Desc0));
-
   MmioAddress = PCIE_EP_CONFIG_ADDR + Register;
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: EP: MmioAddress=%lx, Width=%d\n", __FUNCTION__, __LINE__, MmioAddress, Width));
-  // }
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: PciGenericConfigRead (MmioAddress, Width)=%lx!\n", __FUNCTION__, __LINE__, PciGenericConfigRead (MmioAddress, Width)));
+  // DEBUG ((DEBUG_WARN, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, ReadValue=0x%lx\n", __FUNCTION__, __LINE__, MmioAddress, Width, PciGenericConfigRead (MmioAddress, Width)));
   return PciGenericConfigRead (MmioAddress, Width);
 }
 
@@ -273,31 +260,26 @@ PciSegmentLibWriteWorker (
   UINT32    Addr0;
   UINT32    Desc0;
 
-  // ApbBase = PCIE0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
+  // ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: Address=%lx, Segment=%d, Bus=%d, Device=%d, Function=%d, Register=%lx!\n", __FUNCTION__, __LINE__, Address, Segment, Bus, Device, Function, Register));
 
   if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
     // ignore device > 0 or function > 0 on base bus
     if (Device != 0 || Function != 0) {
-      DEBUG ((DEBUG_WARN, "----error!!!enter DEVICE!=0 FUNCTION!=0 branch: Data=0x%lx\n\n", Data));
       // return 0xffffffff;
       return Data;
     }
     // /*
-    //  * Ignore writing to root port BAR registers, in case we get wrong BAR length.
-    //  * There can only be a single device on bus 1 (downstream of root).
-    //  * Subsequent busses (behind a PCIe switch) can have more.
+    //  * Ignore writing to root port BAR registers, BAR0 and BAR1 are disabled.
     //  */
-    // if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
-    //   DEBUG ((DEBUG_WARN, "----error!!!enter 0x10 0x14 branch: Data=0x%lx\n\n", Data));
-    //   return Data;
-    // }
+    if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
+       return Data;
+    }
     // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
     MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
-    // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=%lx!\n", __FUNCTION__, __LINE__, MmioAddress, Width, Data));
-    return CpuMemoryServiceWrite (MmioAddress, Width, Data);
+    // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __FUNCTION__, __LINE__, Data));
+    return PciGenericConfigWrite32 (MmioAddress, Width, Data);
   }
 
   if (!(PcieIsLinkUp(PCIE_RC_CONFIG_ADDR))) {
@@ -327,11 +309,8 @@ PciSegmentLibWriteWorker (
 
   MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
 
-  // DEBUG ((DEBUG_INIT, "%a[%u]----PCIe Address[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Addr0));
-  // DEBUG ((DEBUG_INIT, "%a[%u]----Descriptor[31:0]=0x%lx---\n", __FUNCTION__, __LINE__, Desc0));
-
   MmioAddress = PCIE_EP_CONFIG_ADDR + Register;
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: EP: PciGenericConfigWrite (MmioAddress, Width, Data)=%lx!\n", __FUNCTION__, __LINE__, PciGenericConfigWrite (MmioAddress, Width, Data)));
+  // DEBUG ((DEBUG_WARN, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __FUNCTION__, __LINE__, Data));
   return PciGenericConfigWrite (MmioAddress, Width, Data);
 }
 

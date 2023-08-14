@@ -12,8 +12,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/IoLib.h>
 #include <Library/MemoryAllocationLib.h>
-// #include <Library/OemMiscLib.h>
-#include <Library/PcdLib.h>
+// #include <Library/PcdLib.h>
 #include <Library/PciHostBridgeLib.h>
 // #include <Library/PlatformPciLib.h>
 
@@ -105,7 +104,7 @@ STATIC EFI_PCI_ROOT_BRIDGE_DEVICE_PATH mEfiPciRootBridgeDevicePath[] = {
 
 //
 // See description in MdeModulePkg/Include/Library/PciHostBridgeLib.h
-// TODO: PCD
+// TODO: retrieve the PCI Express Base Address via a PCD entry
 //
 // STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
 //  // Host Bridge 0
@@ -157,9 +156,11 @@ STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
    EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM | // combine memory
    EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // support 64-bit memory window
    { 0x80, 0xff, 0 },
-   { 0x800000, 0xffffff, 0 }, // IO
-   { 0x80000000, 0x8fffffff, 0 }, // 256 MB
-   { 0x4900000000, 0x4b00000000, 0 }, // MemAbove4G
+   { 0x800000, 0xffffff, 0 },
+   { 0xe0000000, 0xefffffff, 0 },
+  //  { 0x800000, 0xffffff, -0x4810000000 }, // IO
+  //  { 0xe0000000, 0xefffffff, 0xffffffb800000000 }, // 256 MB
+   { 0x4900000000, 0x4affffffff, 0 }, // MemAbove4G
    { MAX_UINT64, 0, 0 }, // PMem < 0x1 0000 0000
    { MAX_UINT64, 0, 0 }, // PMemAbove4G
    (EFI_DEVICE_PATH_PROTOCOL *)&mEfiPciRootBridgeDevicePath

@@ -390,7 +390,7 @@ MemoryPeimInitialization (
     longestStart + longestLength - 1
   ));
 
-  longestLength = 0x80000000; // 2GB, in consider of the below4G memory space for PCIe
+  longestLength = SIZE_2GB; // 2GB, in consider of the below4G memory space for PCIe
   InitializeRamRegions (longestStart,longestLength);
 
   AddReservedMemoryMap (FdtPointer);
