@@ -167,7 +167,8 @@ SG2042PcieHostBridgeLibConstructor (
   // PortId, LinkId, PCI Address, CPU Address, ISMemory, RegionNumber, BusNumber, Nbits
   PcieHostInitAddressTranslation(PortId, LinkId, 0x80,         0x80,          TRUE,  1, BusNumber, 7);
   // IO Space
-  PcieHostInitAddressTranslation(PortId, LinkId, 0x800000,     0x4810800000,  FALSE, 2, BusNumber, 23);
+  // PcieHostInitAddressTranslation(PortId, LinkId, 0x800000,     0x4810800000,  FALSE, 2, BusNumber, 23);
+  PcieHostInitAddressTranslation(PortId, LinkId, 0x800000,     0x800000,  FALSE, 2, BusNumber, 23);
   // Memory Space
   PcieHostInitAddressTranslation(PortId, LinkId, 0xe0000000,   0x48e0000000,  TRUE,  3, BusNumber, 29);
   // Configure Space

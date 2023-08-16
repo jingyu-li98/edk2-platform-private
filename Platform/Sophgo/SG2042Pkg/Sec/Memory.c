@@ -99,6 +99,12 @@ InitMmu (
   //
   RiscVSetSupervisorAddressTranslationRegister ((UINT64)SATP_MODE_OFF << 60);
   DEBUG ((DEBUG_INFO, "%a: Set Supervisor address mode to bare-metal mode.\n", __func__));
+#ifdef 0
+  #include <BaseRiscVMmuLib.h>
+  #define SATP_MODE_BIT_POSITION  60
+  RiscVSetSupervisorAddressTranslationRegister ((UINT64)SATP_MODE_SV39 << SATP_MODE_BIT_POSITION);
+  DEBUG ((DEBUG_INFO, "%a: .\n", __func__));
+#endif
 }
 
 /**

@@ -157,9 +157,9 @@ STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
    EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // support 64-bit memory window
    { 0x80, 0xff, 0 },
    { 0x800000, 0xffffff, 0 },
-   { 0xe0000000, 0xefffffff, 0 },
-  //  { 0x800000, 0xffffff, -0x4810000000 }, // IO
-  //  { 0xe0000000, 0xefffffff, 0xffffffb800000000 }, // 256 MB
+  //  { 0xe0000000, 0xefffffff, 0 },
+  //  { 0x800000,     0xffffff,     0xffffffb7f0000000 }, // IO (-0x4810000000)  Entry(0x0-0xffffffff)
+   { 0xe0000000,   0xefffffff,   0xffffffb800000000 }, // 256 MB (-0x4800000000)
    { 0x4900000000, 0x4affffffff, 0 }, // MemAbove4G
    { MAX_UINT64, 0, 0 }, // PMem < 0x1 0000 0000
    { MAX_UINT64, 0, 0 }, // PMemAbove4G
