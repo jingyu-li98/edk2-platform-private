@@ -168,6 +168,75 @@ PciGenericConfigWrite (
   return Data;
 }
 
+STATIC
+UINT64
+PciMapBus (
+  IN UINT32                Segment,
+  IN UINT8                 Bus,
+  IN UINT8                 Device,
+  IN UINT8                 Function,
+  IN UINT32                Register,
+  IN UINT64                VirtualCfgAddr,
+  IN UINT64                VirtualSlvAddr,
+  IN MANGO_PCI_RESOURCE    *PciResource
+)
+{
+  UINT32                Addr0;
+  UINT32                Desc0;
+
+  //
+  // Check PCI is root bus or not
+  //
+  if (Bus == PciResource->BusBase) {
+    //
+    // Only the root port (Device=0, Function=0) is connected to this bus.
+    // All other PCI devices are behind some bridge hence on another bus.
+    //
+    if (Device != 0 || Function != 0) {
+      return (UINT64)NULL;
+    }
+    return VirtualCfgAddr + PCIE_RP_BASE + Register;
+  }
+  //
+  // Check that the link is up
+  //
+  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
+    return  (UINT64)NULL;
+  }
+
+  //
+  // Clear AXI link-down status
+  //
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
+
+  //
+  // Update Output registers for AXI region 0
+  //
+  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
+          PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+
+  //
+  // Configuration Type 0 or Type 1 access
+  //
+  Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
+          PCIE_AT_OB_REGION_DESC0_DEVFN(0);
+
+  //
+  // The bus number was alreadly set once for all in Desc1
+  // by PcieHostInitAddressTranslation ().
+  //
+  if (Bus == PciResource->BusBase + 1) {
+    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
+  } else {
+    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
+  }
+
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  return VirtualSlvAddr + Register;
+}
+
 /**
   Internal worker function to read a PCI configuration register.
 
@@ -191,8 +260,6 @@ PciSegmentLibReadWorker (
   UINT8                 Function;
   UINT32                Register;
   UINT64                MmioAddress;
-  UINT32                Addr0;
-  UINT32                Desc0;
   UINT64                VirtualCfgAddr;
   UINT64                VirtualSlvAddr;
   MANGO_PCI_RESOURCE    *PciResource;
@@ -210,53 +277,19 @@ PciSegmentLibReadWorker (
   VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
   DEBUG ((DEBUG_WARN, "*** %a[%d]: PciResource->ConfigSpaceAddress=0x%lx, PciResource->Mmio64Base=0x%lx\n", __func__, __LINE__, PciResource->ConfigSpaceAddress, PciResource->Mmio64Base));
 
-  // if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  MmioAddress = PciMapBus (Segment, Bus, Device, Function, Register, VirtualCfgAddr, VirtualSlvAddr, PciResource);
+  if (!MmioAddress) {
+    return 0xffffffff;
+  }
+
   if (Bus == PciResource->BusBase) {
     // ignore device > 0 or function > 0 on base bus
     if (Device != 0 || Function != 0) {
       return 0xffffffff;
     }
-    MmioAddress = VirtualCfgAddr + PCIE_RP_BASE + Register;
-    // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d\n", __func__, __LINE__, MmioAddress, Width));
     return PciGenericConfigRead32 (MmioAddress, Width);
   }
 
-  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
-    DEBUG ((DEBUG_VERBOSE, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __func__, __LINE__));
-    return 0xffffffff;
-  }
-
-  //
-  // Clear AXI link-down status
-  //
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
-
-  //
-  // Update Output registers for AXI region 0
-  //
-  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
-          PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
-          PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
-
-  //
-  // Configuration Type 0 or Type 1 access
-  //
-  Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
-          PCIE_AT_OB_REGION_DESC0_DEVFN(0);
-
-  // 
-  // The bus number was alreadly set once for all in Desc1
-  // by PcieHostInitAddressTranslation ().
-  //
-  // if (BusNumber == BusNumber + 1)
-    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
-  // else
-  // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
-
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
-  MmioAddress = VirtualSlvAddr + Register;
-  // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, ReadValue=0x%lx\n", __func__, __LINE__, MmioAddress, Width, PciGenericConfigRead (MmioAddress, Width)));
   return PciGenericConfigRead (MmioAddress, Width);
 }
 
@@ -285,8 +318,6 @@ PciSegmentLibWriteWorker (
   UINT8                 Function;
   UINT32                Register;
   UINT64                MmioAddress;
-  UINT32                Addr0;
-  UINT32                Desc0;
   UINT64                VirtualCfgAddr;
   UINT64                VirtualSlvAddr;
   MANGO_PCI_RESOURCE    *PciResource;
@@ -302,7 +333,12 @@ PciSegmentLibWriteWorker (
   VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
   VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
   DEBUG ((DEBUG_WARN, "*** %a[%d]: PciResource->ConfigSpaceAddress=0x%lx, PciResource->Mmio64Base=0x%lx\n", __func__, __LINE__, PciResource->ConfigSpaceAddress, PciResource->Mmio64Base));
-  // if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+
+  MmioAddress = PciMapBus (Segment, Bus, Device, Function, Register, VirtualCfgAddr, VirtualSlvAddr, PciResource);
+  if (!MmioAddress) {
+    return 0xffffffff;
+  }
+
   if (Bus == PciResource->BusBase) {
     // ignore device > 0 or function > 0 on base bus
     if (Device != 0 || Function != 0) {
@@ -315,47 +351,10 @@ PciSegmentLibWriteWorker (
     if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
        return Data;
     }
-    MmioAddress = VirtualCfgAddr + PCIE_RP_BASE + Register;
-    // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __func__, __LINE__, Data));
+
     return PciGenericConfigWrite32 (MmioAddress, Width, Data);
   }
 
-  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
-    DEBUG ((DEBUG_VERBOSE, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __func__, __LINE__));
-    return 0xffffffff;
-  }
-
-  //
-  // Clear AXI link-down status
-  //
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
-
-  //
-  // Update Output registers for AXI region 0
-  //
-  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
-          PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
-          PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
-
-  //
-  // Configuration Type 0 or Type 1 access
-  //
-  Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
-          PCIE_AT_OB_REGION_DESC0_DEVFN(0);
-
-  // 
-  // The bus number was alreadly set once for all in Desc1
-  // by PcieHostInitAddressTranslation ().
-  // if (BusNumber == BusNumber + 1)
-    Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
-  // else
-  // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
-
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
-
-  MmioAddress = VirtualSlvAddr + Register;
-  // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __func__, __LINE__, Data));
   return PciGenericConfigWrite (MmioAddress, Width, Data);
 }
 
