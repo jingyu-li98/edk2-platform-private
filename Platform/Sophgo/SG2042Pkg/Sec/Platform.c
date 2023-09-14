@@ -22,6 +22,81 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Guid/FdtHob.h>
 
 /**
+  Build memory map I/O range resource HOB using the
+  base address and size.
+
+  @param  MemoryBase     Memory map I/O base.
+  @param  MemorySize     Memory map I/O size.
+
+**/
+STATIC
+VOID
+AddIoMemoryBaseSizeHob (
+  EFI_PHYSICAL_ADDRESS  MemoryBase,
+  UINT64                MemorySize
+  )
+{
+  /* Align to EFI_PAGE_SIZE */
+  MemorySize = ALIGN_VALUE (MemorySize, EFI_PAGE_SIZE);
+  BuildResourceDescriptorHob (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    EFI_RESOURCE_ATTRIBUTE_PRESENT     |
+    EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+    EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
+    EFI_RESOURCE_ATTRIBUTE_TESTED,
+    MemoryBase,
+    MemorySize
+    );
+}
+
+/**
+  Populate IO resources from FDT that not added to GCD
+  befor driver initialization.
+
+  @param  FdtBase       Fdt base address
+  @param  Compatible    Compatible string
+
+**/
+STATIC
+VOID
+PopulateIoResources (
+  VOID         *FdtBase,
+  CONST CHAR8  *Compatible
+  )
+{
+  UINT64  *Reg;
+  INT32   Node, LenP;
+
+  Node = fdt_node_offset_by_compatible (FdtBase, -1, Compatible);
+  while (Node != -FDT_ERR_NOTFOUND) {
+    Reg = (UINT64 *)fdt_getprop (FdtBase, Node, "reg", &LenP);
+    if (Reg) {
+      AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[0]), SwapBytes64 (Reg[1]));
+      DEBUG ((
+        DEBUG_INFO,
+        "%a(): MemoryBase: 0x%lx\tMemorySize:0x%lx\n",
+        __func__,
+        SwapBytes64 (Reg[0]),
+        SwapBytes64 (Reg[1])
+        ));
+      /* PCIe node may have two regions for reg ("reg" and "cfg") */
+      if (LenP > (2 * sizeof (UINT64))) {
+        AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[2]), SwapBytes64 (Reg[3]));
+        DEBUG ((
+          DEBUG_INFO,
+          "%a(): MemoryBase: 0x%lx\tMemorySize:0x%lx\n",
+          __func__,
+          SwapBytes64 (Reg[2]),
+          SwapBytes64 (Reg[3])
+          ));
+      }
+    }
+
+    Node = fdt_node_offset_by_compatible (FdtBase, Node, Compatible);
+  }
+}
+
+/**
   @retval EFI_SUCCESS            The address of FDT is passed in HOB.
           EFI_UNSUPPORTED        Can't locate FDT.
 **/
@@ -79,6 +154,11 @@ PlatformPeimInitialization (
   *FdtHobData = (UINTN)NewBase;
 
   BuildFvHob (PcdGet32 (PcdRiscVDxeFvBase), PcdGet32 (PcdRiscVDxeFvSize));
+
+  // Add PCI resource
+  PopulateIoResources (Base, "sophgo,cdns-pcie-host");
+  // Add SDHC resource
+  PopulateIoResources (Base, "bitmain,bm-sd");
 
   return EFI_SUCCESS;
 }

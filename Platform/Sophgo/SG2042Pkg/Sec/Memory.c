@@ -3,7 +3,7 @@
 
   Copyright (c) 2021, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
   Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
-  Copyright (c) 2023, 山东大学智能创新研究院（Academy of Intelligent Innovation）. All rights reserved.<BR>
+  Copyright (c) 2023, Academy of Intelligent Innovation. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -84,27 +84,6 @@ AddMemoryRangeHob (
   )
 {
   AddMemoryBaseSizeHob (MemoryBase, (UINT64)(MemoryLimit - MemoryBase));
-}
-
-/**
-  Configure MMU
-**/
-STATIC
-VOID
-InitMmu (
-  )
-{
-  //
-  // Set supervisor translation mode to Bare mode
-  //
-  RiscVSetSupervisorAddressTranslationRegister ((UINT64)SATP_MODE_OFF << 60);
-  DEBUG ((DEBUG_INFO, "%a: Set Supervisor address mode to bare-metal mode.\n", __func__));
-#ifdef 0
-  #include <BaseRiscVMmuLib.h>
-  #define SATP_MODE_BIT_POSITION  60
-  RiscVSetSupervisorAddressTranslationRegister ((UINT64)SATP_MODE_SV39 << SATP_MODE_BIT_POSITION);
-  DEBUG ((DEBUG_INFO, "%a: .\n", __func__));
-#endif
 }
 
 /**
@@ -268,6 +247,10 @@ AddReservedMemoryMap (
   }
 }
 
+/**
+  Mark runtime memory ranges in the EFI memory map
+
+**/
 STATIC
 VOID
 AddRuntimeServicesMemoryMap(
@@ -309,17 +292,18 @@ MemoryPeimInitialization (
   EFI_RISCV_FIRMWARE_CONTEXT  *FirmwareContext;
   CONST UINT64                *RegProp;
   CONST CHAR8                 *Type;
-  UINT64                      CurBase, CurSize;
-  INT32                       Node, Prev;
+  UINT64                      CurBase;
+  UINT64                      CurSize;
+  UINT64                      LongestStart;
+  UINT64                      LongestLength;
+  UINT64                      PrevEnd;
+  UINT64                      CurStart;
+  UINT64                      CurLength;
+  UINT64                      MaxLength;
+  INT32                       Node;
+  INT32                       Prev;
   INT32                       Len;
   VOID                        *FdtPointer;
-
-  UINT64 longestStart = 0;
-  UINT64 longestLength = 0;
-  UINT64 previousEnd = 0;
-  UINT64 currentStart = 0;
-  UINT64 currentLength = 0;
-  UINT64 maxLength = 0;
 
   FirmwareContext = NULL;
   GetFirmwareContextPointer (&FirmwareContext);
@@ -334,6 +318,13 @@ MemoryPeimInitialization (
     DEBUG ((DEBUG_ERROR, "%a: Invalid FDT pointer\n", __func__));
     return EFI_UNSUPPORTED;
   }
+
+  LongestStart  = 0;
+  LongestLength = 0;
+  PrevEnd       = 0;
+  CurStart      = 0;
+  CurLength     = 0;
+  MaxLength     = 0;
 
   // Look for the lowest memory node
   for (Prev = 0; ; Prev = Node) {
@@ -360,23 +351,23 @@ MemoryPeimInitialization (
           CurBase + CurSize - 1
           ));
 
-        if (previousEnd == 0 || CurBase == previousEnd) {
-            if (currentLength == 0) {
-                currentStart = CurBase;
-            }
-            currentLength += CurSize;
+        if (PrevEnd == 0 || CurBase == PrevEnd) {
+          if (CurLength == 0) {
+            CurStart = CurBase;
+          }
+          CurLength += CurSize;
 
-            if (currentLength > maxLength) {
-                maxLength = currentLength;
-                longestStart = currentStart;
-                longestLength = maxLength;
-            }
+          if (CurLength > MaxLength) {
+            MaxLength = CurLength;
+            LongestStart = CurStart;
+            LongestLength = MaxLength;
+          }
         } else {
-            currentStart = CurBase;
-            currentLength = CurSize;
+          CurStart = CurBase;
+          CurLength = CurSize;
         }
 
-        previousEnd = CurBase + CurSize;
+        PrevEnd = CurBase + CurSize;
 
       } else {
         DEBUG ((
@@ -392,18 +383,24 @@ MemoryPeimInitialization (
     DEBUG_INFO,
     "%a: Total System RAM @ 0x%lx - 0x%lx\n",
     __func__,
-    longestStart,
-    longestStart + longestLength - 1
+    LongestStart,
+    LongestStart + LongestLength - 1
   ));
 
-  longestLength = SIZE_2GB; // 2GB, in consider of the below4G memory space for PCIe
-  InitializeRamRegions (longestStart,longestLength);
+  // LongestLength = SIZE_2GB; // 2GB, in consider of the below4G memory space for PCIe
+  InitializeRamRegions (LongestStart, LongestLength);
+
+  // InitializeRamRegions (LongestLength, 0x380000000);
+  // BuildResourceDescriptorHob (
+  //       EFI_RESOURCE_MEMORY_RESERVED,
+  //       EFI_RESOURCE_ATTRIBUTE_PRESENT,
+  //       LongestLength,
+  //       0x380000000
+  //     );
 
   AddReservedMemoryMap (FdtPointer);
 
-  AddRuntimeServicesMemoryMap();
-
-  InitMmu ();
+  AddRuntimeServicesMemoryMap ();
 
   BuildMemoryTypeInformationHob ();
 

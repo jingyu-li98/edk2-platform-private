@@ -1,26 +1,23 @@
 /** @file
   PCI Host Bridge Library instance for Sophgo SG2042
 
-  Copyright (c) 2023, SOPHGO Limited. All rights reserved.<BR>
+  Copyright (c) 2023, SOPHGO Inc. All rights reserved.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
+
 #include <PiDxe.h>
-#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
-#include <Library/IoLib.h>
-#include <Library/MemoryAllocationLib.h>
-// #include <Library/PcdLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/PlatformPciLib.h>
 #include <Library/PciHostBridgeLib.h>
-// #include <Library/PlatformPciLib.h>
-
+#include <Library/MemoryAllocationLib.h>
 #include <Protocol/PciHostBridgeResourceAllocation.h>
-#include <Protocol/PciRootBridgeIo.h>
 
 GLOBAL_REMOVE_IF_UNREFERENCED
-CHAR16 *mPciHostBridgeLibAcpiAddressSpaceTypeStr[] = {
+STATIC CHAR16 CONST * CONST mPciHostBridgeLibAcpiAddressSpaceTypeStr[] = {
   L"Mem", L"I/O", L"Bus"
 };
 
@@ -31,141 +28,123 @@ typedef struct {
 } EFI_PCI_ROOT_BRIDGE_DEVICE_PATH;
 #pragma pack ()
 
-// STATIC EFI_PCI_ROOT_BRIDGE_DEVICE_PATH mEfiPciRootBridgeDevicePath[] = {
-//  // host bridge 0
-//  {
-//    {
-//      {
-//        ACPI_DEVICE_PATH,
-//        ACPI_DP,
-//        {
-//          (UINT8) (sizeof(ACPI_HID_DEVICE_PATH)),
-//          (UINT8) ((sizeof(ACPI_HID_DEVICE_PATH)) >> 8)
-//        }
-//      },
-//      EISA_PNP_ID(0x0A08), // PCI Express
-//      0 // AcpiDevicePath.UID
-//    }, {
-//      END_DEVICE_PATH_TYPE,
-//      END_ENTIRE_DEVICE_PATH_SUBTYPE,
-//      {
-//        END_DEVICE_PATH_LENGTH,
-//        0
-//      }
-//    }
-//  },
-
-//  // Host Bridge 1
-//  {
-//    {
-//      {
-//        ACPI_DEVICE_PATH,
-//        ACPI_DP,
-//        {
-//          (UINT8) (sizeof(ACPI_HID_DEVICE_PATH)),
-//          (UINT8) ((sizeof(ACPI_HID_DEVICE_PATH)) >> 8)
-//        }
-//      },
-//      EISA_PNP_ID(0x0A08), // PCI Express
-//      1 // AcpiDevicePath.UID
-//    }, {
-//      END_DEVICE_PATH_TYPE,
-//      END_ENTIRE_DEVICE_PATH_SUBTYPE,
-//      {
-//        END_DEVICE_PATH_LENGTH,
-//        0
-//      }
-//    }
-//  },
-STATIC EFI_PCI_ROOT_BRIDGE_DEVICE_PATH mEfiPciRootBridgeDevicePath[] = {
- // Host Bridge 2
- {
-   {
-     {
-       ACPI_DEVICE_PATH,
-       ACPI_DP,
-       {
-         (UINT8) (sizeof(ACPI_HID_DEVICE_PATH)),
-         (UINT8) ((sizeof(ACPI_HID_DEVICE_PATH)) >> 8)
-       }
-     },
-     EISA_PNP_ID(0x0A08), // PCI Express
-     0 // AcpiDevicePath.UID
-   }, {
-     END_DEVICE_PATH_TYPE,
-     END_ENTIRE_DEVICE_PATH_SUBTYPE,
-     {
-       END_DEVICE_PATH_LENGTH,
-       0
-     }
-   }
- }
+STATIC EFI_PCI_ROOT_BRIDGE_DEVICE_PATH mEfiPciRootBridgeDevicePath = {
+  {
+    {
+      ACPI_DEVICE_PATH,
+      ACPI_DP,
+      {
+        (UINT8) (sizeof(ACPI_HID_DEVICE_PATH)),
+        (UINT8) ((sizeof(ACPI_HID_DEVICE_PATH)) >> 8)
+      }
+    },
+    EISA_PNP_ID(0x0A08), // PCI Express
+    0
+  }, {
+    END_DEVICE_PATH_TYPE,
+    END_ENTIRE_DEVICE_PATH_SUBTYPE,
+    {
+      END_DEVICE_PATH_LENGTH,
+      0
+    }
+  }
 };
 
-//
-// See description in MdeModulePkg/Include/Library/PciHostBridgeLib.h
-// TODO: retrieve the PCI Express Base Address via a PCD entry
-//
-// STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
-//  // Host Bridge 0
-//  {
-//    0, // Segment
-//    0, // Supports
-//    0, // Attributes
-//    FALSE, // DmaAbove4G
-//    FALSE, // NoExtendedConfigSpace
-//    FALSE, // ResourceAssigned
-//    EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM |
-//    EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // AllocationAttributes
-//    { 0x00, 0x3f, 0 }, // Bus: Base, Limit, Translation
-//    { 0, 0, 0 }, // IO
-//    { MAX_UINT64, 0, 0 }, // Mem   < 0x1 0000 0000
-//    { MAX_UINT64, 0, 0 }, // MemAbove4G
-//    { MAX_UINT64, 0, 0
-//     }, // PMem  < 0x1 0000 0000
-//    { MAX_UINT64, 0, 0 }, // PMemAbove4G
-//    (EFI_DEVICE_PATH_PROTOCOL *)&mEfiPciRootBridgeDevicePath[0] // *DevicePath
-//  },
-//  // Host Bridge 1
-//  {
-//    0, // Segment
-//    0, // Supports
-//    0, // Attributes
-//    FALSE, // DmaAbove4G
-//    FALSE, // NoExtendedConfigSpace
-//    FALSE, // ResourceAssigned
-//    EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM |
-//    EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // AllocationAttributes
-//    { 0x40, 0x7f, 0 }, // Bus: Base, Limit, Translation
-//    { 0, 0, 0 }, // IO
-//    { MAX_UINT64, 0, 0 }, // Mem   < 0x1 0000 0000
-//    { MAX_UINT64, 0, 0 }, // MemAbove4G
-//    { MAX_UINT64, 0, 0 }, // PMem  < 0x1 0000 0000
-//    { MAX_UINT64, 0, 0 }, // PMemAbove4G
-//    (EFI_DEVICE_PATH_PROTOCOL *)&mEfiPciRootBridgeDevicePath[1] // *DevicePath
-//  },
-//  // Host Bridge 2
-STATIC PCI_ROOT_BRIDGE mRootBridges[] = {
- {
-   0,
-   0,
-   0,
-   TRUE,  // DmaAbove4G
-   FALSE,
-   FALSE,
-   EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM | // combine memory
-   EFI_PCI_HOST_BRIDGE_MEM64_DECODE, // support 64-bit memory window
-   { 0x80, 0xff, 0 },
-   { 0x800000, 0xffffff, 0 },
-  //  { 0xe0000000, 0xefffffff, 0 },
-  //  { 0x800000,     0xffffff,     0xffffffb7f0000000 }, // IO (-0x4810000000)  Entry(0x0-0xffffffff)
-   { 0xe0000000,   0xefffffff,   0xffffffb800000000 }, // 256 MB (-0x4800000000)
-   { 0x4900000000, 0x4affffffff, 0 }, // MemAbove4G
-   { MAX_UINT64, 0, 0 }, // PMem < 0x1 0000 0000
-   { MAX_UINT64, 0, 0 }, // PMemAbove4G
-   (EFI_DEVICE_PATH_PROTOCOL *)&mEfiPciRootBridgeDevicePath
- }
+STATIC PCI_ROOT_BRIDGE mRootBridgeTemplate = {
+  0,                                              // Segment
+  0,                                              // Supports
+  0,                                              // Attributes
+  TRUE,                                           // DmaAbove4G
+  FALSE,                                          // NoExtendedConfigSpace
+  FALSE,                                          // ResourceAssigned
+  EFI_PCI_HOST_BRIDGE_COMBINE_MEM_PMEM |          // AllocationAttributes
+  EFI_PCI_HOST_BRIDGE_MEM64_DECODE,
+  {
+    // Bus
+    0,
+    0xFF,
+    0
+  }, {
+    // Io
+    0,
+    0,
+    0
+  }, {
+    // Mem
+    MAX_UINT64,
+    0,
+    0
+  }, {
+    // MemAbove4G
+    MAX_UINT64,
+    0,
+    0
+  }, {
+    // PMem
+    MAX_UINT64,
+    0,
+    0
+  }, {
+    // PMemAbove4G
+    MAX_UINT64,
+    0,
+    0
+  },
+  (EFI_DEVICE_PATH_PROTOCOL *)&mEfiPciRootBridgeDevicePath
 };
+
+STATIC
+EFI_STATUS
+ConstructRootBridge (
+    PCI_ROOT_BRIDGE      *Bridge,
+    MANGO_PCI_RESOURCE   *Resource
+    )
+{
+  EFI_PCI_ROOT_BRIDGE_DEVICE_PATH *DevicePath;
+  CopyMem (Bridge, &mRootBridgeTemplate, sizeof *Bridge);
+  Bridge->Segment = Resource->Segment;
+  Bridge->Bus.Base = Resource->BusBase;
+  Bridge->Bus.Limit = Resource->BusLimit;
+  Bridge->Io.Base = Resource->IoBase;
+  Bridge->Io.Translation = Resource->IoTranslation;
+  // IoLimit is actually an address in CPU view
+  // TODO: improve the definition of PCI_ROOT_BRIDGE_RESOURCE_APPETURE
+  // Bridge->Io.Limit = Resource->IoBase + Bridge->Io.Translation;
+  Bridge->Io.Limit = Resource->IoBase + Resource->IoSize - 1;
+  // if (Resource->PciRegionBase > MAX_UINT32) {
+    Bridge->MemAbove4G.Base = Resource->Mmio64Base;
+    Bridge->MemAbove4G.Limit = Resource->Mmio64Base + Resource->Mmio64Size - 1;;
+    Bridge->MemAbove4G.Translation = Resource->Mmio64Translation;
+  // } else {
+    Bridge->Mem.Base = Resource->Mmio32Base;
+    Bridge->Mem.Limit = Resource->Mmio32Base + Resource->Mmio32Size - 1;
+    Bridge->Mem.Translation = Resource->Mmio32Translation;
+  // }
+
+  /* No separate ranges for prefetchable and non-prefetchable BARs */
+    Bridge->PMem.Base           = MAX_UINT64;
+    Bridge->PMem.Limit          = 0;
+    Bridge->PMemAbove4G.Base    = MAX_UINT64;
+    Bridge->PMemAbove4G.Limit   = 0;
+
+  DevicePath = AllocateCopyPool (
+                 sizeof (EFI_PCI_ROOT_BRIDGE_DEVICE_PATH), 
+                 (VOID *)&mEfiPciRootBridgeDevicePath
+                 );
+  if (DevicePath == NULL) {
+    DEBUG ((DEBUG_ERROR, "[%a]:[%dL] AllocatePool failed!\n", __func__, __LINE__));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Embedded the Root Complex Index into the DevicePath
+  // This will be used later by the platform NotifyPhase()
+  //
+  DevicePath->AcpiDevicePath.UID = Bridge->Segment;
+
+  Bridge->DevicePath = (EFI_DEVICE_PATH_PROTOCOL *)DevicePath;
+  return EFI_SUCCESS;
+}
 
 /**
   Return all the root bridge instances in an array.
@@ -182,8 +161,42 @@ PciHostBridgeGetRootBridges (
   UINTN *Count
   )
 {
-  *Count = ARRAY_SIZE (mRootBridges);
-  return mRootBridges;
+  EFI_STATUS                  Status;
+  UINTN                       PortIndex;
+  UINTN                       LinkIndex;
+  UINT32                      PcieEnableCount;
+  PCI_ROOT_BRIDGE             *Bridges;
+
+  //
+  // Set default value to 0 in case we got any error
+  //
+  *Count = 0;
+  PcieEnableCount = PcdGet8(PcdMangoPcieEnableMask);
+
+  Bridges = AllocatePool (PcieEnableCount * sizeof (PCI_ROOT_BRIDGE));
+  if (Bridges == NULL) {
+    DEBUG ((DEBUG_ERROR, "[%a:%d] - AllocatePool failed!\n", __func__, __LINE__));
+    return NULL;
+  }
+
+  for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
+    for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
+      if (!((PcieEnableCount >> ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
+        continue;
+      }
+      Status = ConstructRootBridge (&Bridges[*Count], &mPciResource[PortIndex][LinkIndex]);
+      if (EFI_ERROR (Status)) {
+        continue;
+      }
+      (*Count)++;
+    }
+  }
+
+  if (*Count == 0) {
+    FreePool (Bridges);
+    return NULL;
+  }
+  return Bridges;
 }
 
 /**
@@ -199,6 +212,9 @@ PciHostBridgeFreeRootBridges (
   UINTN           Count
   )
 {
+  //
+  // Unsupported
+  //
 }
 
 /**

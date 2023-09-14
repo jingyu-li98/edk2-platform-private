@@ -10,13 +10,11 @@
 
 #include <Base.h>
 #include <Uefi.h>
+#include <Library/IoLib.h>
+#include <Library/UefiLib.h>
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
-#include <Library/IoLib.h>
-// #include <Library/PcdLib.h>
-#include <Library/PciSegmentLib.h>
-#include <Library/UefiLib.h>
-#include <Regs/SophgoPcieRegs.h>
+#include <Regs/SophgoPciRegs.h>
 
 typedef enum {
   PciCfgWidthUint8 = 0,
@@ -25,12 +23,6 @@ typedef enum {
   PciCfgWidthMax
 } PCI_CFG_WIDTH;
 
-// TODO: retrieve the PCI Express Base Address via a PCD entry
-#define PCIE_RC_CONFIG_ADDR  0x7062000000
-#define PCIE_EP_CONFIG_ADDR  0x4900000000
-
-// #define PCIE_RC_CONFIG_ADDR  0x7060000000
-// #define PCIE_EP_CONFIG_ADDR  0x4880000000
 /**
   Assert the validity of a PCI Segment address.
   A valid PCI Segment address should not contain 1's in bits 28..31 and 48..63
@@ -48,6 +40,27 @@ typedef enum {
   (Device)   = (((Address) >> 15) & 0x1f);   \
   (Function) = (((Address) >> 12) & 0x07);   \
   (Register) = ((Address)       & 0xfff);  \
+}
+
+STATIC
+MANGO_PCI_RESOURCE *
+PciSegmentLibGetResource (
+  IN  UINT32     Segment
+  )
+{
+  UINTN PortIndex;
+  UINTN LinkIndex;
+
+  for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
+    for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
+      if (Segment == mPciResource[PortIndex][LinkIndex].Segment) {
+        return &mPciResource[PortIndex][LinkIndex];
+      }
+    } 
+  }
+
+  ASSERT (FALSE);
+  return NULL;
 }
 
 BOOLEAN PcieIsLinkUp (
@@ -70,17 +83,17 @@ PciGenericConfigRead32 (
   IN  PCI_CFG_WIDTH               Width
   )
 {
-  UINT32   Uint32Buffer;
+  UINT32   Buffer;
 
   if (Width == PciCfgWidthUint8) {
-    Uint32Buffer = MmioRead32((UINTN)(Address & (~0x3)));
-    return BitFieldRead32 (Uint32Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7);
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+    return BitFieldRead32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7);
   } else if (Width == PciCfgWidthUint16) {
     if (((Address & 0x3) == 1) || ((Address & 0x3) == 3)) {
       return 0xffff;
     }
-    Uint32Buffer = MmioRead32((UINTN)(Address & (~0x3)));
-    return BitFieldRead32 (Uint32Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15);
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+    return BitFieldRead32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15);
   } else if (Width == PciCfgWidthUint32) {
     return MmioRead32 ((UINTN)Address);
   } else {
@@ -96,19 +109,19 @@ PciGenericConfigWrite32 (
   IN  UINT32                      Data
   )
 {
-  UINT32                     Uint32Buffer;
+  UINT32   Buffer;
 
   if (Width == PciCfgWidthUint8) {
-    Uint32Buffer = MmioRead32((UINTN)(Address & (~0x3)));
-    Uint32Buffer = BitFieldWrite32 (Uint32Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7, Data);
-    MmioWrite32 ((UINTN)(Address & (~0x3)), Uint32Buffer);
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+    Buffer = BitFieldWrite32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7, Data);
+    MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
   } else if (Width == PciCfgWidthUint16) {
     if (((Address & 0x3) == 1) || ((Address & 0x3) == 3)) {
       return 0xffffffff;
     }
-    Uint32Buffer = MmioRead32((UINTN)(Address & (~0x3)));
-    Uint32Buffer = BitFieldWrite32 (Uint32Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15, Data);
-    MmioWrite32 ((UINTN)(Address & (~0x3)), Uint32Buffer);
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+    Buffer = BitFieldWrite32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15, Data);
+    MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
   } else if (Width == PciCfgWidthUint32) {
     MmioWrite32 ((UINTN)Address, Data);
   } else {
@@ -160,7 +173,7 @@ PciGenericConfigWrite (
 
   @param  Address The address that encodes the PCI Bus, Device, Function and
                   Register.
-  @param  Width   The width of data to readif (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  @param  Width   The width of data to read
 
   @return The value read from the PCI configuration register.
 
@@ -172,61 +185,78 @@ PciSegmentLibReadWorker (
   IN  PCI_CFG_WIDTH               Width
   )
 {
-  UINT32    Segment;
-  UINT8     Bus;
-  UINT8     Device;
-  UINT8     Function;
-  UINT32    Register;
-
-  UINT64    MmioAddress;
-
-  // UINT64     ApbBase;
-  UINT32     Addr0;
-  UINT32     Desc0;
-
-  // ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
+  UINT32                Segment;
+  UINT8                 Bus;
+  UINT8                 Device;
+  UINT8                 Function;
+  UINT32                Register;
+  UINT64                MmioAddress;
+  UINT32                Addr0;
+  UINT32                Desc0;
+  UINT64                VirtualCfgAddr;
+  UINT64                VirtualSlvAddr;
+  MANGO_PCI_RESOURCE    *PciResource;
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
 
-  if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  DEBUG ((DEBUG_WARN, "*** %a[%d]: Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, Address, Segment, Bus, Device, Function, Register));
+
+  PciResource = PciSegmentLibGetResource (Segment);
+  if (PciResource == NULL) {
+    return 0xffffffff;
+  }
+
+  VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
+  VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
+  DEBUG ((DEBUG_WARN, "*** %a[%d]: PciResource->ConfigSpaceAddress=0x%lx, PciResource->Mmio64Base=0x%lx\n", __func__, __LINE__, PciResource->ConfigSpaceAddress, PciResource->Mmio64Base));
+
+  // if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  if (Bus == PciResource->BusBase) {
     // ignore device > 0 or function > 0 on base bus
     if (Device != 0 || Function != 0) {
       return 0xffffffff;
     }
-    // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
-    MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
-    // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d\n", __FUNCTION__, __LINE__, MmioAddress, Width));
+    MmioAddress = VirtualCfgAddr + PCIE_RP_BASE + Register;
+    // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d\n", __func__, __LINE__, MmioAddress, Width));
     return PciGenericConfigRead32 (MmioAddress, Width);
   }
 
-  if (!(PcieIsLinkUp(PCIE_RC_CONFIG_ADDR))) {
-    DEBUG ((DEBUG_WARN, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __FUNCTION__, __LINE__));
+  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
+    DEBUG ((DEBUG_VERBOSE, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __func__, __LINE__));
     return 0xffffffff;
   }
 
+  //
   // Clear AXI link-down status
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_LINKDOWN, 0x0);
+  //
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
 
-  // Update Output registers for AXI region 0.
+  //
+  // Update Output registers for AXI region 0
+  //
   Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
           PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
           PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
 
-  // Configuration Type 0 or Type 1 access.
+  //
+  // Configuration Type 0 or Type 1 access
+  //
   Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
           PCIE_AT_OB_REGION_DESC0_DEVFN(0);
 
+  // 
   // The bus number was alreadly set once for all in Desc1
-  // by PciHostInitAddressTranslation().
+  // by PcieHostInitAddressTranslation ().
+  //
   // if (BusNumber == BusNumber + 1)
     Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
   // else
   // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
 
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
-  MmioAddress = PCIE_EP_CONFIG_ADDR + Register;
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, ReadValue=0x%lx\n", __FUNCTION__, __LINE__, MmioAddress, Width, PciGenericConfigRead (MmioAddress, Width)));
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  MmioAddress = VirtualSlvAddr + Register;
+  // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, ReadValue=0x%lx\n", __func__, __LINE__, MmioAddress, Width, PciGenericConfigRead (MmioAddress, Width)));
   return PciGenericConfigRead (MmioAddress, Width);
 }
 
@@ -249,68 +279,83 @@ PciSegmentLibWriteWorker (
   IN  UINT32                      Data
   )
 {
-  UINT32    Segment;
-  UINT8     Bus;
-  UINT8     Device;
-  UINT8     Function;
-  UINT32    Register;
-
-  UINT64    MmioAddress;
-  // UINT64    ApbBase;
-  UINT32    Addr0;
-  UINT32    Desc0;
-
-  // ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
+  UINT32                Segment;
+  UINT8                 Bus;
+  UINT8                 Device;
+  UINT8                 Function;
+  UINT32                Register;
+  UINT64                MmioAddress;
+  UINT32                Addr0;
+  UINT32                Desc0;
+  UINT64                VirtualCfgAddr;
+  UINT64                VirtualSlvAddr;
+  MANGO_PCI_RESOURCE    *PciResource;
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
+  DEBUG ((DEBUG_WARN, "*** %a[%d]: Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, Address, Segment, Bus, Device, Function, Register));
 
-  if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  PciResource = PciSegmentLibGetResource (Segment);
+  if (PciResource == NULL) {
+    return 0xffffffff;
+  }
+
+  VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
+  VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
+  DEBUG ((DEBUG_WARN, "*** %a[%d]: PciResource->ConfigSpaceAddress=0x%lx, PciResource->Mmio64Base=0x%lx\n", __func__, __LINE__, PciResource->ConfigSpaceAddress, PciResource->Mmio64Base));
+  // if (Bus == 0x00 ||  Bus == 0x40 || Bus == 0x80 || Bus == 0xc0) {
+  if (Bus == PciResource->BusBase) {
     // ignore device > 0 or function > 0 on base bus
     if (Device != 0 || Function != 0) {
       // return 0xffffffff;
       return Data;
     }
-    // /*
-    //  * Ignore writing to root port BAR registers, BAR0 and BAR1 are disabled.
-    //  */
+    //
+    // Ignore writing to root port BAR registers, BAR0 and BAR1 are disabled.
+    //
     if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
        return Data;
     }
-    // MmioAddress = PCIE_RC_CONFIG_ADDR + Register;
-    MmioAddress = PCIE_RC_CONFIG_ADDR + PCIE_RP_BASE + Register;
-    // DEBUG ((DEBUG_WARN, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __FUNCTION__, __LINE__, Data));
+    MmioAddress = VirtualCfgAddr + PCIE_RP_BASE + Register;
+    // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: RootBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __func__, __LINE__, Data));
     return PciGenericConfigWrite32 (MmioAddress, Width, Data);
   }
 
-  if (!(PcieIsLinkUp(PCIE_RC_CONFIG_ADDR))) {
-    DEBUG ((DEBUG_WARN, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __FUNCTION__, __LINE__));
+  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
+    DEBUG ((DEBUG_VERBOSE, "--%a[%d]: Cannot read from device under root port when link is not up!\n", __func__, __LINE__));
     return 0xffffffff;
   }
 
+  //
   // Clear AXI link-down status
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_LINKDOWN, 0x0);
+  //
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
 
-  // Update Output registers for AXI region 0.
+  //
+  // Update Output registers for AXI region 0
+  //
   Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
           PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(Function) |
           PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
 
-  // Configuration Type 0 or Type 1 access.
+  //
+  // Configuration Type 0 or Type 1 access
+  //
   Desc0 = PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
           PCIE_AT_OB_REGION_DESC0_DEVFN(0);
 
+  // 
   // The bus number was alreadly set once for all in Desc1
-  // by PciHostInitAddressTranslation().
+  // by PcieHostInitAddressTranslation ().
   // if (BusNumber == BusNumber + 1)
     Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
   // else
   // Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
 
-  MmioWrite32 (PCIE_RC_CONFIG_ADDR + PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
 
-  MmioAddress = PCIE_EP_CONFIG_ADDR + Register;
-  // DEBUG ((DEBUG_WARN, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __FUNCTION__, __LINE__, Data));
+  MmioAddress = VirtualSlvAddr + Register;
+  // DEBUG ((DEBUG_VERBOSE, "--%a[%d]: EPBus: MmioAddress=%lx, Width=%d, Data=0x%lx\n", __func__, __LINE__, Data));
   return PciGenericConfigWrite (MmioAddress, Width, Data);
 }
 

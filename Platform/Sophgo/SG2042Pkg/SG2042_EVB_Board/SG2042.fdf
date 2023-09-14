@@ -2,7 +2,7 @@
 #  Flash definition file on Sophgo SG2042 EVB RISC-V platform
 #
 #  Copyright (c) 2019-2021, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
-#  Copyright (c) 2023, 山东大学智能创新研究院（Academy of Intelligent Innovation）. All rights reserved.<BR>
+#  Copyright (c) 2023, Academy of Intelligent Innovation. All rights reserved.<BR>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -66,7 +66,6 @@ INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
 INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 INF  UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
-# INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 INF  MdeModulePkg/Universal/Metronome/Metronome.inf
 INF  EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
 
@@ -111,11 +110,10 @@ INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 INF  Platform/Sophgo/SG2042Pkg/Universal/Dxe/FdtDxe/FdtDxe.inf
 
 !ifndef $(SOURCE_DEBUG_ENABLE)
-  INF  MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
+  INF MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
 !endif
 
 INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-
 INF  OvmfPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
 INF  ShellPkg/Application/Shell/Shell.inf
 
@@ -133,10 +131,6 @@ INF  ShellPkg/Application/Shell/Shell.inf
 #
 # PCIe Support
 #
-# INF  Silicon/RISC-V/ProcessorPkg/Universal/PciCpuIo2Dxe/PciCpuIo2Dxe.inf
-# INF  Silicon/Sophgo/Library/PciHostBridgeLib/PciHostBridgeLib.inf
-# INF  Silicon/Sophgo/Library/PciSegmentLib/PciSegmentLib.inf
-# INF  Platform/Sophgo/SG2042Pkg/Universal/Dxe/PciPlatform/PciPlatform.inf
 INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 
@@ -144,6 +138,7 @@ INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 # NVMe and SATA Boot Devices
 #
 INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+# INF  MdeModulePkg/Bus/Pci/NvmExpressPei/NvmExpressPei.inf
 INF  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 
 #

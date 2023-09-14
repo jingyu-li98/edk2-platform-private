@@ -7,7 +7,7 @@
   insert the id into the device tree, that the EFIFSTUB can read from the config table.
 
   Copyright (c) 2021-2022, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
-  Copyright (c) 2023, 山东大学智能创新研究院（Academy of Intelligent Innovation）. All rights reserved.<BR>
+  Copyright (c) 2023, Academy of Intelligent Innovation. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -23,8 +23,8 @@
 /**
   Fix up the device tree with booting hartid for the kernel
 
-  @param  DtbBlob The device tree. Is extended to fit the hart id.
-  @param  BootingHartId The boot hart ID.
+  @param  DtbBlob        The device tree. Is extended to fit the hart id.
+  @param  BootingHartId  The boot hart ID.
 
   @retval EFI_SUCCESS           The device tree was success fixed up with the hart id.
   @retval EFI_OUT_OF_RESOURCES  There is not enough memory available to complete the operation.

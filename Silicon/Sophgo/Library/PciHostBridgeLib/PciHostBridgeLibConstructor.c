@@ -1,50 +1,100 @@
-/** @file PcieCore.c
+/** @file PciHostBridgeLibConstructor.c
 
   Copyright (c) 2023, SOPHGO Inc. All rights reserved.
 
-  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
-#include <Regs/SophgoPcieRegs.h>
-#include <Library/IoLib.h>
-#include <Library/DebugLib.h>
-#include <Library/PciHostBridgeLib.h>
-#include <Protocol/PciHostBridgeResourceAllocation.h>
-#include <Library/TimerLib.h>
-#include <Uefi/UefiBaseType.h>
-#include <Uefi/UefiSpec.h>
-#include <IndustryStandard/Pci22.h>
 
-#define lower_32_bits(n)     ((UINT32)(n) & 0xffffffff)
-#define upper_32_bits(n)     ((UINT32)((((n) >> 16) >> 16)))
+#include <Library/IoLib.h>
+#include <Library/TimerLib.h>
+#include <Library/DebugLib.h>
+#include <Uefi/UefiSpec.h>
+#include <Uefi/UefiBaseType.h>
+#include <IndustryStandard/Pci22.h>
+#include <Regs/SophgoPciRegs.h>
+
+#define LOWER_32_BITS(n)     ((UINT32)((n) & 0xffffffff))
+#define UPPER_32_BITS(n)     ((UINT32)((n) >> 32))
 
 #define PLAT_CPU_TO_BUS_ADDR  0xCFFFFFFFFF
+
+STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
+  // RootComplex 0
+  {
+    PCIE_ID_0,                // PortIndex
+    PCIE_LINK_0,              // LinkIndex
+    0xfffffff060000000,       // CfgBase
+    {                         // Regions
+      { 0x0,          0x0,           TRUE,  1, 0x0,  6  },
+      { 0x0,          0x0,           FALSE, 2, 0x0,  22 },
+      { 0x50000000,   0x4050000000,  TRUE,  3, 0x0,  29 },
+      { 0x4100000000, 0x4100000000,  TRUE,  4, 0x0,  33 }
+    }
+  },
+
+  // RootComplex 1
+  {
+    PCIE_ID_0,
+    PCIE_LINK_1,
+    0xfffffff060800000,
+    {
+      { 0x40,         0x40,          TRUE,  1, 0x40, 6  },
+      { 0x400000,     0x400000,      FALSE, 2, 0x40, 22 },
+      { 0x80000000,   0x4480000000,  TRUE,  3, 0x40, 28 },
+      { 0x4500000000, 0x4500000000,  TRUE,  4, 0x40, 33 }
+    }
+  },
+
+  // RootComplex 2
+  {
+    PCIE_ID_1,
+    PCIE_LINK_0,
+    0xfffffff062000000,
+    {
+      { 0x80,         0x80,          TRUE,  1, 0x80, 7  },
+      { 0x800000,     0x800000,      FALSE, 2, 0x80, 23 },
+      { 0xe0000000,   0x48e0000000,  TRUE,  3, 0x80, 29 },
+      { 0x4900000000, 0x4900000000,  TRUE,  4, 0x80, 33 }
+    }
+  },
+
+  // RootComplex 3
+  {
+    PCIE_ID_1,
+    PCIE_LINK_0,
+    0xfffffff062800000,
+    {
+      { 0xc0,         0xc0,          TRUE,  1, 0xc0, 7  },
+      { 0xc00000,     0x800000,      FALSE, 2, 0xc0, 23 },
+      { 0xf0000000,   0x4cf0000000,  TRUE,  3, 0xc0, 29 },
+      { 0x4d00000000, 0x4d00000000,  TRUE,  4, 0xc0, 33 }
+    }
+  }
+};
 
 STATIC
 VOID
 PcieHostInitRootPort (
-  IN PCIE_PORT    Port,
-  IN PCIE_LINK_ID LinkId,
-  IN UINT32       VendorId,
-  IN UINT32       DeviceId
+  IN UINT32                   VendorId,
+  IN UINT32                   DeviceId,
+  IN PCIE_LINK_DESCRIPTOR     *PcieCfg
   )
 {
-  UINT32 Value;
-  INT32 Ctrl;
-  UINT32 Id;
-  UINT64 ApbBase = 0;
+  INT32    Ctrl;
+  UINT32   Id;
+  UINT32   Value;
+  UINT64   CfgBase;
 
-  // 0x7062000000
-  ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
-
-  /*
-   * Set the root complex BAR configuration register:
-   * - disable both BAR0 and BAR1.
-   * - enable Prefetchable Memory Base and Limit registers in type 1
-   *   config space (64 bits).
-   * - enable IO Base and Limit registers in type 1 config
-   *   space (32 bits).
-   */
+  CfgBase = PcieCfg->CfgBase;
+  //
+  // Set the root complex BAR configuration register:
+  // - disable both BAR0 and BAR1.
+  // - enable Prefetchable Memory Base and Limit registers in type 1
+  //   config space (64 bits).
+  // - enable IO Base and Limit registers in type 1 config
+  //   space (32 bits).
+  //
   Ctrl = PCIE_LM_BAR_CFG_CTRL_DISABLED;
   Value = PCIE_LM_RC_BAR_CFG_BAR0_CTRL(Ctrl) |
     PCIE_LM_RC_BAR_CFG_BAR1_CTRL(Ctrl) |
@@ -52,135 +102,157 @@ PcieHostInitRootPort (
     PCIE_LM_RC_BAR_CFG_PREFETCH_MEM_64BITS |
     PCIE_LM_RC_BAR_CFG_IO_ENABLE |
     PCIE_LM_RC_BAR_CFG_IO_32BITS;
-  MmioWrite32 ((ApbBase + PCIE_LM_RC_BAR_CFG), Value);
+  MmioWrite32 ((CfgBase + PCIE_LM_RC_BAR_CFG), Value);
 
-  /* Set root port configuration space */
+  //
+  // Set root port configuration space
+  //
   if (VendorId != 0xffff) {
     Id = PCIE_LM_ID_VENDOR(VendorId) | PCIE_LM_ID_SUBSYS(VendorId);
-    MmioWrite32((ApbBase + PCIE_LM_ID), Id);
+    MmioWrite32((CfgBase + PCIE_LM_ID), Id);
   }
 
   if (DeviceId != 0xffff) {
-    Value = MmioRead32 (ApbBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET);
+    Value = MmioRead32 (CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET);
     Value &= 0x0000FFFF;
     Value |= (DeviceId << 16);
-    MmioWrite32 (ApbBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET, Value);
+    MmioWrite32 (CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET, Value);
   }
-  MmioWrite32 (ApbBase + PCIE_RP_BASE + PCI_REVISION_ID_OFFSET, PCI_CLASS_BRIDGE_PCI << 16);
+  MmioWrite32 (CfgBase + PCIE_RP_BASE + PCI_REVISION_ID_OFFSET, PCI_CLASS_BRIDGE_PCI << 16);
 }
 
 STATIC
 VOID
 PcieHostInitAddressTranslation (
-  IN PCIE_PORT     Port,
-  IN PCIE_LINK_ID  LinkId,
-  IN UINT64        PciAddr,
-  IN UINT64        CpuAddr,
-  IN BOOLEAN       IsMemory,
-  IN INT32         RegionNumber,
-  IN INT32         BusNumber,
-  IN UINT32        Nbits)
+  IN PCIE_LINK_DESCRIPTOR      *PcieCfg,
+  IN PCIE_AT_INFO              *Region
+  )
 {
-  UINT64 ApbBase = 0;
-  UINT32 Addr0;
-  UINT32 Addr1;
-  UINT32 Desc0;
-  UINT32 Desc1;
+  UINT64        CfgBase;
+  UINT32        Addr0;
+  UINT32        Addr1;
+  UINT32        Desc0;
+  UINT32        Desc1;
+  UINT64        PciAddr;
+  UINT64        CpuAddr;
+  BOOLEAN       IsMemory;
+  INT32         RegionNumber;
+  INT32         BusNumber;
+  UINT32        Nbits;
 
-  ApbBase = PCIE_PORT0_CFG_BASE + (Port * 0x02000000) + PCIE_CFG_LINK0_APB + (LinkId * 0x800000);
+  CfgBase       = PcieCfg->CfgBase;
+  PciAddr       = Region->PciAddr;
+  CpuAddr       = Region->CpuAddr;
+  IsMemory      = Region->IsMemory;
+  RegionNumber  = Region->RegionNumber;
+  BusNumber     = Region->BusNumber;
+  Nbits         = Region->Nbits;
 
   /*
    * Reserve region 0 for PCI configure space accesses:
    * OB_REGION_PCI_ADDR0 and OB_REGION_DESC0 are updated dynamically by
    * PciSegmentLib, other region registers are set here once for all.
    */
-  /* Set the PCI Address for Region 0 */
+  //
+  // Set the PCI Address for Region 0
+  //
   Addr1 = 0; // Should be programmed to zero.
   Desc1 = PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_PCI_ADDR1(0), Addr1);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_DESC1(0), Desc1);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(0), Addr1);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(0), Desc1);
 
-  /* Set the AXI Address for Region 0 */ 
-  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) | (lower_32_bits(CpuAddr) & GENMASK(31, 8));
-  Addr1 = upper_32_bits(CpuAddr);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
+  //
+  // Set the AXI Address for Region 0
+  //
+  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) | (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
+  Addr1 = UPPER_32_BITS(CpuAddr);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
 
   if (Nbits < 8) {
     Nbits = 8;
   }
-  /* RegionNumber >= 1 */
-  /* Set the PCI address */
-  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(Nbits) | (lower_32_bits(PciAddr) & GENMASK(31, 8));
-  Addr1 = upper_32_bits(PciAddr);
 
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_PCI_ADDR0(RegionNumber), Addr0);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_PCI_ADDR1(RegionNumber), Addr1);
+  //
+  // Set the PCI address, RegionNumber >= 1
+  //
+  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(Nbits) | (LOWER_32_BITS(PciAddr) & GENMASK(31, 8));
+  Addr1 = UPPER_32_BITS(PciAddr);
 
-  /* Set the PCIe header descriptor */
-  if (IsMemory)
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR0(RegionNumber), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(RegionNumber), Addr1);
+
+  //
+  // Set the PCIe header descriptor
+  //
+  if (IsMemory) {
     Desc0 = PCIE_AT_OB_REGION_DESC0_TYPE_MEM;
-  else
+  } else {
     Desc0 = PCIE_AT_OB_REGION_DESC0_TYPE_IO;
+  }
   Desc1 = 0;
 
   Desc0 |= PCIE_AT_OB_REGION_DESC0_HARDCODED_RID | PCIE_AT_OB_REGION_DESC0_DEVFN(0);
   Desc1 |= PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_DESC0(RegionNumber), Desc0);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_DESC1(RegionNumber), Desc1);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC0(RegionNumber), Desc0);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(RegionNumber), Desc1);
 
-  /* Set the CPU address */
+  //
+  // Set the CPU address
+  //
   CpuAddr = CpuAddr & PLAT_CPU_TO_BUS_ADDR; // cpu address fixup
-  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) | (lower_32_bits(CpuAddr) & GENMASK(31, 8));
-  Addr1 = upper_32_bits(CpuAddr);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
-  MmioWrite32 (ApbBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
+  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) | (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
+  Addr1 = UPPER_32_BITS(CpuAddr);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
   DEBUG ((DEBUG_WARN, "CpuAddr0[31:0]=0x%lx, CpuAddr0[63:32]=0x%lx\n\n", Addr0, Addr1));
-  /*
-   * Set Root Port no BAR match Inbound Translation registers: needed for MSI and DMA.
-   * Root Port BAR0 and BAR1 are disabled, hence no need to set their inbound translation registers.
-   */
+  //
+  // Set Root Port no BAR match Inbound Translation registers: needed for MSI and DMA.
+  // Root Port BAR0 and BAR1 are disabled, hence no need to set their inbound translation registers.
+  //
   Addr0 = 0x2F;
   Addr1 = 0;
-  MmioWrite32 (ApbBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
-  MmioWrite32 (ApbBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
+  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
 }
 
 EFI_STATUS
 EFIAPI
-SG2042PcieHostBridgeLibConstructor (
+MangoPcieHostBridgeLibConstructor (
   IN EFI_HANDLE       ImageHandle,
   IN EFI_SYSTEM_TABLE *SystemTable
   )
 {
-  UINT32  PortId   = 1;
-  // UINT32  PortId   = 0;
-  UINT32  BusNumber = 0x80;
-  UINT32  LinkId   = 0;
-  UINT32  VendorId = 0x1E30;
-  UINT32  DeviceId = 0x2042;
+  UINT32  PortIndex;
+  UINT32  LinkIndex;
+  UINT32  RegionNum;
+  UINT32  VendorId;
+  UINT32  DeviceId;
 
-  DEBUG ((DEBUG_ERROR, "PCIe RootBridge constructor\n"));
+  VendorId = 0x17CD;
+  DeviceId = 0x2042;
 
-  PcieHostInitRootPort(PortId, LinkId, VendorId, DeviceId);
-
-  // PortId, LinkId, PCI Address, CPU Address, ISMemory, RegionNumber, BusNumber, Nbits
-  PcieHostInitAddressTranslation(PortId, LinkId, 0x80,         0x80,          TRUE,  1, BusNumber, 7);
-  // IO Space
-  // PcieHostInitAddressTranslation(PortId, LinkId, 0x800000,     0x4810800000,  FALSE, 2, BusNumber, 23);
-  PcieHostInitAddressTranslation(PortId, LinkId, 0x800000,     0x800000,  FALSE, 2, BusNumber, 23);
-  // Memory Space
-  PcieHostInitAddressTranslation(PortId, LinkId, 0xe0000000,   0x48e0000000,  TRUE,  3, BusNumber, 29);
-  // Configure Space
-  PcieHostInitAddressTranslation(PortId, LinkId, 0x4900000000, 0x4900000000,  TRUE,  4, BusNumber, 33);
-  // MemAbove4G Space
-  // PcieHostInitAddressTranslation(PortId, LinkId, 0x4900000000, 0x4900000000, TRUE,  5, BusNumber, 33);
-
-  // PcieHostInitAddressTranslation(PortId, LinkId, 0x4b00000000, 0x4b00000000, TRUE,  5, BusNumber, 32);
+  DEBUG ((DEBUG_INFO, "Mango PCIe HostBridgeLib constructor\n"));
+  for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
+    for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
+      if (!((PcdGet8(PcdMangoPcieEnableMask) >> ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
+        continue;
+      }
+      PcieHostInitRootPort (VendorId, DeviceId, &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex]);
+      for (RegionNum = 0; RegionNum < 4; RegionNum++) {
+        PcieHostInitAddressTranslation (&myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex], &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex].Region[RegionNum]);
+      }
+      DEBUG ((
+        DEBUG_INFO,
+        "%a: PCIe Port %d, Link %d initialization success\n",
+        __func__,
+        PortIndex,
+        LinkIndex
+      ));
+    }
+  }
 
   MicroSecondDelay(300);
-
-  DEBUG ((DEBUG_ERROR, "\n\n---PCIe Port 1, link 0 Init!!!\n\n"));
 
   return EFI_SUCCESS;
 }

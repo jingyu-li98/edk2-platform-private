@@ -1,7 +1,8 @@
 /** @file
+  Definition of the MMC Host Protocol
 
   Copyright (c) 2011-2014, ARM Limited. All rights reserved.
-  Copyright (c) 2023, 山东大学智能创新研究院（Academy of Intelligent Innovation）. All rights reserved.<BR>
+  Copyright (c) Academy of Intelligent Innovation. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -16,22 +17,22 @@
 #define MMC_HOST_PROTOCOL_GUID \
   { 0x3e591c00, 0x9e4a, 0x11df, {0x92, 0x44, 0x00, 0x02, 0xA5, 0xF5, 0xF5, 0x1B } }
 
-#define MMC_BLOCK_SIZE			512U
-#define MMC_BLOCK_MASK			(MMC_BLOCK_SIZE - 1U)
-#define MMC_BOOT_CLK_RATE		(400 * 1000)
+#define MMC_BLOCK_SIZE      512U
+#define MMC_BLOCK_MASK      (MMC_BLOCK_SIZE - 1U)
+#define MMC_BOOT_CLK_RATE   (400 * 1000)
 
 /* Values in EXT CSD register */
-#define MMC_BUS_WIDTH_1			  0U
-#define MMC_BUS_WIDTH_4			  1U
-#define MMC_BUS_WIDTH_8			  2U
-#define MMC_BUS_WIDTH_DDR_4		5U
-#define MMC_BUS_WIDTH_DDR_8		6U
+#define MMC_BUS_WIDTH_1       0U
+#define MMC_BUS_WIDTH_4       1U
+#define MMC_BUS_WIDTH_8       2U
+#define MMC_BUS_WIDTH_DDR_4   5U
+#define MMC_BUS_WIDTH_DDR_8   6U
 
-#define MMC_RSP_48			    BIT0
-#define MMC_RSP_136			    BIT1		/* 136 bit response */
-#define MMC_RSP_CRC			    BIT2		/* expect valid crc */
-#define MMC_RSP_CMD_IDX			BIT3		/* response contains cmd idx */
-#define MMC_RSP_BUSY			  BIT4		/* device may be busy */
+#define MMC_RSP_48          BIT0
+#define MMC_RSP_136         BIT1		/* 136 bit response */
+#define MMC_RSP_CRC         BIT2		/* expect valid crc */
+#define MMC_RSP_CMD_IDX     BIT3		/* response contains cmd idx */
+#define MMC_RSP_BUSY        BIT4		/* device may be busy */
 
 /* JEDEC 4.51 chapter 6.12 */
 #define MMC_RESPONSE_R1			(MMC_RSP_48 | MMC_RSP_CMD_IDX | MMC_RSP_CRC)
@@ -85,23 +86,23 @@ typedef UINT32  MMC_IDX;
 #define MMC_STATUS_APP_CMD    (1 << 5)
 
 typedef enum _MMC_STATE {
-    MmcInvalidState = 0,
-    MmcHwInitializationState,
-    MmcIdleState,
-    MmcReadyState,
-    MmcIdentificationState,
-    MmcStandByState,
-    MmcTransferState,
-    MmcSendingDataState,
-    MmcReceiveDataState,
-    MmcProgrammingState,
-    MmcDisconnectState,
+  MmcInvalidState = 0,
+  MmcHwInitializationState,
+  MmcIdleState,
+  MmcReadyState,
+  MmcIdentificationState,
+  MmcStandByState,
+  MmcTransferState,
+  MmcSendingDataState,
+  MmcReceiveDataState,
+  MmcProgrammingState,
+  MmcDisconnectState,
 } MMC_STATE;
 
 typedef enum _CARD_DETECT_STATE {
-    CardDetectRequired = 0,
-    CardDetectInProgress,
-    CardDetectCompleted
+  CardDetectRequired = 0,
+  CardDetectInProgress,
+  CardDetectCompleted
 } CARD_DETECT_STATE;
 
 #define EMMCBACKWARD         (0)
@@ -187,7 +188,7 @@ EFI_STATUS
   IN  EFI_MMC_HOST_PROTOCOL     *This,
   IN  EFI_LBA                   Lba,
   IN  UINTN                     Length,
-  OUT UINTN                     Buffer
+  IN  UINTN                     Buffer
   );
 
 typedef

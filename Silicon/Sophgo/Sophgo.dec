@@ -18,22 +18,66 @@
 [LibraryClasses]
 
 [Guids]
-  gEfiSophgoSiliconTokenSpaceGuid  = {0x5F3E9E15, 0x8FFC, 0x4F53, { 0x8E, 0x64, 0x92, 0x0B, 0xA5, 0x39, 0x81, 0xB0 }}
+  gEfiSophgoSiliconTokenSpaceGuid  = {0x53C67518, 0xEA37, 0x01C1, { 0xF1, 0x94, 0x38, 0xC5, 0x2D, 0x59, 0xC1, 0x40 }}
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid = {0x2982A3F0, 0x131C, 0x492C, { 0x99, 0x17, 0x5A, 0xF7, 0x6D, 0x36, 0x83, 0x94 }}
 
 [Protocols]
 
 [PcdsFixedAtBuild]
   # SG2042 Coreplex GUID
-  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042CoreplexGuid |{0x06, 0x38, 0x9F, 0x33, 0xF9, 0xDB, 0x43, 0x13, 0x9A, 0x9B, 0x1C, 0x68, 0xD6, 0x04, 0xEA, 0xFF}|VOID*|0x00001003
+  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042CoreplexGuid |{0x07, 0xBE, 0xA2, 0xE3, 0x80, 0x92, 0x7C, 0xA6, 0x0C, 0xDA, 0x2B, 0x2D, 0x4D, 0x15, 0x6B, 0xD6}|VOID*|0x00001003
 
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042RegistersAddress|0|UINT32|0x00000001
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042PciRegBase|0x2b000000|UINT64|0x00000002
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042PciBusMmioAdr|0x0|UINT64|0x00000003
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042PciBusMmioLen|0x0|UINT32|0x00000004
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042PciCpuMmioAdr|0x0|UINT64|0x00000005
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x0|UINT64|0x00001008
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x0|UINT64|0x00001009
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0CfgBase|0x0|UINT64|0x0000100A
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1CfgBase|0x0|UINT64|0x0000100B
 
-#  gEfiSophgoSiliconTokenSpaceGuid.PcdSophgoSG2042PciConfigRegBase|0x9c0000000|UINT64|0x00000006
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Slv0CfgBase|0x0|UINT64|0x0000100C
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Slv1CfgBase|0x0|UINT64|0x0000100D
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Slv0CfgBase|0x0|UINT64|0x0000100E
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Slv1CfgBase|0x0|UINT64|0x0000100F
 
-[PcdsDynamic, PcdsDynamicEx]
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPciCfgLink0ApbBase|0x0|UINT64|0x00001010
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPciCfgLink1ApbBase|0x0|UINT64|0x00001011
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPciCfgPhyApbBase|0x0|UINT64|0x00001012
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPciCfgMangoApbBase|0x0|UINT64|0x00001013
 
-[PcdsFeatureFlag]
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region1BaseAddress|0x0|UINT64|0x00001014
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region1Size|0x0|UINT64|0x00001015
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2BaseAddress|0x0|UINT64|0x00001016
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2Size|0x0|UINT64|0x00001017
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3BaseAddress|0x0|UINT64|0x00001018
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3Size|0x0|UINT64|0x00001019
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region4BaseAddress|0x0|UINT64|0x0000101A
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region4Size|0x0|UINT64|0x0000101B
+
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region1BaseAddress|0x0|UINT64|0x0000101C
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region1Size|0x0|UINT64|0x0000101D
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2BaseAddress|0x0|UINT64|0x0000101E
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2Size|0x0|UINT64|0x0000101F
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region3BaseAddress|0x0|UINT64|0x00001020
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region3Size|0x0|UINT64|0x00001021
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region4BaseAddress|0x0|UINT64|0x00001022
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region4Size|0x0|UINT64|0x00001023
+
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region1BaseAddress|0x0|UINT64|0x00001024
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region1Size|0x0|UINT64|0x00001025
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2BaseAddress|0x0|UINT64|0x00001026
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2Size|0x0|UINT64|0x00001027
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region3BaseAddress|0x0|UINT64|0x00001028
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region3Size|0x0|UINT64|0x00001029
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region4BaseAddress|0x0|UINT64|0x00001030
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region4Size|0x0|UINT64|0x00001031
+
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region1BaseAddress|0x0|UINT64|0x00001032
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region1Size|0x0|UINT64|0x00001033
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2BaseAddress|0x0|UINT64|0x00001034
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2Size|0x0|UINT64|0x00001035
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3BaseAddress|0x0|UINT64|0x00001036
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3Size|0x0|UINT64|0x00001037
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4BaseAddress|0x0|UINT64|0x00001038
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x0|UINT64|0x00001039
+
+[PcdsPatchableInModule, PcdsDynamic]
+  # Enable both RC#0, RC#1 and RC#2 by default
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x7|UINT8|0x0000103A
