@@ -157,7 +157,7 @@ PlatformPeimInitialization (
 
   // Add PCI resource
   PopulateIoResources (Base, "sophgo,cdns-pcie-host");
-  // Add SDHC resource
+  // Add SDHI resource
   PopulateIoResources (Base, "bitmain,bm-sd");
 
   return EFI_SUCCESS;

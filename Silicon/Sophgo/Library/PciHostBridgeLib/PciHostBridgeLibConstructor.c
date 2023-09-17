@@ -205,7 +205,7 @@ PcieHostInitAddressTranslation (
   Addr1 = UPPER_32_BITS(CpuAddr);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
-  DEBUG ((DEBUG_WARN, "CpuAddr0[31:0]=0x%lx, CpuAddr0[63:32]=0x%lx\n\n", Addr0, Addr1));
+
   //
   // Set Root Port no BAR match Inbound Translation registers: needed for MSI and DMA.
   // Root Port BAR0 and BAR1 are disabled, hence no need to set their inbound translation registers.
@@ -232,7 +232,7 @@ MangoPcieHostBridgeLibConstructor (
   VendorId = 0x17CD;
   DeviceId = 0x2042;
 
-  DEBUG ((DEBUG_INFO, "Mango PCIe HostBridgeLib constructor\n"));
+  DEBUG ((DEBUG_INFO, "Mango PCIe HostBridgeLib constructor:\n"));
   for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
     for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
       if (!((PcdGet8(PcdMangoPcieEnableMask) >> ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
@@ -244,7 +244,7 @@ MangoPcieHostBridgeLibConstructor (
       }
       DEBUG ((
         DEBUG_INFO,
-        "%a: PCIe Port %d, Link %d initialization success\n",
+        "%a: PCIe Port %d, Link %d initialization success.\n",
         __func__,
         PortIndex,
         LinkIndex
