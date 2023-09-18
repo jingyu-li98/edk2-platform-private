@@ -27,10 +27,10 @@ STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
     PCIE_LINK_0,              // LinkIndex
     0xfffffff060000000,       // CfgBase
     {                         // Regions
-      { 0x0,          0x0,           TRUE,  1, 0x0,  6  },
-      { 0x0,          0x0,           FALSE, 2, 0x0,  22 },
-      { 0x50000000,   0x4050000000,  TRUE,  3, 0x0,  29 },
-      { 0x4100000000, 0x4100000000,  TRUE,  4, 0x0,  33 }
+      { 0x0,          0x0,           TRUE,  1, 0x0,  0x40        },
+      { 0x0,          0x0,           FALSE, 2, 0x0,  0x100000    },
+      { 0x50000000,   0x4050000000,  TRUE,  3, 0x0,  0x10000000  },
+      { 0x4100000000, 0x4100000000,  TRUE,  4, 0x0,  0x200000000 }
     }
   },
 
@@ -40,10 +40,10 @@ STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
     PCIE_LINK_1,
     0xfffffff060800000,
     {
-      { 0x40,         0x40,          TRUE,  1, 0x40, 6  },
-      { 0x400000,     0x400000,      FALSE, 2, 0x40, 22 },
-      { 0x80000000,   0x4480000000,  TRUE,  3, 0x40, 28 },
-      { 0x4500000000, 0x4500000000,  TRUE,  4, 0x40, 33 }
+      { 0x40,         0x40,          TRUE,  1, 0x40, 0x40        },
+      { 0x400000,     0x400000,      FALSE, 2, 0x40, 0x100000    },
+      { 0x80000000,   0x4480000000,  TRUE,  3, 0x40, 0x10000000  },
+      { 0x4500000000, 0x4500000000,  TRUE,  4, 0x40, 0x200000000 }
     }
   },
 
@@ -53,10 +53,10 @@ STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
     PCIE_LINK_0,
     0xfffffff062000000,
     {
-      { 0x80,         0x80,          TRUE,  1, 0x80, 7  },
-      { 0x800000,     0x800000,      FALSE, 2, 0x80, 23 },
-      { 0xe0000000,   0x48e0000000,  TRUE,  3, 0x80, 29 },
-      { 0x4900000000, 0x4900000000,  TRUE,  4, 0x80, 33 }
+      { 0x80,         0x80,          TRUE,  1, 0x80, 0x40        },
+      { 0x800000,     0x800000,      FALSE, 2, 0x80, 0x100000    },
+      { 0xe0000000,   0x48e0000000,  TRUE,  3, 0x80, 0x10000000  },
+      { 0x4900000000, 0x4900000000,  TRUE,  4, 0x80, 0x200000000 }
     }
   },
 
@@ -66,10 +66,10 @@ STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
     PCIE_LINK_0,
     0xfffffff062800000,
     {
-      { 0xc0,         0xc0,          TRUE,  1, 0xc0, 7  },
-      { 0xc00000,     0x800000,      FALSE, 2, 0xc0, 23 },
-      { 0xf0000000,   0x4cf0000000,  TRUE,  3, 0xc0, 29 },
-      { 0x4d00000000, 0x4d00000000,  TRUE,  4, 0xc0, 33 }
+      { 0xc0,         0xc0,          TRUE,  1, 0xc0, 0x40        },
+      { 0xc00000,     0x800000,      FALSE, 2, 0xc0, 0x100000    },
+      { 0xf0000000,   0x4cf0000000,  TRUE,  3, 0xc0, 0x10000000  },
+      { 0x4d00000000, 0x4d00000000,  TRUE,  4, 0xc0, 0x200000000 }
     }
   }
 };
@@ -126,7 +126,8 @@ STATIC
 VOID
 PcieHostInitAddressTranslation (
   IN PCIE_LINK_DESCRIPTOR      *PcieCfg,
-  IN PCIE_AT_INFO              *Region
+  IN PCIE_AT_INFO              *Region,
+  IN UINT32                    NoBarNbits
   )
 {
   UINT64        CfgBase;
@@ -139,6 +140,7 @@ PcieHostInitAddressTranslation (
   BOOLEAN       IsMemory;
   INT32         RegionNumber;
   INT32         BusNumber;
+  UINT64        RegionSize;
   UINT32        Nbits;
 
   CfgBase       = PcieCfg->CfgBase;
@@ -147,15 +149,21 @@ PcieHostInitAddressTranslation (
   IsMemory      = Region->IsMemory;
   RegionNumber  = Region->RegionNumber;
   BusNumber     = Region->BusNumber;
-  Nbits         = Region->Nbits;
+  RegionSize    = Region->RegionSize;
+  Nbits         = 0;
 
-  /*
-   * Reserve region 0 for PCI configure space accesses:
-   * OB_REGION_PCI_ADDR0 and OB_REGION_DESC0 are updated dynamically by
-   * PciSegmentLib, other region registers are set here once for all.
-   */
+  //
+  // Get shift amount
+  //
+  while (RegionSize > 1) {
+    RegionSize >>= 1;
+    Nbits++;
+  }
   //
   // Set the PCI Address for Region 0
+  // Reserve region 0 for PCI configure space accesses:
+  // OB_REGION_PCI_ADDR0 and OB_REGION_DESC0 are updated dynamically by
+  // PciMapBus (), other region registers are set here once for all.
   //
   Addr1 = 0; // Should be programmed to zero.
   Desc1 = PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
@@ -165,7 +173,8 @@ PcieHostInitAddressTranslation (
   //
   // Set the AXI Address for Region 0
   //
-  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) | (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
+  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
+          (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(CpuAddr);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
@@ -177,7 +186,8 @@ PcieHostInitAddressTranslation (
   //
   // Set the PCI address, RegionNumber >= 1
   //
-  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(Nbits) | (LOWER_32_BITS(PciAddr) & GENMASK(31, 8));
+  Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(Nbits) |
+          (LOWER_32_BITS(PciAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(PciAddr);
 
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR0(RegionNumber), Addr0);
@@ -192,8 +202,11 @@ PcieHostInitAddressTranslation (
     Desc0 = PCIE_AT_OB_REGION_DESC0_TYPE_IO;
   }
   Desc1 = 0;
-
-  Desc0 |= PCIE_AT_OB_REGION_DESC0_HARDCODED_RID | PCIE_AT_OB_REGION_DESC0_DEVFN(0);
+  //
+  // In Root Complex mode, the function number is always 0.
+  //
+  Desc0 |= PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
+           PCIE_AT_OB_REGION_DESC0_DEVFN(0);
   Desc1 |= PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC0(RegionNumber), Desc0);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(RegionNumber), Desc1);
@@ -202,16 +215,19 @@ PcieHostInitAddressTranslation (
   // Set the CPU address
   //
   CpuAddr = CpuAddr & PLAT_CPU_TO_BUS_ADDR; // cpu address fixup
-  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) | (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
+  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) |
+          (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(CpuAddr);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
 
   //
-  // Set Root Port no BAR match Inbound Translation registers: needed for MSI and DMA.
-  // Root Port BAR0 and BAR1 are disabled, hence no need to set their inbound translation registers.
+  // Set Root Port no BAR match Inbound Translation registers:
+  // needed for MSI and DMA.
+  // Root Port BAR0 and BAR1 are disabled, hence no need to set
+  // their inbound translation registers.
   //
-  Addr0 = 0x2F;
+  Addr0 = PCIE_AT_IB_RP_BAR_ADDR0_NBITS (NoBarNbits);
   Addr1 = 0;
   MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
   MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
@@ -229,19 +245,30 @@ MangoPcieHostBridgeLibConstructor (
   UINT32  RegionNum;
   UINT32  VendorId;
   UINT32  DeviceId;
+  UINT32  NoBarNbits;
 
   VendorId = 0x17CD;
   DeviceId = 0x2042;
+  //
+  // the number least significant bits kept during
+  // inbound (PCIe -> AXI) address translations
+  //
+  NoBarNbits = 0x30;
 
   DEBUG ((DEBUG_INFO, "Mango PCIe HostBridgeLib constructor:\n"));
   for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
     for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
-      if (!((PcdGet8(PcdMangoPcieEnableMask) >> ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
+      if (!((PcdGet8(PcdMangoPcieEnableMask) >>
+            ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
         continue;
       }
-      PcieHostInitRootPort (VendorId, DeviceId, &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex]);
+      PcieHostInitRootPort (VendorId,
+                            DeviceId,
+                            &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex]);
       for (RegionNum = 0; RegionNum < 4; RegionNum++) {
-        PcieHostInitAddressTranslation (&myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex], &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex].Region[RegionNum]);
+        PcieHostInitAddressTranslation (&myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex],
+                                        &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex].Region[RegionNum],
+                                        NoBarNbits);
       }
       DEBUG ((
         DEBUG_INFO,

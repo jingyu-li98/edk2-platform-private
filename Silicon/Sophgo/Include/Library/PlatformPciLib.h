@@ -36,9 +36,9 @@ typedef struct {
   UINT64              PciAddr;
   UINT64              CpuAddr;
   BOOLEAN             IsMemory;
-  INT32               RegionNumber;
   INT32               BusNumber;
-  UINT32              Nbits;
+  INT32               RegionNumber;
+  UINT64              RegionSize;
 } PCIE_AT_INFO;
 
 typedef struct {
