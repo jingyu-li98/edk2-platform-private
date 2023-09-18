@@ -13,40 +13,12 @@
 #define PCIE_MAX_LINK         2
 #define PCIE_MAX_REGION       32
 
-typedef enum {
-  PCIE_ID_0 = 0x0,
-  PCIE_ID_1,
-  PCIE_ID_BUTT
-} PCIE_PORT;
-
-typedef enum {
-  PCIE_LINK_0 = 0x0,
-  PCIE_LINK_1,
-  PCIE_LINK_BUTT
-} PCIE_LINK_ID;
-
 typedef enum  {
   RP_BAR_UNDEFINED = -1,
   RP_BAR0,
   RP_BAR1,
   RP_NO_BAR
 } PCIE_RP_BAR;
-
-typedef struct {
-  UINT64              PciAddr;
-  UINT64              CpuAddr;
-  BOOLEAN             IsMemory;
-  INT32               BusNumber;
-  INT32               RegionNumber;
-  UINT64              RegionSize;
-} PCIE_AT_INFO;
-
-typedef struct {
-  PCIE_PORT           PortIndex;
-  PCIE_LINK_ID        LinkIndex;
-  UINT64              CfgBase;
-  PCIE_AT_INFO        Region[PCIE_MAX_REGION];
-} PCIE_LINK_DESCRIPTOR;
 
 #define MANGO_PCIE_CFG_LINK0_APB       (FixedPcdGet64(PcdMangoPciCfgLink0ApbBase)) // 0x0
 #define MANGO_PCIE_CFG_LINK1_APB       (FixedPcdGet64(PcdMangoPciCfgLink1ApbBase)) // 0x800000
@@ -109,10 +81,9 @@ typedef struct {
 typedef struct {
   UINT64 PciSlvAddress;
   UINT64 ConfigSpaceAddress;
-  // UINT64 ConfigSpaceSize;
   UINT32 Segment;
   UINT64 BusBase;
-  UINT64 BusLimit;
+  UINT64 BusSize;
   UINT64 IoTranslation;
   UINT64 IoBase;
   UINT64 IoSize;
@@ -126,4 +97,3 @@ typedef struct {
 
 extern MANGO_PCI_RESOURCE mPciResource[PCIE_MAX_PORT][PCIE_MAX_LINK];
 #endif
-

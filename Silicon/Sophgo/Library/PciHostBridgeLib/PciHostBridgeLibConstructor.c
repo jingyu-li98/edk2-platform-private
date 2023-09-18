@@ -20,74 +20,18 @@
 #define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
 #define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
 
-STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
-  // RootComplex 0
-  {
-    PCIE_ID_0,                // PortIndex
-    PCIE_LINK_0,              // LinkIndex
-    0xfffffff060000000,       // CfgBase
-    {                         // Regions
-      { 0x0,          0x0,           TRUE,  1, 0x0,  0x40        },
-      { 0x0,          0x0,           FALSE, 2, 0x0,  0x100000    },
-      { 0x50000000,   0x4050000000,  TRUE,  3, 0x0,  0x10000000  },
-      { 0x4100000000, 0x4100000000,  TRUE,  4, 0x0,  0x200000000 }
-    }
-  },
-
-  // RootComplex 1
-  {
-    PCIE_ID_0,
-    PCIE_LINK_1,
-    0xfffffff060800000,
-    {
-      { 0x40,         0x40,          TRUE,  1, 0x40, 0x40        },
-      { 0x400000,     0x400000,      FALSE, 2, 0x40, 0x100000    },
-      { 0x80000000,   0x4480000000,  TRUE,  3, 0x40, 0x10000000  },
-      { 0x4500000000, 0x4500000000,  TRUE,  4, 0x40, 0x200000000 }
-    }
-  },
-
-  // RootComplex 2
-  {
-    PCIE_ID_1,
-    PCIE_LINK_0,
-    0xfffffff062000000,
-    {
-      { 0x80,         0x80,          TRUE,  1, 0x80, 0x40        },
-      { 0x800000,     0x800000,      FALSE, 2, 0x80, 0x100000    },
-      { 0xe0000000,   0x48e0000000,  TRUE,  3, 0x80, 0x10000000  },
-      { 0x4900000000, 0x4900000000,  TRUE,  4, 0x80, 0x200000000 }
-    }
-  },
-
-  // RootComplex 3
-  {
-    PCIE_ID_1,
-    PCIE_LINK_0,
-    0xfffffff062800000,
-    {
-      { 0xc0,         0xc0,          TRUE,  1, 0xc0, 0x40        },
-      { 0xc00000,     0x800000,      FALSE, 2, 0xc0, 0x100000    },
-      { 0xf0000000,   0x4cf0000000,  TRUE,  3, 0xc0, 0x10000000  },
-      { 0x4d00000000, 0x4d00000000,  TRUE,  4, 0xc0, 0x200000000 }
-    }
-  }
-};
-
 STATIC
 VOID
 PcieHostInitRootPort (
   IN UINT32                   VendorId,
   IN UINT32                   DeviceId,
-  IN PCIE_LINK_DESCRIPTOR     *PcieCfg
+  IN UINT64                   CfgBase
   )
 {
   INT32    Ctrl;
   UINT32   Id;
   UINT32   Value;
-  UINT64   CfgBase;
 
-  CfgBase = PcieCfg->CfgBase;
   //
   // Set the root complex BAR configuration register:
   // - disable both BAR0 and BAR1.
@@ -125,36 +69,26 @@ PcieHostInitRootPort (
 STATIC
 VOID
 PcieHostInitAddressTranslation (
-  IN PCIE_LINK_DESCRIPTOR      *PcieCfg,
-  IN PCIE_AT_INFO              *Region,
-  IN UINT32                    NoBarNbits
+  IN UINT32                   NoBarNbits,
+  IN UINT64                   CfgBase,
+  IN INT32                    BusNumber,
+  IN INT32                    RegionNumber,
+  IN BOOLEAN                  IsMemory,
+  IN UINT64                   PciAddr,
+  IN UINT64                   CpuAddr,
+  IN UINT64                   RegionSize
   )
 {
-  UINT64        CfgBase;
   UINT32        Addr0;
   UINT32        Addr1;
   UINT32        Desc0;
   UINT32        Desc1;
-  UINT64        PciAddr;
-  UINT64        CpuAddr;
-  BOOLEAN       IsMemory;
-  INT32         RegionNumber;
-  INT32         BusNumber;
-  UINT64        RegionSize;
   UINT32        Nbits;
-
-  CfgBase       = PcieCfg->CfgBase;
-  PciAddr       = Region->PciAddr;
-  CpuAddr       = Region->CpuAddr;
-  IsMemory      = Region->IsMemory;
-  RegionNumber  = Region->RegionNumber;
-  BusNumber     = Region->BusNumber;
-  RegionSize    = Region->RegionSize;
-  Nbits         = 0;
 
   //
   // Get shift amount
   //
+  Nbits         = 0;
   while (RegionSize > 1) {
     RegionSize >>= 1;
     Nbits++;
@@ -242,7 +176,6 @@ MangoPcieHostBridgeLibConstructor (
 {
   UINT32  PortIndex;
   UINT32  LinkIndex;
-  UINT32  RegionNum;
   UINT32  VendorId;
   UINT32  DeviceId;
   UINT32  NoBarNbits;
@@ -264,12 +197,56 @@ MangoPcieHostBridgeLibConstructor (
       }
       PcieHostInitRootPort (VendorId,
                             DeviceId,
-                            &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex]);
-      for (RegionNum = 0; RegionNum < 4; RegionNum++) {
-        PcieHostInitAddressTranslation (&myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex],
-                                        &myPciLinkCfgInfo[(PCIE_MAX_PORT * PortIndex) + LinkIndex].Region[RegionNum],
-                                        NoBarNbits);
-      }
+                            mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000);
+
+      //
+      // Bus
+      //
+      PcieHostInitAddressTranslation (NoBarNbits,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      1,
+                                      TRUE,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      mPciResource[PortIndex][LinkIndex].BusSize);
+      //
+      // IO
+      //
+      PcieHostInitAddressTranslation (NoBarNbits,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      2,
+                                      FALSE,
+                                      mPciResource[PortIndex][LinkIndex].IoBase,
+                                      mPciResource[PortIndex][LinkIndex].IoBase -
+                                      mPciResource[PortIndex][LinkIndex].IoTranslation,
+                                      mPciResource[PortIndex][LinkIndex].IoSize);
+      //
+      // Mem32
+      //
+      PcieHostInitAddressTranslation (NoBarNbits,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      3,
+                                      TRUE,
+                                      mPciResource[PortIndex][LinkIndex].Mmio32Base,
+                                      mPciResource[PortIndex][LinkIndex].Mmio32Base -
+                                      mPciResource[PortIndex][LinkIndex].Mmio32Translation,
+                                      mPciResource[PortIndex][LinkIndex].Mmio32Size);
+      //
+      // MemAbove4G
+      //
+      PcieHostInitAddressTranslation (NoBarNbits,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].BusBase,
+                                      4,
+                                      TRUE,
+                                      mPciResource[PortIndex][LinkIndex].Mmio64Base,
+                                      mPciResource[PortIndex][LinkIndex].Mmio64Base -
+                                      mPciResource[PortIndex][LinkIndex].Mmio64Translation,
+                                      mPciResource[PortIndex][LinkIndex].Mmio64Size);
+
       DEBUG ((
         DEBUG_INFO,
         "%a: PCIe Port %d, Link %d initialization success.\n",

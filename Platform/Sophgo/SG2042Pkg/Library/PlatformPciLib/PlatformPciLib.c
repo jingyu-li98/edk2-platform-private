@@ -17,7 +17,7 @@ MANGO_PCI_RESOURCE mPciResource[PCIE_MAX_PORT][PCIE_MAX_LINK] = {
     MANGO_PCIE0_LINK0_CFG_BASE,     // ConfigSpaceAddress
     0,                              // Segment
     MANGO_PCIE0_LINK0_REGION1_BASE, // BusBase
-    (MANGO_PCIE0_LINK0_REGION1_BASE + MANGO_PCIE0_LINK0_REGION1_SIZE - 1), // BusLimit
+    MANGO_PCIE0_LINK0_REGION1_SIZE, // BusSize
     0,                              // IoTranslation
     MANGO_PCIE0_LINK0_REGION2_BASE, // IoBase
     MANGO_PCIE0_LINK0_REGION2_SIZE, // IoSize
@@ -34,7 +34,7 @@ MANGO_PCI_RESOURCE mPciResource[PCIE_MAX_PORT][PCIE_MAX_LINK] = {
     MANGO_PCIE0_LINK1_CFG_BASE,     // ConfigSpaceAddress
     1,                              // Segment
     MANGO_PCIE0_LINK1_REGION1_BASE, // BusBase
-    (MANGO_PCIE0_LINK1_REGION1_BASE + MANGO_PCIE0_LINK1_REGION1_SIZE - 1), // BusLimit
+    MANGO_PCIE0_LINK1_REGION1_SIZE, // BusSize
     0,                              // IoTranslation
     MANGO_PCIE0_LINK1_REGION2_BASE, // IoBase
     MANGO_PCIE0_LINK1_REGION2_SIZE, // IoSize
@@ -53,7 +53,7 @@ MANGO_PCI_RESOURCE mPciResource[PCIE_MAX_PORT][PCIE_MAX_LINK] = {
     MANGO_PCIE1_LINK0_CFG_BASE,     // ConfigSpaceAddress
     2,                              // Segment
     MANGO_PCIE1_LINK0_REGION1_BASE, // BusBase
-    (MANGO_PCIE1_LINK0_REGION1_BASE + MANGO_PCIE1_LINK0_REGION1_SIZE - 1), // BusLimit
+    MANGO_PCIE1_LINK0_REGION1_SIZE, // BusSize
     0,                              // IoTranslation
     MANGO_PCIE1_LINK0_REGION2_BASE, // IoBase
     MANGO_PCIE1_LINK0_REGION2_SIZE, // IoSize
@@ -70,7 +70,7 @@ MANGO_PCI_RESOURCE mPciResource[PCIE_MAX_PORT][PCIE_MAX_LINK] = {
     MANGO_PCIE1_LINK1_CFG_BASE,     // ConfigSpaceAddress
     3,                              // Segment
     MANGO_PCIE1_LINK1_REGION1_BASE, // BusBase
-    (MANGO_PCIE1_LINK1_REGION1_BASE + MANGO_PCIE1_LINK1_REGION1_SIZE - 1), // BusLimit
+    MANGO_PCIE1_LINK1_REGION1_SIZE, // BusSize
     0,                              // IoTranslation
     MANGO_PCIE1_LINK1_REGION2_BASE, // IoBase
     MANGO_PCIE1_LINK1_REGION2_SIZE, // IoSize

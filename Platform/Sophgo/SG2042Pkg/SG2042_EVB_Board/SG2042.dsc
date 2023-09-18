@@ -371,7 +371,7 @@
 
   # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3), enable RC#2 on X8EVB by default
   # gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x7
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0xF
 
 [PcdsFixedAtBuild.common]
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000

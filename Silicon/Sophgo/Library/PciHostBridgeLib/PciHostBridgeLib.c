@@ -105,7 +105,7 @@ ConstructRootBridge (
   CopyMem (Bridge, &mRootBridgeTemplate, sizeof *Bridge);
   Bridge->Segment = Resource->Segment;
   Bridge->Bus.Base = Resource->BusBase;
-  Bridge->Bus.Limit = Resource->BusLimit;
+  Bridge->Bus.Limit = Resource->BusBase + Resource->BusSize - 1;
   Bridge->Io.Base = Resource->IoBase;
   Bridge->Io.Translation = Resource->IoTranslation;
   // IoLimit is actually an address in CPU view

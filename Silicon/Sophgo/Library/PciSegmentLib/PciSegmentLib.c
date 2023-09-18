@@ -272,8 +272,14 @@ PciSegmentLibReadWorker (
   VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
   VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
 
-  MmioAddress = PciMapBus (Segment, Bus, Device, Function, Register, VirtualCfgAddr, VirtualSlvAddr, PciResource);
-  // DEBUG ((DEBUG_WARN, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  MmioAddress = PciMapBus (Segment,
+                           Bus,
+                           Device,
+                           Function,
+                           Register,
+                           VirtualCfgAddr,
+                           VirtualSlvAddr,
+                           PciResource);
   if (!MmioAddress) {
     return 0xffffffff;
   }
@@ -330,8 +336,14 @@ PciSegmentLibWriteWorker (
   VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
   VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
 
-  MmioAddress = PciMapBus (Segment, Bus, Device, Function, Register, VirtualCfgAddr, VirtualSlvAddr, PciResource);
-  // DEBUG ((DEBUG_WARN, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  MmioAddress = PciMapBus (Segment,
+                           Bus,
+                           Device,
+                           Function,
+                           Register,
+                           VirtualCfgAddr,
+                           VirtualSlvAddr,
+                           PciResource);
   if (!MmioAddress) {
     return 0xffffffff;
   }
