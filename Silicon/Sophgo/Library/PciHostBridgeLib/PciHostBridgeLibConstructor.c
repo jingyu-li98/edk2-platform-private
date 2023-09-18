@@ -13,11 +13,12 @@
 #include <Uefi/UefiBaseType.h>
 #include <IndustryStandard/Pci22.h>
 #include <Regs/SophgoPciRegs.h>
-
-#define LOWER_32_BITS(n)     ((UINT32)((n) & 0xffffffff))
-#define UPPER_32_BITS(n)     ((UINT32)((n) >> 32))
+#include <Library/PlatformPciLib.h>
 
 #define PLAT_CPU_TO_BUS_ADDR  0xCFFFFFFFFF
+
+#define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
+#define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
 
 STATIC PCIE_LINK_DESCRIPTOR myPciLinkCfgInfo[] = {
   // RootComplex 0

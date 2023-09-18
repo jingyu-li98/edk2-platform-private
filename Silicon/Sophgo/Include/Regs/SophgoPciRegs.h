@@ -11,7 +11,6 @@
 #define _MANGO_PCIE_H_
 
 #include <Base.h>
-#include <Library/PlatformPciLib.h>
 
 #define GENMASK(end, start)  (((1ULL << ((end) - (start) + 1)) - 1) << (start))
 

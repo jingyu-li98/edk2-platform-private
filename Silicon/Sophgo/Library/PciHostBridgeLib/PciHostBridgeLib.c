@@ -109,24 +109,23 @@ ConstructRootBridge (
   Bridge->Io.Base = Resource->IoBase;
   Bridge->Io.Translation = Resource->IoTranslation;
   // IoLimit is actually an address in CPU view
-  // TODO: improve the definition of PCI_ROOT_BRIDGE_RESOURCE_APPETURE
   // Bridge->Io.Limit = Resource->IoBase + Bridge->Io.Translation;
   Bridge->Io.Limit = Resource->IoBase + Resource->IoSize - 1;
-  // if (Resource->PciRegionBase > MAX_UINT32) {
-    Bridge->MemAbove4G.Base = Resource->Mmio64Base;
-    Bridge->MemAbove4G.Limit = Resource->Mmio64Base + Resource->Mmio64Size - 1;;
-    Bridge->MemAbove4G.Translation = Resource->Mmio64Translation;
-  // } else {
-    Bridge->Mem.Base = Resource->Mmio32Base;
-    Bridge->Mem.Limit = Resource->Mmio32Base + Resource->Mmio32Size - 1;
-    Bridge->Mem.Translation = Resource->Mmio32Translation;
-  // }
 
-  /* No separate ranges for prefetchable and non-prefetchable BARs */
-    Bridge->PMem.Base           = MAX_UINT64;
-    Bridge->PMem.Limit          = 0;
-    Bridge->PMemAbove4G.Base    = MAX_UINT64;
-    Bridge->PMemAbove4G.Limit   = 0;
+  Bridge->MemAbove4G.Base = Resource->Mmio64Base;
+  Bridge->MemAbove4G.Limit = Resource->Mmio64Base + Resource->Mmio64Size - 1;;
+  Bridge->MemAbove4G.Translation = Resource->Mmio64Translation;
+  Bridge->Mem.Base = Resource->Mmio32Base;
+  Bridge->Mem.Limit = Resource->Mmio32Base + Resource->Mmio32Size - 1;
+  Bridge->Mem.Translation = Resource->Mmio32Translation;
+
+  //
+  // No separate ranges for prefetchable and non-prefetchable BARs
+  //
+  Bridge->PMem.Base           = MAX_UINT64;
+  Bridge->PMem.Limit          = 0;
+  Bridge->PMemAbove4G.Base    = MAX_UINT64;
+  Bridge->PMemAbove4G.Limit   = 0;
 
   DevicePath = AllocateCopyPool (
                  sizeof (EFI_PCI_ROOT_BRIDGE_DEVICE_PATH), 
