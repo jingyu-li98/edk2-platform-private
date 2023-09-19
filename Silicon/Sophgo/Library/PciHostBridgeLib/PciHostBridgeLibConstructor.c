@@ -7,7 +7,6 @@
 **/
 
 #include <Library/IoLib.h>
-#include <Library/TimerLib.h>
 #include <Library/DebugLib.h>
 #include <Uefi/UefiSpec.h>
 #include <Uefi/UefiBaseType.h>
@@ -256,8 +255,6 @@ MangoPcieHostBridgeLibConstructor (
       ));
     }
   }
-
-  MicroSecondDelay(300);
 
   return EFI_SUCCESS;
 }

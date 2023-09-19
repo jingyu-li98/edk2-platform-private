@@ -15,6 +15,7 @@ DEFINE PFLASH1_BASE      = 0x02000000
 DEFINE FW_BASE_ADDRESS   = $(PFLASH1_BASE)
 DEFINE FW_SIZE           = 0x00760000
 DEFINE FW_BLOCKS         = 0x760
+DEFINE MMU_DISABLE       = FALSE
 
 #
 # 0x000000-0x7DFFFF code
@@ -65,5 +66,10 @@ SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize = 0x10000
 SET gUefiRiscVPkgTokenSpaceGuid.PcdRiscVMachineTimerFrequencyInHerz    = 50000000
 
 SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdNumberofC920Cores       = 64
-SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase          = 0xfffffff04002B000
-# SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase          = 0x704002B000
+SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU              = $(MMU_DISABLE)
+
+!if $(MMU_DISABLE) == TRUE
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
+!else
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0xfffffff04002B000
+!endif

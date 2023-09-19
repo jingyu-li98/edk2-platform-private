@@ -74,7 +74,7 @@ PopulateIoResources (
       AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[0]), SwapBytes64 (Reg[1]));
       DEBUG ((
         DEBUG_INFO,
-        "%a(): MemoryBase: 0x%lx\tMemorySize:0x%lx\n",
+        "%a(): MemoryBase=0x%lx\tMemorySize=0x%lx\n",
         __func__,
         SwapBytes64 (Reg[0]),
         SwapBytes64 (Reg[1])
@@ -84,7 +84,7 @@ PopulateIoResources (
         AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[2]), SwapBytes64 (Reg[3]));
         DEBUG ((
           DEBUG_INFO,
-          "%a(): MemoryBase: 0x%lx\tMemorySize:0x%lx\n",
+          "%a(): MemoryBase=0x%lx\tMemorySize=0x%lx\n",
           __func__,
           SwapBytes64 (Reg[2]),
           SwapBytes64 (Reg[3])

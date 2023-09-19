@@ -69,7 +69,8 @@
   PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
-  RiscVMmuLib|UefiCpuPkg/Library/BaseRiscVMmuLib/BaseRiscVMmuLib.inf
+  # RiscVMmuLib|UefiCpuPkg/Library/BaseRiscVMmuLib/BaseRiscVMmuLib.inf
+  RiscVMmuLib|Platform/Sophgo/SG2042Pkg/Library/MmuLib/RiscVMmuLib.inf
   SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
   SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
   CpuLib|MdePkg/Library/BaseCpuLib/BaseCpuLib.inf
@@ -371,7 +372,7 @@
 
   # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3), enable RC#2 on X8EVB by default
   # gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0xF
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
 
 [PcdsFixedAtBuild.common]
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
@@ -493,11 +494,13 @@
   Platform/Sophgo/SG2042Pkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
   Platform/Sophgo/SG2042Pkg/Universal/Dxe/MmcDxe/MmcDxe.inf
   Platform/Sophgo/SG2042Pkg/Universal/Dxe/SdHostDxe/SdHostDxe.inf
+  # Silicon/Sophgo/Drivers/PlatformUpdateMmuDxe/PlatformUpdateMmuDxe.inf
 
   #
   # RISC-V Core module
   #
-  UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
+  # UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
+  Platform/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
   Silicon/RISC-V/ProcessorPkg/Universal/SmbiosDxe/RiscVSmbiosDxe.inf
   MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
 
@@ -546,7 +549,8 @@
   # PCIe Support
   #
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
-  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
+  # MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
+  Platform/Sophgo/SG2042Pkg/Override/MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
     <LibraryClasses>
       NULL|Platform/Sophgo/SG2042Pkg/Library/PlatformPciLib/PlatformPciLib.inf
   }

@@ -1,0 +1,35 @@
+## @file
+#
+#  This driver modifies the page table attribute based on the memory attribute of the C920.
+#
+#  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION         = 0x0001001b
+  BASE_NAME           = PlatformUpdateMmuDxe
+  FILE_GUID           = e079cbe9-b091-4e55-bcd8-d512c2e60f2a
+  MODULE_TYPE         = UEFI_DRIVER
+  VERSION_STRING      = 1.0
+  ENTRY_POINT         = PlatformUpdateMmu
+
+[Sources]
+  PlatformUpdateMmuDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  UefiCpuPkg/UefiCpuPkg.dec
+  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
+
+[LibraryClasses]
+  BaseLib
+  UefiLib
+  UefiDriverEntryPoint
+  RiscVMmuLib
+  DxeServicesTableLib
+
+[FixedPcd]
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU            ## CONSUMES

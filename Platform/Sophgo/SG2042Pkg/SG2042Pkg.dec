@@ -29,6 +29,7 @@
 [PcdsFixedAtBuild]
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdNumberofC920Cores|0x8|UINT32|0x00001001
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase|0x0|UINT64|0x00001002
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU|0x0|BOOLEAN|0x00001003
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x0|UINT64|0x00001004
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|0x0|UINT64|0x00001005
   gHisiTokenSpaceGuid.PcdSerialPortSendDelay|0x0|UINT32|0x00001006
