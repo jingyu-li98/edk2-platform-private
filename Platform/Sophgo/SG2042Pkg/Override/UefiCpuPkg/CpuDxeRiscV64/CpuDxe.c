@@ -72,7 +72,6 @@ SyncIs (
   )
 {
   asm volatile (".long 0x01b0000b"); // sync.i
-  // asm volatile (".long 0x0190000b"); // sync.s
 }
 
 /**
@@ -110,14 +109,15 @@ WriteBackInvalidateDataCacheRange (
 {
   ASSERT (Length <= MAX_ADDRESS - (UINTN)Address + 1);
 
-  register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1);
+  register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1UL);
 
   for (; i < (UINTN)Address + Length; i += gCpu.DmaBufferAlignment) {
     asm volatile (".long 0x0275000b"); /* dcache.civa rs1 */
   }
 
   SyncIs ();
-  return (VOID *)((UINTN)Address & ~(gCpu.DmaBufferAlignment - 1));
+
+  return Address;
 }
 
 /**
@@ -156,14 +156,15 @@ InvalidateDataCacheRange (
 {
   ASSERT (Length <= MAX_ADDRESS - (UINTN)Address + 1);
 
-  register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1);
+  register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1UL);
 
   for (; i < (UINTN)Address + Length; i += gCpu.DmaBufferAlignment) {
     asm volatile (".long 0x0265000b"); /* dcache.iva rs1 */
   }
 
   SyncIs ();
-  return (VOID *)((UINTN)Address & ~(gCpu.DmaBufferAlignment - 1));
+
+  return Address;
 }
 
 /**
@@ -191,7 +192,7 @@ CpuFlushCpuDataCache (
   )
 {
   switch (FlushType) {
-    case EfiCpuFlushTypeWriteBack: // clean dcache (workaround)
+    case EfiCpuFlushTypeWriteBack: // clean cache, a workaround for SG2042
       WriteBackInvalidateDataCacheRange ((VOID *) (UINTN)Start, (UINTN)Length);
       break;
     case EfiCpuFlushTypeInvalidate:
@@ -462,7 +463,6 @@ InitializeCpu (
   //
   // Install Boot protocol
   //
-  DEBUG ((DEBUG_VERBOSE, "\n\n************** Install Boot protocol *****************\n\n"));
   Status = gBS->InstallProtocolInterface (
                   &ImageHandle,
                   &gRiscVEfiBootProtocolGuid,
@@ -474,7 +474,6 @@ InitializeCpu (
   //
   // Install CPU Architectural Protocol
   //
-  DEBUG ((DEBUG_VERBOSE, "\n\n************** Install CPU Architectural Protocol *****************\n\n"));
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &mCpuHandle,
                   &gEfiCpuArchProtocolGuid,

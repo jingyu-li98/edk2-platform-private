@@ -33,7 +33,7 @@
 #define RISCV_PG_D           BIT7
 #define PTE_ATTRIBUTES_MASK  0xE
 
-#define PTE_PPN_MASK          0x3FFFFFFFFFFC00ULL  /* (page table entry) PPN: 10-53 */
+#define PTE_PPN_MASK          0x3FFFFFFFFFFC00ULL
 #define PTE_PPN_SHIFT         10
 #define RISCV_MMU_PAGE_SHIFT  12
 
@@ -43,11 +43,6 @@
 #define THEAD_C920_PTE_B     BIT61 // Bufferable
 #define THEAD_C920_PTE_C     BIT62 // Cacheable
 #define THEAD_C920_PTE_SO    BIT63 // Strong Order
-
-
-#define EFI_MEMORY_CACHETYPE_MASK  (EFI_MEMORY_UC | EFI_MEMORY_WC |  \
-                                    EFI_MEMORY_WT | EFI_MEMORY_WB | \
-                                    EFI_MEMORY_UCE)
 
 STATIC UINTN  mModeSupport[] = { SATP_MODE_SV57, SATP_MODE_SV48, SATP_MODE_SV39 };
 STATIC UINTN  mMaxRootTableLevel;
@@ -130,7 +125,7 @@ SetValidPte (
 }
 
 /**
-  Determine if an entry is a block pte. (leaf PTE)
+  Determine if an entry is a block pte.
 
   @param    Entry   The entry value.
 
@@ -149,7 +144,7 @@ IsBlockEntry (
 }
 
 /**
-  Determine if an entry is a table pte.  (valid PTE & not a leaf PTE)
+  Determine if an entry is a table pte.
 
   @param    Entry   The entry value.
 
@@ -323,22 +318,19 @@ UpdateRegionMappingRecursive (
   ASSERT (Level < mMaxRootTableLevel);
   ASSERT (((RegionStart | RegionEnd) & EFI_PAGE_MASK) == 0);
 
-  /* 1G-30; 2M-21; 4K-12 */
   BlockShift = (mMaxRootTableLevel - Level - 1) * mBitPerLevel + RISCV_MMU_PAGE_SHIFT;
   BlockMask  = MAX_ADDRESS >> (64 - BlockShift);
 
   DEBUG (
     (
      DEBUG_VERBOSE,
-     "%a\tLevel(%d):\t%llx - %llx\tsetAttribute: %lx\tclrAttribute: %lx\tBlockShift=0x%lx\tBlockMask=0x%lx\n",
+     "%a(%d): %llx - %llx set %lx clr %lx\n",
      __func__,
      Level,
      RegionStart,
      RegionEnd,
      AttributeSetMask,
-     AttributeClearMask,
-     BlockShift,
-     BlockMask
+     AttributeClearMask
     )
     );
 
@@ -374,11 +366,10 @@ UpdateRegionMappingRecursive (
           // We are splitting an existing block entry, so we have to populate
           // the new table with the attributes of the block entry it replaces.
           //
-          // DEBUG ((DEBUG_WARN, "\n\n %a[%d] splitting an existing block entry !!! BlockMask = %lX\t*Entry=%lX \n", __func__, __LINE__, BlockMask, *Entry));
           Status = UpdateRegionMappingRecursive (
                      RegionStart & ~BlockMask,
                      (RegionStart | BlockMask) + 1,
-                    (*Entry & (PTE_ATTRIBUTES_MASK)) | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
+                     (*Entry & (PTE_ATTRIBUTES_MASK)) | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
                      PTE_ATTRIBUTES_MASK,
                      TranslationTable,
                      Level + 1,
@@ -429,9 +420,8 @@ UpdateRegionMappingRecursive (
       }
 
       if (!IsTableEntry (*Entry)) {
-        /* set the PGD or PMD table entry */
         EntryValue = SetPpnToPte (0, (UINTN)TranslationTable);
-        EntryValue = SetTableEntry (EntryValue); /* remove (X W R), set (V G) */
+        EntryValue = SetTableEntry (EntryValue);
         EntryValue |= THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH;
         ReplaceTableEntry (
           Entry,
@@ -439,10 +429,11 @@ UpdateRegionMappingRecursive (
           RegionStart,
           TableIsLive
           );
-        DEBUG ((DEBUG_VERBOSE, "EntryValue (point to the next level page table)=0x%lx\n", EntryValue));
+        DEBUG ((DEBUG_VERBOSE,
+               "EntryValue (point to the next level page table)=0x%lx\n",
+               EntryValue));
       }
     } else {
-      /* set the PTE */
       EntryValue = (*Entry & ~AttributeClearMask) | AttributeSetMask;
       //
       // We don't have page fault exception handler when a virtual page is accessed and
@@ -458,9 +449,9 @@ UpdateRegionMappingRecursive (
       }
 
       EntryValue = SetPpnToPte (EntryValue, RegionStart);
-      EntryValue = SetValidPte (EntryValue); /* Set Valid(V) and Global(G) mapping bits */
+      EntryValue = SetValidPte (EntryValue);
       ReplaceTableEntry (Entry, EntryValue, RegionStart, TableIsLive);
-      DEBUG ((DEBUG_VERBOSE, "!!!else: EntryValue (leaf PTE)=0x%lx\n", EntryValue));
+      DEBUG ((DEBUG_VERBOSE, "EntryValue (leaf PTE)=0x%lx\n", EntryValue));
     }
   }
 
@@ -524,40 +515,15 @@ GcdAttributeToPageAttribute (
 {
   UINTN  RiscVAttributes;
 
-  // switch (GcdAttributes & EFI_MEMORY_CACHETYPE_MASK) {
-  //   case EFI_MEMORY_UC:
-  //     RiscVAttributes = RISCV_PG_R | RISCV_PG_W |
-  //                       THEAD_C920_PTE_SO | THEAD_C920_PTE_SH;
-  //     break;
-  //   case EFI_MEMORY_WC:
-  //     RiscVAttributes = RISCV_PG_R | RISCV_PG_W | RISCV_PG_X |
-  //                       THEAD_C920_PTE_B | THEAD_C920_PTE_SH;
-  //     break;
-  //   case EFI_MEMORY_WT:
-  //     RiscVAttributes = RISCV_PG_R | RISCV_PG_W | RISCV_PG_X |
-  //                       THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH;
-  //     break;
-  //   case EFI_MEMORY_WB:
-  //     RiscVAttributes = RISCV_PG_R | RISCV_PG_W | RISCV_PG_X |
-  //                       THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH;
-  //     break;
-  //   default:
-  //     RiscVAttributes = 0; // not support EFI_MEMORY_UCE
-  //     break;
-  // }
-  // the attributes is only for un-cacheable device IO
   if ( GcdAttributes == EFI_MEMORY_UC ) {
      RiscVAttributes = RISCV_PG_R | RISCV_PG_W |
                        THEAD_C920_PTE_SO | THEAD_C920_PTE_SH;
-  // } else if ( GcdAttributes == EFI_MEMORY_WC || GcdAttributes == EFI_MEMORY_XP ) {
   } else if ( GcdAttributes == EFI_MEMORY_WC ) {
-    // the attributes is only for un-cacheable memory.
+    // To be further verified
     RiscVAttributes = RISCV_PG_R | RISCV_PG_W |
                       THEAD_C920_PTE_B | THEAD_C920_PTE_SH;
-    // RiscVAttributes = RISCV_PG_R | RISCV_PG_W |
-    //                   THEAD_C920_PTE_SO | THEAD_C920_PTE_SH;
   } else {
-    // the attributes is only for cacheable memory.
+    // To be further verified
     RiscVAttributes = RISCV_PG_R | RISCV_PG_W | RISCV_PG_X |
                       THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH;
   }
@@ -581,8 +547,7 @@ SyncIs (
   VOID
   )
 {
-  asm volatile (".long 0x01b0000b"); // sync.i
-  // asm volatile (".long 0x0190000b"); // sync.s
+  asm volatile (".long 0x01b0000b");
 }
 
 /**
@@ -607,7 +572,7 @@ RiscVSetMemoryAttributes (
 {
   UINTN        PageAttributesSet;
   EFI_STATUS   Status;
-  DEBUG ((DEBUG_VERBOSE, "%a[%d] Initialied Attribute Value\t=\t0x%lx\n", __func__, __LINE__, Attributes));
+
   PageAttributesSet = GcdAttributeToPageAttribute (Attributes);
 
   if (!RiscVMmuEnabled ()) {
@@ -617,10 +582,9 @@ RiscVSetMemoryAttributes (
   DEBUG (
     (
      DEBUG_VERBOSE,
-     "%a: Set %llX page (Length = %lX) attribute 0x%X\n",
+     "%a: Set %llX page attribute 0x%X\n",
      __func__,
      BaseAddress,
-     Length,
      PageAttributesSet
     )
     );
@@ -708,7 +672,6 @@ RiscVMmuSetSatpMode  (
   for (Index = 0; Index < NumberOfDescriptors; Index++) {
     if (MemoryMap[Index].GcdMemoryType == EfiGcdMemoryTypeMemoryMappedIo) {
       // Default Read/Write attribute for memory mapped IO
-      DEBUG ((DEBUG_VERBOSE, "\n\n%a[%d]: start IO regionmapping\n\n", __func__, __LINE__));
       Status = UpdateRegionMapping (
         MemoryMap[Index].BaseAddress,
         MemoryMap[Index].Length,
@@ -717,41 +680,13 @@ RiscVMmuSetSatpMode  (
         TranslationTable,
         FALSE
         );
-
       ASSERT_EFI_ERROR (Status);
-    // }
     } else if (MemoryMap[Index].GcdMemoryType == EfiGcdMemoryTypeSystemMemory) {
       // Default Read/Write/Execute attribute for system memory
-      DEBUG ((DEBUG_VERBOSE, "\n%a[%d]: start Memory regionmapping\n\n", __func__, __LINE__));
-      // if (Index == 0) {
-        DEBUG ((DEBUG_VERBOSE, "\n%a[%d]: start Memory regionmapping, Index=0\n\n", __func__, __LINE__));
-        Status = UpdateRegionMapping (
-          MemoryMap[Index].BaseAddress,
-          MemoryMap[Index].Length,
-          RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH,
-          PTE_ATTRIBUTES_MASK,
-          TranslationTable,
-          FALSE
-          );
-        ASSERT_EFI_ERROR (Status);
-      // } else {
-      //   Status = UpdateRegionMapping (
-      //     MemoryMap[Index].BaseAddress,
-      //     MemoryMap[Index].Length,
-      //     RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
-      //     PTE_ATTRIBUTES_MASK,
-      //     TranslationTable,
-      //     FALSE
-      //     );
-      //   ASSERT_EFI_ERROR (Status);
-      // }
-    } else if (MemoryMap[Index].GcdMemoryType == EfiGcdMemoryTypeReserved) {
-      // Default Read/Write/Execute attribute for system memory
-      DEBUG ((DEBUG_VERBOSE, "\n%a[%d]: Reserved Memory regionmapping\n\n", __func__, __LINE__));
       Status = UpdateRegionMapping (
         MemoryMap[Index].BaseAddress,
         MemoryMap[Index].Length,
-        RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
+        RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH,
         PTE_ATTRIBUTES_MASK,
         TranslationTable,
         FALSE
@@ -760,39 +695,6 @@ RiscVMmuSetSatpMode  (
     }
   }
 
-  // DEBUG ((DEBUG_WARN, "\n\n************ remapping a specifical memory region **************\n\n", __func__, __LINE__));
-  // // Status = UpdateRegionMapping (
-  // //       0x0,
-  // //       0x7ff00000,
-  // //       RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_C | THEAD_C920_PTE_SH,
-  // //       PTE_ATTRIBUTES_MASK,
-  // //       TranslationTable,
-  // //       FALSE
-  // //       );
-  // // ASSERT_EFI_ERROR (Status);
-
-  // Status = UpdateRegionMapping (
-  //       // 0x7ff00000,
-  //       // 0x100000, // 1MB
-  //       0x7FF000000,
-  //       0x1000000, // 16MB
-  //       // 0xd00000,
-  //       RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
-  //       PTE_ATTRIBUTES_MASK,
-  //       TranslationTable,
-  //       TRUE
-  //       );
-  // ASSERT_EFI_ERROR (Status);
-
-  // Status = UpdateRegionMapping (
-  //       SIZE_2GB,
-  //       0x380000000,
-  //       RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_B | THEAD_C920_PTE_SH,
-  //       PTE_ATTRIBUTES_MASK,
-  //       TranslationTable,
-  //       FALSE
-  //       );
-  // ASSERT_EFI_ERROR (Status);
   FreePool ((VOID *)MemoryMap);
 
   if (GetInterruptState ()) {
@@ -810,7 +712,7 @@ RiscVMmuSetSatpMode  (
   if (SatpReg != RiscVGetSupervisorAddressTranslationRegister ()) {
     DEBUG (
       (
-       DEBUG_WARN,
+       DEBUG_VERBOSE,
        "%a: HW does not support SATP mode:%d\n",
        __func__,
        SatpMode

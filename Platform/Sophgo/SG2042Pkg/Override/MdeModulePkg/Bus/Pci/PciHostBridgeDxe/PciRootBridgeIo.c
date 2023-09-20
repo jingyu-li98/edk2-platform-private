@@ -277,10 +277,6 @@ CreateRootBridge (
   RootBridge->RootBridgeIo.CopyMem        = RootBridgeIoCopyMem;
   RootBridge->RootBridgeIo.Pci.Read       = RootBridgeIoPciRead;
   RootBridge->RootBridgeIo.Pci.Write      = RootBridgeIoPciWrite;
-  // RootBridge->RootBridgeIo.Map            = RootBridgeIoMap;
-  // RootBridge->RootBridgeIo.Unmap          = RootBridgeIoUnmap;
-  // RootBridge->RootBridgeIo.AllocateBuffer = RootBridgeIoAllocateBuffer;
-  // RootBridge->RootBridgeIo.FreeBuffer     = RootBridgeIoFreeBuffer;
   RootBridge->RootBridgeIo.Map            = NonCoherentRootBridgeIoMap;
   RootBridge->RootBridgeIo.Unmap          = NonCoherentRootBridgeIoUnmap;
   RootBridge->RootBridgeIo.AllocateBuffer = NonCoherentRootBridgeIoAllocateBuffer;
@@ -876,10 +872,11 @@ RootBridgeIoMemRead (
 
   // Address passed to CpuIo->Mem.Read needs to be a host address instead of
   // device address.
+  // SG2042 supports Sv39, all the devices (including the PCIe apertures)
+  // need to decode bit 38 after enabling the MMU.
   return mCpuIo->Mem.Read (
                        mCpuIo,
                        (EFI_CPU_IO_PROTOCOL_WIDTH)Width,
-                      //  TO_HOST_ADDRESS (Address, Translation),
                        TO_HOST_ADDRESS (Address, Translation) + 0xffffff8000000000,
                        Count,
                        Buffer
@@ -947,10 +944,11 @@ RootBridgeIoMemWrite (
 
   // Address passed to CpuIo->Mem.Write needs to be a host address instead of
   // device address.
+  // SG2042 supports Sv39, all the devices (including the PCIe apertures)
+  // need to decode bit 38 after enabling the MMU.
   return mCpuIo->Mem.Write (
                        mCpuIo,
                        (EFI_CPU_IO_PROTOCOL_WIDTH)Width,
-                      //  TO_HOST_ADDRESS (Address, Translation),
                        TO_HOST_ADDRESS (Address, Translation) + 0xffffff8000000000,
                        Count,
                        Buffer
@@ -1801,7 +1799,6 @@ NonCoherentRootBridgeIoAllocateBuffer (
   //
   // Set the preferred memory attributes
   //
-  DEBUG ((DEBUG_VERBOSE, "********* %a [%d] Attributes = 0x%lx (0x80-WC)\tGcdDescriptor.Capabilities=0x%lx (0x1-UC, 0X2-WC,0x4-WT, 0x8-WB) ***********\n", __func__, __LINE__, Attributes));
   if (((Attributes & EFI_PCI_ATTRIBUTE_MEMORY_WRITE_COMBINE) != 0) ||
       ((GcdDescriptor.Capabilities & EFI_MEMORY_UC) == 0))
   {
@@ -1809,11 +1806,9 @@ NonCoherentRootBridgeIoAllocateBuffer (
     // Use write combining if it was requested, or if it is the only
     // type supported by the region.
     //
-    // MemType = EFI_MEMORY_WC;
-    MemType = EFI_MEMORY_UC;
+    MemType = EFI_MEMORY_WC;
   } else {
     MemType = EFI_MEMORY_UC;
-    // MemType = EFI_MEMORY_WC;
   }
 
   Alloc = AllocatePool (sizeof *Alloc);
@@ -1842,7 +1837,7 @@ NonCoherentRootBridgeIoAllocateBuffer (
   if (EFI_ERROR (Status)) {
     goto RemoveList;
   }
-  // DEBUG ((DEBUG_VERBOSE, " ******** %a [%d] Flush dcache: invalidate **********\n\n", __func__, __LINE__));
+
   Status = mCpu->FlushDataCache (
                    mCpu,
                    (EFI_PHYSICAL_ADDRESS)(UINTN)AllocAddress,
@@ -1867,7 +1862,8 @@ FreeBuffer:
 }
 
 /**
-  Frees memory that was allocated in function NonCoherentPciIoAllocateBuffer ().
+  Frees memory that was allocated in function
+  NonCoherentRootBridgeIoAllocateBuffer ().
 
   @param  This                  A pointer to the EFI_PCI_IO_PROTOCOL instance.
   @param  Pages                 The number of pages to free.
@@ -1944,8 +1940,6 @@ NonCoherentRootBridgeIoFreeBuffer (
 
   EndPages = Alloc->NumPages - (Pages + StartPages);
 
-  DEBUG ((DEBUG_VERBOSE, "%a: StartPages=0x%lx\tEndPages=0x%lx\tAlloc->NumPages=0x%lx\tPages=0x%lx\n", __func__, StartPages, EndPages, Alloc->NumPages, Pages));
-
   if (StartPages != 0) {
     AllocHead = AllocatePool (sizeof *AllocHead);
     if (AllocHead == NULL) {
@@ -1983,7 +1977,7 @@ NonCoherentRootBridgeIoFreeBuffer (
   if (AllocTail != NULL) {
     InsertHeadList (&RootBridge->Link, &AllocTail->Link);
   }
-  // DEBUG ((DEBUG_WARN, "**** %a: original attributes (free) = 0x%lx ****\n", __func__, Alloc->Attributes));
+
   Status = gDS->SetMemorySpaceAttributes (
                   (EFI_PHYSICAL_ADDRESS)(UINTN)HostAddress,
                   EFI_PAGES_TO_SIZE (Pages),
@@ -2085,13 +2079,11 @@ NonCoherentRootBridgeIoMap (
   // If this device does not support 64-bit DMA addressing, we need to allocate
   // a bounce buffer and copy over the data in case HostAddress >= 4 GB.
   //
-  DEBUG ((DEBUG_VERBOSE, "%a [%d] RootBridge->Attributes=0x%lx\n", __func__, __LINE__, RootBridge->Attributes));
   Bounce = ((!RootBridge->DmaAbove4G ||
        ((Operation != EfiPciOperationBusMasterRead64) &&
         (Operation != EfiPciOperationBusMasterWrite64) &&
         (Operation != EfiPciOperationBusMasterCommonBuffer64))) &&
       ((PhysicalAddress + *NumberOfBytes) > SIZE_4GB));
-  DEBUG ((DEBUG_VERBOSE, "\n\n ********** %a[%d] Bounce = %d\tPhysicalAddress=0x%lx\t*NumberOfBytes=0x%lx********** \n", __func__, __LINE__, Bounce, PhysicalAddress, MapInfo->NumberOfBytes));
 
   if (!Bounce) {
     switch (Operation) {
@@ -2119,14 +2111,12 @@ NonCoherentRootBridgeIoMap (
                         PhysicalAddress,
                         &GcdDescriptor
                         );
-        DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] GcdDescriptor.Attributes = 0x%lx ********** \n", __func__, __LINE__, GcdDescriptor.Attributes));
 
         if (EFI_ERROR (Status) ||
             ((GcdDescriptor.Attributes & (EFI_MEMORY_WB | EFI_MEMORY_WT)) != 0))
         {
           Bounce = TRUE;
         }
-        DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] Bounce = %d ********** \n", __func__, __LINE__, Bounce));
         break;
 
       default:
@@ -2135,7 +2125,6 @@ NonCoherentRootBridgeIoMap (
   }
 
   if (Bounce) {
-    DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] Bounce = %d ********** \n", __func__, __LINE__, Bounce));
     if ((Operation == EfiPciOperationBusMasterCommonBuffer) ||
         (Operation == EfiPciOperationBusMasterCommonBuffer64))
     {
@@ -2147,7 +2136,7 @@ NonCoherentRootBridgeIoMap (
       Status = EFI_UNSUPPORTED;
       goto FreeMapInfo;
     }
-    DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] Start AllocateBuffer = %d ********** \n", __func__, __LINE__, Bounce));
+
     Status = NonCoherentRootBridgeIoAllocateBuffer (
                This,
                AllocateAnyPages,
@@ -2159,7 +2148,7 @@ NonCoherentRootBridgeIoMap (
     if (EFI_ERROR (Status)) {
       goto FreeMapInfo;
     }
-    DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] MapInfo->MappedHostAddress = 0x%lx ********** \n", __func__, __LINE__, (EFI_PHYSICAL_ADDRESS)(UINTN)AllocAddress));
+
     MapInfo->MappedHostAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)AllocAddress;
 
     //
@@ -2177,13 +2166,6 @@ NonCoherentRootBridgeIoMap (
         );
     }
 
-    mCpu->FlushDataCache (
-            mCpu,
-            (UINTN)MapInfo->MappedHostAddress,
-            ALIGN_VALUE (*NumberOfBytes, mCpu->DmaBufferAlignment),
-            EfiCpuFlushTypeWriteBack
-            );
-
     InsertTailList (&RootBridge->Maps, &MapInfo->Link);
 
     //
@@ -2191,7 +2173,6 @@ NonCoherentRootBridgeIoMap (
     //
     *DeviceAddress = MapInfo->MappedHostAddress;
   } else {
-    DEBUG ((DEBUG_VERBOSE, " ********** %a[%d] Bounce = %d Flush dcache: flush (*NumberOfBytes=0x%lx)********** \n", __func__, __LINE__, Bounce, *NumberOfBytes));
     MapInfo->MappedHostAddress = 0;
     *DeviceAddress        = PhysicalAddress;
 
@@ -2241,10 +2222,6 @@ NonCoherentRootBridgeIoUnmap (
   )
 {
   MAP_INFO                  *MapInfo;
-  // LIST_ENTRY                *Link;
-  // PCI_ROOT_BRIDGE_INSTANCE  *RootBridge;
-
-  // RootBridge = ROOT_BRIDGE_FROM_THIS (This);
 
   if (Mapping == NULL) {
     return EFI_DEVICE_ERROR;
@@ -2259,27 +2236,6 @@ NonCoherentRootBridgeIoUnmap (
     return EFI_SUCCESS;
   }
 
-  // MapInfo = NO_MAPPING;
-  // for (Link = GetFirstNode (&RootBridge->Maps)
-  //      ; !IsNull (&RootBridge->Maps, Link)
-  //      ; Link = GetNextNode (&RootBridge->Maps, Link)
-  //      )
-  // {
-  //   MapInfo = MAP_INFO_FROM_LINK (Link);
-  //   if (MapInfo == Mapping) {
-  //     break;
-  //   }
-  // }
-
-  //
-  // Mapping is not a valid value returned by Map()
-  //
-  // if (MapInfo != Mapping) {
-  //   return EFI_INVALID_PARAMETER;
-  // }
-
-  // RemoveEntryList (&MapInfo->Link);
-
   MapInfo = Mapping;
   if (MapInfo->MappedHostAddress != 0) {
     //
@@ -2289,12 +2245,6 @@ NonCoherentRootBridgeIoUnmap (
     if ((MapInfo->Operation == EfiPciOperationBusMasterWrite) ||
         (MapInfo->Operation == EfiPciOperationBusMasterWrite64))
     {
-      // mCpu->FlushDataCache (
-      //         mCpu,
-      //         (EFI_PHYSICAL_ADDRESS)(UINTN)MapInfo->HostAddress,
-      //         MapInfo->NumberOfBytes,
-      //         EfiCpuFlushTypeInvalidate
-      //         );
       CopyMem (
         (VOID *)(UINTN)MapInfo->HostAddress,
         (VOID *)(UINTN)MapInfo->MappedHostAddress,
@@ -2317,7 +2267,6 @@ NonCoherentRootBridgeIoUnmap (
     //
     if ((MapInfo->Operation == EfiPciOperationBusMasterWrite) ||
         (MapInfo->Operation == EfiPciOperationBusMasterWrite64)) {
-      DEBUG((DEBUG_WARN, "%a[%d] invalidate data for unmap \n", __func__, __LINE__));
       mCpu->FlushDataCache (
               mCpu,
               (EFI_PHYSICAL_ADDRESS)(UINTN)MapInfo->HostAddress,
@@ -2403,12 +2352,10 @@ RootBridgeIoGetAttributes (
   //
   if (Supported != NULL) {
     *Supported = RootBridge->Supports;
-    DEBUG ((DEBUG_VERBOSE, "\n!!!%a[%d] GetAttribute=0x%lx\n", __func__, __LINE__, RootBridge->Supports));
   }
 
   if (Attributes != NULL) {
     *Attributes = RootBridge->Attributes;
-    DEBUG ((DEBUG_VERBOSE, "\n!!!%a[%d] GetAttribute=0x%lx\n", __func__, __LINE__, RootBridge->Attributes));
   }
 
   return EFI_SUCCESS;
@@ -2468,7 +2415,6 @@ RootBridgeIoSetAttributes (
   }
 
   RootBridge->Attributes = Attributes;
-  // DEBUG ((DEBUG_VERBOSE, "!!!\n %a[%d] SetAttribute=0x%lx\n", __func__, __LINE__, RootBridge->Attributes));
   return EFI_SUCCESS;
 }
 

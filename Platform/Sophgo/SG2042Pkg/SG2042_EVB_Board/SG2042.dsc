@@ -372,7 +372,7 @@
 
   # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3), enable RC#2 on X8EVB by default
   # gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x7
 
 [PcdsFixedAtBuild.common]
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
@@ -421,10 +421,10 @@
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region1Size|0x40
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2BaseAddress|0xC00000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2Size|0x100000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3BaseAddress|0xF0000000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3Size|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3BaseAddress|0xD0000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3Size|0x20000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4BaseAddress|0x4D00000000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x200000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x300000000
 
 ################################################################################
 #

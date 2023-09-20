@@ -387,16 +387,7 @@ MemoryPeimInitialization (
     LongestStart + LongestLength - 1
   ));
 
-  // LongestLength = SIZE_2GB; // 2GB, in consider of the below4G memory space for PCIe
   InitializeRamRegions (LongestStart, LongestLength);
-
-  // InitializeRamRegions (LongestLength, 0x380000000);
-  // BuildResourceDescriptorHob (
-  //       EFI_RESOURCE_MEMORY_RESERVED,
-  //       EFI_RESOURCE_ATTRIBUTE_PRESENT,
-  //       LongestLength,
-  //       0x380000000
-  //     );
 
   AddReservedMemoryMap (FdtPointer);
 
