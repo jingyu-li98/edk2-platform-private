@@ -69,6 +69,12 @@ SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdNumberofC920Cores       = 64
 SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU              = $(MMU_DISABLE)
 
 !if $(MMU_DISABLE) == TRUE
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr = 0
+!else
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr = 0xffffff8000000000
+!endif
+
+!if $(MMU_DISABLE) == TRUE
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
 !else
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0xfffffff04002B000

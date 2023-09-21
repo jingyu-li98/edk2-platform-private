@@ -26,6 +26,7 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
+  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
   UefiDriverEntryPoint
@@ -51,3 +52,6 @@
 [Depex]
   gEfiCpuIo2ProtocolGuid AND
   gEfiCpuArchProtocolGuid
+
+[Pcd]
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr  ## CONSUMES

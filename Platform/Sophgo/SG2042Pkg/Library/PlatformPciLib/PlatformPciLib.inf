@@ -19,6 +19,7 @@
 [Packages]
   MdePkg/MdePkg.dec
   Silicon/Sophgo/Sophgo.dec
+  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
   PcdLib

@@ -178,6 +178,8 @@ MangoPcieHostBridgeLibConstructor (
   UINT32  VendorId;
   UINT32  DeviceId;
   UINT32  NoBarNbits;
+  UINT8   PcieEnableCount;
+  UINT64  PhyAddrToVirAddr;
 
   VendorId = 0x17CD;
   DeviceId = 0x2042;
@@ -187,22 +189,25 @@ MangoPcieHostBridgeLibConstructor (
   //
   NoBarNbits = 0x30;
 
+  PcieEnableCount = PcdGet8 (PcdMangoPcieEnableMask);
+  PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
+
   DEBUG ((DEBUG_INFO, "Mango PCIe HostBridgeLib constructor:\n"));
   for (PortIndex = 0; PortIndex < PCIE_MAX_PORT; PortIndex++) {
     for (LinkIndex = 0; LinkIndex < PCIE_MAX_LINK; LinkIndex++) {
-      if (!((PcdGet8(PcdMangoPcieEnableMask) >>
+      if (!((PcieEnableCount >>
             ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
         continue;
       }
       PcieHostInitRootPort (VendorId,
                             DeviceId,
-                            mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000);
+                            mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr);
 
       //
       // Bus
       //
       PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
                                       1,
                                       TRUE,
                                       mPciResource[PortIndex][LinkIndex].BusBase,
@@ -213,7 +218,7 @@ MangoPcieHostBridgeLibConstructor (
       // IO
       //
       PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
                                       mPciResource[PortIndex][LinkIndex].BusBase,
                                       2,
                                       FALSE,
@@ -225,7 +230,7 @@ MangoPcieHostBridgeLibConstructor (
       // Mem32
       //
       PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
                                       mPciResource[PortIndex][LinkIndex].BusBase,
                                       3,
                                       TRUE,
@@ -237,7 +242,7 @@ MangoPcieHostBridgeLibConstructor (
       // MemAbove4G
       //
       PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + 0xffffff8000000000,
+                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
                                       mPciResource[PortIndex][LinkIndex].BusBase,
                                       4,
                                       TRUE,

@@ -164,14 +164,14 @@ PciHostBridgeGetRootBridges (
   EFI_STATUS                  Status;
   UINTN                       PortIndex;
   UINTN                       LinkIndex;
-  UINT32                      PcieEnableCount;
+  UINT8                       PcieEnableCount;
   PCI_ROOT_BRIDGE             *Bridges;
 
   //
   // Set default value to 0 in case we got any error
   //
   *Count = 0;
-  PcieEnableCount = PcdGet8(PcdMangoPcieEnableMask);
+  PcieEnableCount = PcdGet8 (PcdMangoPcieEnableMask);
 
   Bridges = AllocatePool (PcieEnableCount * sizeof (PCI_ROOT_BRIDGE));
   if (Bridges == NULL) {

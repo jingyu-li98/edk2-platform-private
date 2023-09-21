@@ -25,6 +25,7 @@
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   Silicon/Sophgo/Sophgo.dec
+  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -36,3 +37,4 @@
 
 [Pcd]
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr

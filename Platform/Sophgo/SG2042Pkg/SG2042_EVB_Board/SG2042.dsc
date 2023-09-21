@@ -69,7 +69,6 @@
   PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
-  # RiscVMmuLib|UefiCpuPkg/Library/BaseRiscVMmuLib/BaseRiscVMmuLib.inf
   RiscVMmuLib|Platform/Sophgo/SG2042Pkg/Library/MmuLib/RiscVMmuLib.inf
   SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
   SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
@@ -333,19 +332,6 @@
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderCode|20
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderData|0
 
-  #
-  # Enable strict image permissions for all images. (This applies
-  # only to images that were built with >= 4 KB section alignment.)
-  #
-  # gEfiMdeModulePkgTokenSpaceGuid.PcdImageProtectionPolicy|0x3
-
-  #
-  # Enable NX memory protection for all non-code regions, including OEM and OS
-  # reserved ones, with the exception of LoaderData regions, of which OS loaders
-  # (i.e., GRUB) may assume that its contents are executable.
-  #
-  # gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy|0xC000000000007FD5
-
 ################################################################################
 #
 # Pcd Dynamic Section - list of all EDK II PCD Entries defined by this Platform
@@ -370,8 +356,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0208
   gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
 
-  # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3), enable RC#2 on X8EVB by default
-  # gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x4
+  # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3)
+  # enable RC#0, RC#1, RC#2 by default
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x7
 
 [PcdsFixedAtBuild.common]
@@ -499,7 +485,6 @@
   #
   # RISC-V Core module
   #
-  # UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
   Platform/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
   Silicon/RISC-V/ProcessorPkg/Universal/SmbiosDxe/RiscVSmbiosDxe.inf
   MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
@@ -549,7 +534,6 @@
   # PCIe Support
   #
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
-  # MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
   Platform/Sophgo/SG2042Pkg/Override/MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
     <LibraryClasses>
       NULL|Platform/Sophgo/SG2042Pkg/Library/PlatformPciLib/PlatformPciLib.inf
@@ -559,7 +543,6 @@
   # NVMe and SATA Boot Devices
   #
   MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
-  # MdeModulePkg/Bus/Pci/NvmExpressPei/NvmExpressPei.inf
   MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 
   #

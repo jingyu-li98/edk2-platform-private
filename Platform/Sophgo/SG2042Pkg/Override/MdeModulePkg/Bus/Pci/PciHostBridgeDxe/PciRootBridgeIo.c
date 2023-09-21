@@ -877,7 +877,7 @@ RootBridgeIoMemRead (
   return mCpuIo->Mem.Read (
                        mCpuIo,
                        (EFI_CPU_IO_PROTOCOL_WIDTH)Width,
-                       TO_HOST_ADDRESS (Address, Translation) + 0xffffff8000000000,
+                       TO_HOST_ADDRESS (Address, Translation) + PcdGet64 (PcdSG2042PhyAddrToVirAddr),
                        Count,
                        Buffer
                        );
@@ -949,7 +949,7 @@ RootBridgeIoMemWrite (
   return mCpuIo->Mem.Write (
                        mCpuIo,
                        (EFI_CPU_IO_PROTOCOL_WIDTH)Width,
-                       TO_HOST_ADDRESS (Address, Translation) + 0xffffff8000000000,
+                       TO_HOST_ADDRESS (Address, Translation) + PcdGet64 (PcdSG2042PhyAddrToVirAddr),
                        Count,
                        Buffer
                        );

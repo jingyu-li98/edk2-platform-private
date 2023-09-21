@@ -78,7 +78,6 @@ INF  Platform/Sophgo/SG2042Pkg/Universal/Dxe/SdHostDxe/SdHostDxe.inf
 
 # RISC-V Core Drivers
 INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
-# INF  UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
 INF  Platform/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
 INF  Silicon/RISC-V/ProcessorPkg/Universal/SmbiosDxe/RiscVSmbiosDxe.inf
 
@@ -135,14 +134,12 @@ INF  ShellPkg/Application/Shell/Shell.inf
 # PCIe Support
 #
 INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
-# INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 INF  Platform/Sophgo/SG2042Pkg/Override/MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 
 #
 # NVMe and SATA Boot Devices
 #
 INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
-# INF  MdeModulePkg/Bus/Pci/NvmExpressPei/NvmExpressPei.inf
 INF  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 
 #

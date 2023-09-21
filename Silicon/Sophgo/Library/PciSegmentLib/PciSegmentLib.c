@@ -260,6 +260,7 @@ PciSegmentLibReadWorker (
   UINT64                MmioAddress;
   UINT64                VirtualCfgAddr;
   UINT64                VirtualSlvAddr;
+  UINT64                PhyAddrToVirAddr;
   MANGO_PCI_RESOURCE    *PciResource;
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
@@ -269,8 +270,9 @@ PciSegmentLibReadWorker (
     return 0xffffffff;
   }
 
-  VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
-  VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
+  PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
+  VirtualCfgAddr = PciResource->ConfigSpaceAddress + PhyAddrToVirAddr;
+  VirtualSlvAddr = PciResource->Mmio64Base + PhyAddrToVirAddr;
 
   MmioAddress = PciMapBus (Segment,
                            Bus,
@@ -324,6 +326,7 @@ PciSegmentLibWriteWorker (
   UINT64                MmioAddress;
   UINT64                VirtualCfgAddr;
   UINT64                VirtualSlvAddr;
+  UINT64                PhyAddrToVirAddr;
   MANGO_PCI_RESOURCE    *PciResource;
 
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
@@ -333,8 +336,9 @@ PciSegmentLibWriteWorker (
     return 0xffffffff;
   }
 
-  VirtualCfgAddr = PciResource->ConfigSpaceAddress + 0xffffff8000000000;
-  VirtualSlvAddr = PciResource->Mmio64Base + 0xffffff8000000000;
+  PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
+  VirtualCfgAddr = PciResource->ConfigSpaceAddress + PhyAddrToVirAddr;
+  VirtualSlvAddr = PciResource->Mmio64Base + PhyAddrToVirAddr;
 
   MmioAddress = PciMapBus (Segment,
                            Bus,

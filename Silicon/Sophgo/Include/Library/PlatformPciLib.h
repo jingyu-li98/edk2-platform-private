@@ -20,20 +20,20 @@ typedef enum  {
   RP_NO_BAR
 } PCIE_RP_BAR;
 
-#define MANGO_PCIE_CFG_LINK0_APB       (FixedPcdGet64(PcdMangoPciCfgLink0ApbBase)) // 0x0
-#define MANGO_PCIE_CFG_LINK1_APB       (FixedPcdGet64(PcdMangoPciCfgLink1ApbBase)) // 0x800000
-#define MANGO_PCIE_CFG_PHY_APB         (FixedPcdGet64(PcdMangoPciCfgPhyApbBase))   // 0x1000000
-#define MANGO_PCIE_CFG_MANGO_APB       (FixedPcdGet64(PcdMangoPciCfgMangoApbBase)) // 0x1800000
+#define MANGO_PCIE_CFG_LINK0_APB       (FixedPcdGet64 (PcdMangoPciCfgLink0ApbBase)) // 0x0
+#define MANGO_PCIE_CFG_LINK1_APB       (FixedPcdGet64 (PcdMangoPciCfgLink1ApbBase)) // 0x800000
+#define MANGO_PCIE_CFG_PHY_APB         (FixedPcdGet64 (PcdMangoPciCfgPhyApbBase))   // 0x1000000
+#define MANGO_PCIE_CFG_MANGO_APB       (FixedPcdGet64 (PcdMangoPciCfgMangoApbBase)) // 0x1800000
 
-#define MANGO_PCIE0_SLV0_BASE          (FixedPcdGet64(PcdMangoPci0Slv0CfgBase)) // 0x4000000000
-#define MANGO_PCIE0_SLV1_BASE          (FixedPcdGet64(PcdMangoPci0Slv1CfgBase)) // 0x4400000000
-#define MANGO_PCIE1_SLV0_BASE          (FixedPcdGet64(PcdMangoPci1Slv0CfgBase)) // 0x4800000000
-#define MANGO_PCIE1_SLV1_BASE          (FixedPcdGet64(PcdMangoPci1Slv1CfgBase)) // 0x4c00000000
+#define MANGO_PCIE0_SLV0_BASE          (FixedPcdGet64 (PcdMangoPci0Slv0CfgBase)) // 0x4000000000
+#define MANGO_PCIE0_SLV1_BASE          (FixedPcdGet64 (PcdMangoPci0Slv1CfgBase)) // 0x4400000000
+#define MANGO_PCIE1_SLV0_BASE          (FixedPcdGet64 (PcdMangoPci1Slv0CfgBase)) // 0x4800000000
+#define MANGO_PCIE1_SLV1_BASE          (FixedPcdGet64 (PcdMangoPci1Slv1CfgBase)) // 0x4c00000000
 
-#define MANGO_PCIE0_LINK0_CFG_BASE     (FixedPcdGet64(PcdMangoPci0Link0CfgBase)) // 0x7060000000
-#define MANGO_PCIE0_LINK1_CFG_BASE     (FixedPcdGet64(PcdMangoPci0Link1CfgBase)) // 0x7060800000
-#define MANGO_PCIE1_LINK0_CFG_BASE     (FixedPcdGet64(PcdMangoPci1Link0CfgBase)) // 0x7062000000
-#define MANGO_PCIE1_LINK1_CFG_BASE     (FixedPcdGet64(PcdMangoPci1Link1CfgBase)) // 0x7062800000
+#define MANGO_PCIE0_LINK0_CFG_BASE     (FixedPcdGet64 (PcdMangoPci0Link0CfgBase)) // 0x7060000000
+#define MANGO_PCIE0_LINK1_CFG_BASE     (FixedPcdGet64 (PcdMangoPci0Link1CfgBase)) // 0x7060800000
+#define MANGO_PCIE1_LINK0_CFG_BASE     (FixedPcdGet64 (PcdMangoPci1Link0CfgBase)) // 0x7062000000
+#define MANGO_PCIE1_LINK1_CFG_BASE     (FixedPcdGet64 (PcdMangoPci1Link1CfgBase)) // 0x7062800000
 
 //
 // Region 1: Bus Number
