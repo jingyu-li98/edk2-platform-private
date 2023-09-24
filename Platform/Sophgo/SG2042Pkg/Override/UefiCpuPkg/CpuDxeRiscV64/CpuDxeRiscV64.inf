@@ -20,6 +20,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
+  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -62,6 +63,7 @@
   gUefiCpuPkgTokenSpaceGuid.PcdCpuStackSwitchExceptionList              ## CONSUMES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuKnownGoodStackSize                    ## CONSUMES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency             ## CONSUMES
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU                 ## CONSUMES
 
 [Depex]
   TRUE

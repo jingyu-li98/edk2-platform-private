@@ -191,7 +191,7 @@ PciMapBus (
     // All other PCI devices are behind some bridge hence on another bus.
     //
     if (DevFn) {
-      return (UINT64)NULL;
+      return 0xffffffff;
     }
     return VirtualCfgAddr + PCIE_RP_BASE + Register;
   }
@@ -199,7 +199,7 @@ PciMapBus (
   // Check that the link is up
   //
   if (!(PcieIsLinkUp(VirtualCfgAddr))) {
-    return (UINT64)NULL;
+    return 0xffffffff;
   }
 
   //
@@ -272,7 +272,7 @@ PciSegmentLibReadWorker (
 
   PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
   VirtualCfgAddr = PciResource->ConfigSpaceAddress + PhyAddrToVirAddr;
-  VirtualSlvAddr = PciResource->Mmio64Base + PhyAddrToVirAddr;
+  VirtualSlvAddr = PciResource->PciSlvAddress + PhyAddrToVirAddr;
 
   MmioAddress = PciMapBus (Segment,
                            Bus,
@@ -282,7 +282,8 @@ PciSegmentLibReadWorker (
                            VirtualCfgAddr,
                            VirtualSlvAddr,
                            PciResource);
-  if (!MmioAddress) {
+  DEBUG ((DEBUG_VERBOSE, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  if (MmioAddress == 0xffffffff) {
     return 0xffffffff;
   }
 
@@ -338,7 +339,7 @@ PciSegmentLibWriteWorker (
 
   PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
   VirtualCfgAddr = PciResource->ConfigSpaceAddress + PhyAddrToVirAddr;
-  VirtualSlvAddr = PciResource->Mmio64Base + PhyAddrToVirAddr;
+  VirtualSlvAddr = PciResource->PciSlvAddress + PhyAddrToVirAddr;
 
   MmioAddress = PciMapBus (Segment,
                            Bus,
@@ -348,7 +349,8 @@ PciSegmentLibWriteWorker (
                            VirtualCfgAddr,
                            VirtualSlvAddr,
                            PciResource);
-  if (!MmioAddress) {
+  DEBUG ((DEBUG_VERBOSE, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  if (MmioAddress == 0xffffffff) {
     return 0xffffffff;
   }
 

@@ -67,8 +67,62 @@ PcieHostInitRootPort (
 
 STATIC
 VOID
-PcieHostInitAddressTranslation (
+PcieHostNoBarMatchInboundConfig (
   IN UINT32                   NoBarNbits,
+  IN UINT64                   CfgBase
+  )
+{
+  UINT32        Addr0;
+  UINT32        Addr1;
+
+  //
+  // Set Root Port no BAR match Inbound Translation registers:
+  // needed for MSI and DMA.
+  // Root Port BAR0 and BAR1 are disabled, hence no need to set
+  // their inbound translation registers.
+  //
+  Addr0 = PCIE_AT_IB_RP_BAR_ADDR0_NBITS (NoBarNbits);
+  Addr1 = 0;
+  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
+}
+
+STATIC
+VOID
+PcieHostSetOutboundRegionForConfigureSpaceAccess (
+  IN UINT64                   CfgBase,
+  IN UINT64                   SlvAddr,
+  IN INT32                    BusNumber
+  )
+{
+  UINT32        Addr0;
+  UINT32        Addr1;
+  UINT32        Desc1;
+
+  //
+  // Set the PCI Address for Region 0
+  // Reserve region 0 for PCI configure space accesses:
+  // OB_REGION_PCI_ADDR0 and OB_REGION_DESC0 are updated dynamically by
+  // PciMapBus (), other region registers are set here once for all.
+  //
+  Addr1 = 0; // Should be programmed to zero.
+  Desc1 = PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(0), Addr1);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(0), Desc1);
+
+  //
+  // Set the AXI Address for Region 0
+  //
+  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
+          (LOWER_32_BITS(SlvAddr) & GENMASK(31, 8));
+  Addr1 = UPPER_32_BITS(SlvAddr);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
+  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
+}
+
+STATIC
+VOID
+PcieHostSetOutboundRegion (
   IN UINT64                   CfgBase,
   IN INT32                    BusNumber,
   IN INT32                    RegionNumber,
@@ -88,29 +142,11 @@ PcieHostInitAddressTranslation (
   // Get shift amount
   //
   Nbits         = 0;
-  while (RegionSize > 1) {
+  RegionSize   -= 1;
+  while (RegionSize >= 1) {
     RegionSize >>= 1;
     Nbits++;
   }
-  //
-  // Set the PCI Address for Region 0
-  // Reserve region 0 for PCI configure space accesses:
-  // OB_REGION_PCI_ADDR0 and OB_REGION_DESC0 are updated dynamically by
-  // PciMapBus (), other region registers are set here once for all.
-  //
-  Addr1 = 0; // Should be programmed to zero.
-  Desc1 = PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(0), Addr1);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(0), Desc1);
-
-  //
-  // Set the AXI Address for Region 0
-  //
-  Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
-          (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
-  Addr1 = UPPER_32_BITS(CpuAddr);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
 
   if (Nbits < 8) {
     Nbits = 8;
@@ -147,23 +183,11 @@ PcieHostInitAddressTranslation (
   //
   // Set the CPU address
   //
-  CpuAddr = CpuAddr & PLAT_CPU_TO_BUS_ADDR; // cpu address fixup
   Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) |
           (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(CpuAddr);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
   MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
-
-  //
-  // Set Root Port no BAR match Inbound Translation registers:
-  // needed for MSI and DMA.
-  // Root Port BAR0 and BAR1 are disabled, hence no need to set
-  // their inbound translation registers.
-  //
-  Addr0 = PCIE_AT_IB_RP_BAR_ADDR0_NBITS (NoBarNbits);
-  Addr1 = 0;
-  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
 }
 
 EFI_STATUS
@@ -199,57 +223,84 @@ MangoPcieHostBridgeLibConstructor (
             ((PCIE_MAX_PORT * PortIndex) + LinkIndex)) & 0x01)) {
         continue;
       }
-      PcieHostInitRootPort (VendorId,
-                            DeviceId,
-                            mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr);
+
+      PcieHostInitRootPort (
+        VendorId,
+        DeviceId,
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr
+      );
 
       //
-      // Bus
+      // Inbound: no bar match
       //
-      PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
-                                      1,
-                                      TRUE,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      mPciResource[PortIndex][LinkIndex].BusSize);
+      PcieHostNoBarMatchInboundConfig (
+        NoBarNbits,
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr
+      );
+
       //
-      // IO
+      // Outbound: Region 0 for Slave address (configure space access)
       //
-      PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      2,
-                                      FALSE,
-                                      mPciResource[PortIndex][LinkIndex].IoBase,
-                                      mPciResource[PortIndex][LinkIndex].IoBase -
-                                      mPciResource[PortIndex][LinkIndex].IoTranslation,
-                                      mPciResource[PortIndex][LinkIndex].IoSize);
+      PcieHostSetOutboundRegionForConfigureSpaceAccess (
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
+        mPciResource[PortIndex][LinkIndex].PciSlvAddress,
+        mPciResource[PortIndex][LinkIndex].BusBase
+      );
+
       //
-      // Mem32
+      // Outbound: Bus
       //
-      PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      3,
-                                      TRUE,
-                                      mPciResource[PortIndex][LinkIndex].Mmio32Base,
-                                      mPciResource[PortIndex][LinkIndex].Mmio32Base -
-                                      mPciResource[PortIndex][LinkIndex].Mmio32Translation,
-                                      mPciResource[PortIndex][LinkIndex].Mmio32Size);
+      PcieHostSetOutboundRegion (
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        1,
+        TRUE,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        mPciResource[PortIndex][LinkIndex].BusSize
+      );
+
       //
-      // MemAbove4G
+      // Outbound: IO
       //
-      PcieHostInitAddressTranslation (NoBarNbits,
-                                      mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
-                                      mPciResource[PortIndex][LinkIndex].BusBase,
-                                      4,
-                                      TRUE,
-                                      mPciResource[PortIndex][LinkIndex].Mmio64Base,
-                                      mPciResource[PortIndex][LinkIndex].Mmio64Base -
-                                      mPciResource[PortIndex][LinkIndex].Mmio64Translation,
-                                      mPciResource[PortIndex][LinkIndex].Mmio64Size);
+      PcieHostSetOutboundRegion (
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        2,
+        FALSE,
+        mPciResource[PortIndex][LinkIndex].IoBase,
+        mPciResource[PortIndex][LinkIndex].IoBase -
+        mPciResource[PortIndex][LinkIndex].IoTranslation,
+        mPciResource[PortIndex][LinkIndex].IoSize
+      );
+
+      //
+      // Outbound: Mem32
+      //
+      PcieHostSetOutboundRegion (
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        3,
+        TRUE,
+        mPciResource[PortIndex][LinkIndex].Mmio32Base,
+        mPciResource[PortIndex][LinkIndex].Mmio32Base -
+        mPciResource[PortIndex][LinkIndex].Mmio32Translation,
+        mPciResource[PortIndex][LinkIndex].Mmio32Size
+      );
+
+      //
+      // Outbound: MemAbove4G
+      //
+      PcieHostSetOutboundRegion (
+        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
+        mPciResource[PortIndex][LinkIndex].BusBase,
+        4,
+        TRUE,
+        mPciResource[PortIndex][LinkIndex].Mmio64Base,
+        mPciResource[PortIndex][LinkIndex].Mmio64Base -
+        mPciResource[PortIndex][LinkIndex].Mmio64Translation,
+        mPciResource[PortIndex][LinkIndex].Mmio64Size
+      );
 
       DEBUG ((
         DEBUG_INFO,

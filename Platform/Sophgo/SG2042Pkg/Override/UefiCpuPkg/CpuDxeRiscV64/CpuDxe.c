@@ -457,8 +457,10 @@ InitializeCpu (
   //
   // Enable MMU
   //
-  Status = RiscVConfigureMmu ();
-  ASSERT_EFI_ERROR (Status);
+  if (!PcdGetBool (PcdForceNoMMU)) {
+    Status = RiscVConfigureMmu ();
+    ASSERT_EFI_ERROR (Status);
+  }
 
   //
   // Install Boot protocol
