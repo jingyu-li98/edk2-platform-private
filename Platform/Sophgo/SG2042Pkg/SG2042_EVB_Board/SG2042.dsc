@@ -378,17 +378,17 @@
 
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region1BaseAddress|0x0
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region1Size|0x40
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2BaseAddress|0x0
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2Size|0x100000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3BaseAddress|0x50000000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3Size|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2BaseAddress|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region2Size|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3BaseAddress|0x20000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region3Size|0xE0000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region4BaseAddress|0x4100000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0Region4Size|0x200000000
 
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region1BaseAddress|0x40
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region1Size|0x40
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2BaseAddress|0x400000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2Size|0x100000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2BaseAddress|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region2Size|0x10000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region3BaseAddress|0x80000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region3Size|0x10000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1Region4BaseAddress|0x4500000000
@@ -396,8 +396,8 @@
 
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region1BaseAddress|0x80
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region1Size|0x40
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2BaseAddress|0x800000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2Size|0x100000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2BaseAddress|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region2Size|0x10000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region3BaseAddress|0xE0000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region3Size|0x10000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0Region4BaseAddress|0x4900000000
@@ -405,12 +405,12 @@
 
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region1BaseAddress|0xC0
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region1Size|0x40
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2BaseAddress|0xC00000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2Size|0x100000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2BaseAddress|0x10000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region2Size|0x10000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3BaseAddress|0xD0000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region3Size|0x20000000
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4BaseAddress|0x4D00000000
-  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x300000000
+  gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x200000000
 
 ################################################################################
 #
@@ -501,11 +501,13 @@
   MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
 
-# No graphic console supported yet.
-#  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf {
-#    <LibraryClasses>
-#      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-#  }
+  #
+  # Graphic Console Support
+  #
+  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf {
+    <LibraryClasses>
+       PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
+  }
   MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf {
     <LibraryClasses>
@@ -540,9 +542,15 @@
   }
 
   #
-  # NVMe and SATA Boot Devices
+  # NVMe Support
   #
   MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+
+  #
+  # SATA Support
+  #
+  MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
+  MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
   MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 
   #
@@ -559,6 +567,13 @@
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+
+  #
+  # Emulator for x64 OpRoms, etc.
+  #
+  !if $(X64EMU_ENABLE) == TRUE
+    Emulator/MultiArchUefiPkg/EmulatorDxe.inf
+  !endif
 
   Platform/Sophgo/SG2042Pkg/Universal/Dxe/FdtDxe/FdtDxe.inf
 
