@@ -17,10 +17,11 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Protocol/PciHostBridgeResourceAllocation.h>
 
-GLOBAL_REMOVE_IF_UNREFERENCED
+#ifndef MDEPKG_NDEBUG
 STATIC CHAR16 CONST * CONST mPciHostBridgeLibAcpiAddressSpaceTypeStr[] = {
   L"Mem", L"I/O", L"Bus"
 };
+#endif
 
 #pragma pack(1)
 typedef struct {
