@@ -46,23 +46,23 @@ PcieHostInitRootPort (
     PCIE_LM_RC_BAR_CFG_PREFETCH_MEM_64BITS |
     PCIE_LM_RC_BAR_CFG_IO_ENABLE |
     PCIE_LM_RC_BAR_CFG_IO_32BITS;
-  MmioWrite32 ((CfgBase + PCIE_LM_RC_BAR_CFG), Value);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_LM_RC_BAR_CFG), Value);
 
   //
   // Set root port configuration space
   //
   if (VendorId != 0xffff) {
     Id = PCIE_LM_ID_VENDOR(VendorId) | PCIE_LM_ID_SUBSYS(VendorId);
-    MmioWrite32((CfgBase + PCIE_LM_ID), Id);
+    MmioWrite32((UINTN)(CfgBase + PCIE_LM_ID), Id);
   }
 
   if (DeviceId != 0xffff) {
-    Value = MmioRead32 (CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET);
+    Value = MmioRead32 ((UINTN)(CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET));
     Value &= 0x0000FFFF;
     Value |= (DeviceId << 16);
-    MmioWrite32 (CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET, Value);
+    MmioWrite32 ((UINTN)(CfgBase + PCIE_RP_BASE + PCI_VENDOR_ID_OFFSET), Value);
   }
-  MmioWrite32 (CfgBase + PCIE_RP_BASE + PCI_REVISION_ID_OFFSET, PCI_CLASS_BRIDGE_PCI << 16);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_RP_BASE + PCI_REVISION_ID_OFFSET), PCI_CLASS_BRIDGE_PCI << 16);
 }
 
 STATIC
@@ -83,8 +83,8 @@ PcieHostNoBarMatchInboundConfig (
   //
   Addr0 = PCIE_AT_IB_RP_BAR_ADDR0_NBITS (NoBarNbits);
   Addr1 = 0;
-  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR), Addr1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_IB_RP_BAR_ADDR0(RP_NO_BAR)), Addr0);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_IB_RP_BAR_ADDR1(RP_NO_BAR)), Addr1);
 }
 
 STATIC
@@ -107,8 +107,8 @@ PcieHostSetOutboundRegionForConfigureSpaceAccess (
   //
   Addr1 = 0; // Should be programmed to zero.
   Desc1 = PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(0), Addr1);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(0), Desc1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(0)), Addr1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_DESC1(0)), Desc1);
 
   //
   // Set the AXI Address for Region 0
@@ -116,8 +116,8 @@ PcieHostSetOutboundRegionForConfigureSpaceAccess (
   Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
           (LOWER_32_BITS(SlvAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(SlvAddr);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0), Addr1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(0)), Addr0);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(0)), Addr1);
 }
 
 STATIC
@@ -159,8 +159,8 @@ PcieHostSetOutboundRegion (
           (LOWER_32_BITS(PciAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(PciAddr);
 
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR0(RegionNumber), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(RegionNumber), Addr1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_PCI_ADDR0(RegionNumber)), Addr0);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_PCI_ADDR1(RegionNumber)), Addr1);
 
   //
   // Set the PCIe header descriptor
@@ -177,8 +177,8 @@ PcieHostSetOutboundRegion (
   Desc0 |= PCIE_AT_OB_REGION_DESC0_HARDCODED_RID |
            PCIE_AT_OB_REGION_DESC0_DEVFN(0);
   Desc1 |= PCIE_AT_OB_REGION_DESC1_BUS(BusNumber);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC0(RegionNumber), Desc0);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_DESC1(RegionNumber), Desc1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_DESC0(RegionNumber)), Desc0);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_DESC1(RegionNumber)), Desc1);
 
   //
   // Set the CPU address
@@ -186,8 +186,8 @@ PcieHostSetOutboundRegion (
   Addr0 = PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(Nbits) |
           (LOWER_32_BITS(CpuAddr) & GENMASK(31, 8));
   Addr1 = UPPER_32_BITS(CpuAddr);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber), Addr0);
-  MmioWrite32 (CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber), Addr1);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_CPU_ADDR0(RegionNumber)), Addr0);
+  MmioWrite32 ((UINTN)(CfgBase + PCIE_AT_OB_REGION_CPU_ADDR1(RegionNumber)), Addr1);
 }
 
 EFI_STATUS
@@ -262,6 +262,7 @@ MangoPcieHostBridgeLibConstructor (
 
       //
       // Outbound: IO
+      // Workaround for SG2042 to map the IO below 4G to Above 4G.
       //
       PcieHostSetOutboundRegion (
         mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
@@ -270,7 +271,8 @@ MangoPcieHostBridgeLibConstructor (
         FALSE,
         mPciResource[PortIndex][LinkIndex].IoBase,
         mPciResource[PortIndex][LinkIndex].IoBase -
-        mPciResource[PortIndex][LinkIndex].IoTranslation,
+        // mPciResource[PortIndex][LinkIndex].IoTranslation,
+        mPciResource[PortIndex][LinkIndex].Mmio32Translation,
         mPciResource[PortIndex][LinkIndex].IoSize
       );
 

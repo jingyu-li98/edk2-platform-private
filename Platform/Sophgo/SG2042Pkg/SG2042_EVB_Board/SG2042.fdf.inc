@@ -76,6 +76,11 @@ SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU              = $(MMU_D
 
 !if $(MMU_DISABLE) == TRUE
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
+  SET gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase             = 0x7040000000
+  SET gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate                  = 115200
+  SET gHisiTokenSpaceGuid.PcdSerialPortSendDelay                       = 10000000
+  SET gHisiTokenSpaceGuid.PcdUartClkInHz                               = 500000000
 !else
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0xfffffff04002B000
 !endif

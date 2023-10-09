@@ -32,16 +32,23 @@ typedef enum {
   @param  M Additional bits to assert to be zero.
 **/
 #define ASSERT_INVALID_PCI_SEGMENT_ADDRESS(A,M) \
-  ASSERT (((A) & (0xffff0000f0000000ULL | (M))) == 0)
+  ASSERT (((A) & (0xFFFF0000F0000000ULL | (M))) == 0)
 
 #define EXTRACT_PCIE_ADDRESS(Address, Segment, Bus, Device, Function, Register) \
 { \
-  (Segment)  = (RShiftU64 (Address, 32) & 0xffff);   \
-  (Bus)      = (((Address) >> 20) & 0xff);   \
-  (Device)   = (((Address) >> 15) & 0x1f);   \
+  (Segment)  = (RShiftU64 (Address, 32) & 0xFFFF);   \
+  (Bus)      = (((Address) >> 20) & 0xFF);   \
+  (Device)   = (((Address) >> 15) & 0x1F);   \
   (Function) = (((Address) >> 12) & 0x07);   \
-  (Register) = ((Address)       & 0xfff);  \
+  (Register) = ((Address)        & 0xFFF);   \
 }
+
+/**
+  Given the nature of how we access PCI devices, we ensure that
+  read/write accesses are serialized through the use of a lock.
+**/
+STATIC
+EFI_LOCK mPciSegmentReadWriteLock = EFI_INITIALIZE_LOCK_VARIABLE (TPL_HIGH_LEVEL);
 
 STATIC
 MANGO_PCI_RESOURCE *
@@ -70,8 +77,8 @@ BOOLEAN PcieIsLinkUp (
 {
   UINT32 Value;
 
-  Value = MmioRead32(ApbBase + PCIE_LM_BASE);
-  if ((Value & 0x1)) {
+  Value = MmioRead32((UINTN)(ApbBase + PCIE_LM_BASE));
+  if (Value & 0x1) {
     return TRUE;
   }
   return FALSE;
@@ -95,8 +102,20 @@ PciGenericConfigRead32 (
   } else if (Width == PciCfgWidthUint32) {
     return MmioRead32 ((UINTN)Address);
   } else {
-    return 0xffffffff;
+    return 0xFFFFFFFF;
   }
+
+  // if (Width == PciCfgWidthUint8) {
+  //   Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+  //   return (Buffer >> ((Address & 0x3) * 8)) & 0xFF;
+  // } else if (Width == PciCfgWidthUint16) {
+  //   Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+  //   return (Buffer >> ((Address & 0x3) * 8)) & 0xFFFF;
+  // } else if (Width == PciCfgWidthUint32) {
+  //   return MmioRead32 ((UINTN)Address);
+  // } else {
+  //   return 0xFFFFFFFF;
+  // }
 }
 
 STATIC
@@ -120,8 +139,25 @@ PciGenericConfigWrite32 (
   } else if (Width == PciCfgWidthUint32) {
     MmioWrite32 ((UINTN)Address, Data);
   } else {
-    return 0xffffffff;
+    return 0xFFFFFFFF;
   }
+
+  // if (Width == PciCfgWidthUint8) {
+  //   Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+  //   Buffer &= ~(0xFF << ((Address & 0x3) * 8));
+  //   Buffer |= ((Data << ((Address & 0x3) * 8))) & (0xFF << ((Address & 0x3) * 8));
+  //   MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
+  // } else if (Width == PciCfgWidthUint16) {
+  //   Buffer = MmioRead32((UINTN)(Address & (~0x3)));
+  //   Buffer &= ~(0xFFFF << ((Address & 0x3) * 8));
+  //   Buffer |= ((Data << ((Address & 0x3) * 8))) & (0xFFFF << ((Address & 0x3) * 8));
+  //   MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
+  // } else if (Width == PciCfgWidthUint32) {
+  //   MmioWrite32 ((UINTN)Address, Data);
+  // } else {
+  //   return 0xFFFFFFFF;
+  // }
+
   return Data;
 }
 
@@ -139,7 +175,7 @@ PciGenericConfigRead (
   } else if (Width == PciCfgWidthUint32) {
     return MmioRead32 ((UINTN)Address);
   } else {
-    return 0xffffffff;
+    return 0xFFFFFFFF;
   }
 }
 
@@ -158,8 +194,9 @@ PciGenericConfigWrite (
   } else if (Width == PciCfgWidthUint32) {
     MmioWrite32 ((UINTN)Address, Data);
   } else {
-    return 0xffffffff;
+    return 0xFFFFFFFF;
   }
+
   return Data;
 }
 
@@ -191,21 +228,31 @@ PciMapBus (
     // All other PCI devices are behind some bridge hence on another bus.
     //
     if (DevFn) {
-      return 0xffffffff;
+      return 0xFFFFFFFF;
     }
+
     return VirtualCfgAddr + PCIE_RP_BASE + Register;
   }
+
+  //
+  // For usual topology, only one child in a root port.
+  // Follow Linux kernel, only look for one device below a PCIe downstream port.
+  //
+  if (Device > 0) {
+    return 0xFFFFFFFF;
+  }
+
   //
   // Check that the link is up
   //
-  if (!(PcieIsLinkUp(VirtualCfgAddr))) {
-    return 0xffffffff;
+  if (!(PcieIsLinkUp((UINTN)VirtualCfgAddr))) {
+    return 0xFFFFFFFF;
   }
 
   //
   // Clear AXI link-down status
   //
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_LINKDOWN, 0x0);
+  MmioWrite32 ((UINTN)(VirtualCfgAddr + PCIE_AT_LINKDOWN), 0x0);
 
   //
   // Update Output registers for AXI region 0
@@ -213,7 +260,7 @@ PciMapBus (
   Addr0 = PCIE_AT_OB_REGION_PCI_ADDR0_NBITS(12) |
           PCIE_AT_OB_REGION_PCI_ADDR0_DEVFN(DevFn) |
           PCIE_AT_OB_REGION_PCI_ADDR0_BUS(Bus);
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0), Addr0);
+  MmioWrite32 ((UINTN)(VirtualCfgAddr + PCIE_AT_OB_REGION_PCI_ADDR0(0)), Addr0);
 
   //
   // Configuration Type 0 or Type 1 access
@@ -223,7 +270,7 @@ PciMapBus (
 
   //
   // The bus number was alreadly set once for all in Desc1
-  // by PcieHostInitAddressTranslation ().
+  // by PcieHostSetOutboundRegionForConfigureSpaceAccess ().
   //
   if (Bus == PciResource->BusBase + 1) {
     Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
@@ -231,7 +278,8 @@ PciMapBus (
     Desc0 |= PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
   }
 
-  MmioWrite32 (VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0), Desc0);
+  MmioWrite32 ((UINTN)(VirtualCfgAddr + PCIE_AT_OB_REGION_DESC0(0)), Desc0);
+
   return VirtualSlvAddr + Register;
 }
 
@@ -263,11 +311,14 @@ PciSegmentLibReadWorker (
   UINT64                PhyAddrToVirAddr;
   MANGO_PCI_RESOURCE    *PciResource;
 
+  // EfiAcquireLock (&mPciSegmentReadWriteLock);
+
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
 
   PciResource = PciSegmentLibGetResource (Segment);
   if (PciResource == NULL) {
-    return 0xffffffff;
+    EfiReleaseLock (&mPciSegmentReadWriteLock);
+    return 0xFFFFFFFF;
   }
 
   PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
@@ -282,9 +333,10 @@ PciSegmentLibReadWorker (
                            VirtualCfgAddr,
                            VirtualSlvAddr,
                            PciResource);
-  DEBUG ((DEBUG_VERBOSE, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
-  if (MmioAddress == 0xffffffff) {
-    return 0xffffffff;
+  DEBUG ((DEBUG_VERBOSE, "%a[%d]: MmioAddress=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  if (MmioAddress == 0xFFFFFFFF) {
+    // EfiReleaseLock (&mPciSegmentReadWriteLock);
+    return 0xFFFFFFFF;
   }
 
   if (Bus == PciResource->BusBase) {
@@ -292,10 +344,16 @@ PciSegmentLibReadWorker (
     // Ignore Device > 0 or Function > 0 on base bus
     //
     if (Device != 0 || Function != 0) {
-      return 0xffffffff;
+      // EfiReleaseLock (&mPciSegmentReadWriteLock);
+      return 0xFFFFFFFF;
     }
+
+    // EfiReleaseLock (&mPciSegmentReadWriteLock);
+
     return PciGenericConfigRead32 (MmioAddress, Width);
   }
+
+  // EfiReleaseLock (&mPciSegmentReadWriteLock);
 
   return PciGenericConfigRead (MmioAddress, Width);
 }
@@ -330,11 +388,14 @@ PciSegmentLibWriteWorker (
   UINT64                PhyAddrToVirAddr;
   MANGO_PCI_RESOURCE    *PciResource;
 
+  // EfiAcquireLock (&mPciSegmentReadWriteLock);
+
   EXTRACT_PCIE_ADDRESS (Address, Segment, Bus, Device, Function, Register);
 
   PciResource = PciSegmentLibGetResource (Segment);
   if (PciResource == NULL) {
-    return 0xffffffff;
+    // EfiReleaseLock (&mPciSegmentReadWriteLock);
+    return 0xFFFFFFFF;
   }
 
   PhyAddrToVirAddr = PcdGet64 (PcdSG2042PhyAddrToVirAddr);
@@ -349,9 +410,10 @@ PciSegmentLibWriteWorker (
                            VirtualCfgAddr,
                            VirtualSlvAddr,
                            PciResource);
-  DEBUG ((DEBUG_VERBOSE, "*** %a[%d]: mmioaddr=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
-  if (MmioAddress == 0xffffffff) {
-    return 0xffffffff;
+  DEBUG ((DEBUG_VERBOSE, "%a[%d]: MmioAddress=0x%lx, Address=0x%lx, Segment=0x%x, Bus=0x%x, Device=0x%x, Function=0x%x, Register=0x%lx\n", __func__, __LINE__, MmioAddress, Address, Segment, Bus, Device, Function, Register));
+  if (MmioAddress == 0xFFFFFFFF) {
+    // EfiReleaseLock (&mPciSegmentReadWriteLock);
+    return 0xFFFFFFFF;
   }
 
   if (Bus == PciResource->BusBase) {
@@ -359,17 +421,25 @@ PciSegmentLibWriteWorker (
     // Ignore Device > 0 or Function > 0 on base bus
     //
     if (Device != 0 || Function != 0) {
-      return 0xffffffff;
+      // return 0xFFFFFFFF;
+      // EfiReleaseLock (&mPciSegmentReadWriteLock);
+      return Data;
     }
     //
     // Ignore writing to root port BAR registers
     //
-    if (Register == 0x10 || Register == 0x14) {
-      return 0xffffffff;
+    if ((Register & ~0x3) == 0x10 || (Register & ~0x3) == 0x14) {
+      // return 0xFFFFFFFF;
+      // EfiReleaseLock (&mPciSegmentReadWriteLock);
+      return Data;
     }
+
+    // EfiReleaseLock (&mPciSegmentReadWriteLock);
 
     return PciGenericConfigWrite32 (MmioAddress, Width, Data);
   }
+
+  // EfiReleaseLock (&mPciSegmentReadWriteLock);
 
   return PciGenericConfigWrite (MmioAddress, Width, Data);
 }

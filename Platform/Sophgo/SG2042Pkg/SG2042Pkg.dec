@@ -32,6 +32,11 @@
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU|0x0|BOOLEAN|0x00001003
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr|0x0|UINT64|0x00001004
 
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x0|UINT64|0x00001030
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|0x0|UINT64|0x00001005
+  gHisiTokenSpaceGuid.PcdSerialPortSendDelay|0x0|UINT32|0x00001006
+  gHisiTokenSpaceGuid.PcdUartClkInHz|0x0|UINT32|0x00001007
+
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x0|UINT64|0x00001008
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x0|UINT64|0x00001009
   gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdMangoPci1Link0CfgBase|0x0|UINT64|0x0000100A

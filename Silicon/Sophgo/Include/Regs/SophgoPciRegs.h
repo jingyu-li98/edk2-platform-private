@@ -64,19 +64,6 @@
 #define  PCIE_LM_BAR_CFG_CTRL_MEM_64BITS            0x6
 #define  PCIE_LM_BAR_CFG_CTRL_PREFETCH_MEM_64BITS   0x7
 
-#define LM_RC_BAR_CFG_CTRL_DISABLED(bar) 	\
-      (PCIE_LM_BAR_CFG_CTRL_DISABLED << (((bar) * 8) + 6))
-#define LM_RC_BAR_CFG_CTRL_IO_32BITS(bar) 	\
-      (PCIE_LM_BAR_CFG_CTRL_IO_32BITS << (((bar) * 8) + 6))
-#define LM_RC_BAR_CFG_CTRL_MEM_32BITS(bar) 	\
-      (PCIE_LM_BAR_CFG_CTRL_MEM_32BITS << (((bar) * 8) + 6))
-#define LM_RC_BAR_CFG_CTRL_PREF_MEM_32BITS(bar) \
-      (PCIE_LM_BAR_CFG_CTRL_PREFETCH_MEM_32BITS << (((bar) * 8) + 6))
-#define LM_RC_BAR_CFG_CTRL_MEM_64BITS(bar) 	\
-      (PCIE_LM_BAR_CFG_CTRL_MEM_64BITS << (((bar) * 8) + 6))
-#define LM_RC_BAR_CFG_CTRL_PREF_MEM_64BITS(bar) \
- (PCIE_LM_BAR_CFG_CTRL_PREFETCH_MEM_64BITS << (((bar) * 8) + 6))
-
 //
 // Root Port Registers (PCI configuration space for the root port function)
 //
