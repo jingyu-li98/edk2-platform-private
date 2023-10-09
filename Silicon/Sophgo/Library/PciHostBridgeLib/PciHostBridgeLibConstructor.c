@@ -248,26 +248,13 @@ MangoPcieHostBridgeLibConstructor (
       );
 
       //
-      // Outbound: Bus
+      // Outbound: IO
+      // TBD: Workaround for SG2042 to map the IO below 4G to Above 4G.
       //
       PcieHostSetOutboundRegion (
         mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
         mPciResource[PortIndex][LinkIndex].BusBase,
         1,
-        TRUE,
-        mPciResource[PortIndex][LinkIndex].BusBase,
-        mPciResource[PortIndex][LinkIndex].BusBase,
-        mPciResource[PortIndex][LinkIndex].BusSize
-      );
-
-      //
-      // Outbound: IO
-      // Workaround for SG2042 to map the IO below 4G to Above 4G.
-      //
-      PcieHostSetOutboundRegion (
-        mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
-        mPciResource[PortIndex][LinkIndex].BusBase,
-        2,
         FALSE,
         mPciResource[PortIndex][LinkIndex].IoBase,
         mPciResource[PortIndex][LinkIndex].IoBase -
@@ -282,7 +269,7 @@ MangoPcieHostBridgeLibConstructor (
       PcieHostSetOutboundRegion (
         mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
         mPciResource[PortIndex][LinkIndex].BusBase,
-        3,
+        2,
         TRUE,
         mPciResource[PortIndex][LinkIndex].Mmio32Base,
         mPciResource[PortIndex][LinkIndex].Mmio32Base -
@@ -296,7 +283,7 @@ MangoPcieHostBridgeLibConstructor (
       PcieHostSetOutboundRegion (
         mPciResource[PortIndex][LinkIndex].ConfigSpaceAddress + PhyAddrToVirAddr,
         mPciResource[PortIndex][LinkIndex].BusBase,
-        4,
+        3,
         TRUE,
         mPciResource[PortIndex][LinkIndex].Mmio64Base,
         mPciResource[PortIndex][LinkIndex].Mmio64Base -
