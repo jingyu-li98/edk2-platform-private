@@ -202,8 +202,9 @@ PciMapBus (
   //
   // For usual topology, only one child in a root port.
   // Follow Linux kernel, only look for one device below a PCIe downstream port.
+  // Noted that the Switch has a PCI-to-PCI bridge under the PCIe upstream port.
   //
-  if (Device > 0) {
+  if (Device > 0 && Bus == PciResource->BusBase + 1) {
     return 0xFFFFFFFF;
   }
 

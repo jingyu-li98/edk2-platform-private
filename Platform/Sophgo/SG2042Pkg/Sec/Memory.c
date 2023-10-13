@@ -350,7 +350,7 @@ MemoryPeimInitialization (
           CurBase,
           CurBase + CurSize - 1
           ));
-
+#if 0
         if (PrevEnd == 0 || CurBase == PrevEnd) {
           if (CurLength == 0) {
             CurStart = CurBase;
@@ -368,7 +368,25 @@ MemoryPeimInitialization (
         }
 
         PrevEnd = CurBase + CurSize;
+#else
+        if (PrevEnd == 0 || CurBase == PrevEnd) {
+          if (CurLength == 0) {
+            CurStart = CurBase;
+          }
+          CurLength += CurSize;
 
+          if (CurLength > MaxLength) {
+            MaxLength = CurLength;
+            LongestStart = CurBase;
+            LongestLength = MaxLength;
+          }
+        } else {
+          CurStart = CurBase;
+          CurLength = CurSize;
+        }
+
+        PrevEnd = CurBase - CurSize;
+#endif
       } else {
         DEBUG ((
           DEBUG_ERROR,

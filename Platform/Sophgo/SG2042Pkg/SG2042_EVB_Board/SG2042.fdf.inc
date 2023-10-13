@@ -9,9 +9,7 @@
 ##
 [Defines]
 DEFINE BLOCK_SIZE        = 0x1000
-
 DEFINE PFLASH1_BASE      = 0x02000000
-
 DEFINE FW_BASE_ADDRESS   = $(PFLASH1_BASE)
 DEFINE FW_SIZE           = 0x00760000
 DEFINE FW_BLOCKS         = 0x760
@@ -25,7 +23,6 @@ DEFINE CODE_BASE_ADDRESS = $(FW_BASE_ADDRESS)
 DEFINE CODE_SIZE         = 0x00740000
 DEFINE CODE_BLOCKS       = 0x740
 DEFINE VARS_BLOCKS       = 0x20
-
 
 #
 # Other FV regions are in the second FW domain.
@@ -48,39 +45,28 @@ DEFINE VARS_FTW_WORKING_OFFSET       = $(VARS_OFFSET) + $(VARS_SIZE)
 DEFINE VARS_FTW_WORKING_SIZE         = 0x00001000
 DEFINE VARS_FTW_SPARE_OFFSET         = $(VARS_FTW_WORKING_OFFSET) + $(VARS_FTW_WORKING_SIZE)
 DEFINE VARS_FTW_SPARE_SIZE           = 0x00018000
-
-
 DEFINE VARIABLE_FW_SIZE  = $(VARS_FTW_SPARE_OFFSET) + $(VARS_FTW_SPARE_SIZE) - $(VARS_OFFSET)
-
 
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFdBaseAddress = $(FW_BASE_ADDRESS) + $(VARS_OFFSET)
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFdSize        = $(VARS_SIZE) + $(VARS_FTW_WORKING_SIZE) + $(VARS_FTW_SPARE_SIZE)
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFdBlockSize   = $(BLOCK_SIZE)
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFirmwareRegionBaseAddress = $(CODE_BASE_ADDRESS) + $(VARS_OFFSET)
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFirmwareRegionSize        = $(VARIABLE_FW_SIZE)
-
-
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamBase = $(CODE_BASE_ADDRESS) + $(FW_SIZE) + 0x1FF0000
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize = 0x10000
-
 SET gUefiRiscVPkgTokenSpaceGuid.PcdRiscVMachineTimerFrequencyInHerz    = 50000000
-
 SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdNumberofC920Cores       = 64
 SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdForceNoMMU              = $(MMU_DISABLE)
 
 !if $(MMU_DISABLE) == TRUE
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr = 0
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase         = 0x704002B000
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase         = 0x704002B000
+  SET gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase              = 0x7040000000
+  SET gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate                   = 115200
+  SET gHisiTokenSpaceGuid.PcdSerialPortSendDelay                        = 10000000
+  SET gHisiTokenSpaceGuid.PcdUartClkInHz                                = 500000000
 !else
   SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr = 0xffffff8000000000
-!endif
-
-!if $(MMU_DISABLE) == TRUE
-  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
-  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0x704002B000
-  SET gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase             = 0x7040000000
-  SET gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate                  = 115200
-  SET gHisiTokenSpaceGuid.PcdSerialPortSendDelay                       = 10000000
-  SET gHisiTokenSpaceGuid.PcdUartClkInHz                               = 500000000
-!else
-  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase        = 0xfffffff04002B000
+  SET gSophgoSG2042PlatformsPkgTokenSpaceGuid.PcdSG2042SDIOBase         = 0xfffffff04002B000
 !endif

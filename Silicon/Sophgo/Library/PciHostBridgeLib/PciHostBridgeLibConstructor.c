@@ -171,6 +171,7 @@ PcieHostSetOutboundRegion (
     Desc0 = PCIE_AT_OB_REGION_DESC0_TYPE_IO;
   }
   Desc1 = 0;
+
   //
   // In Root Complex mode, the function number is always 0.
   //
@@ -207,6 +208,7 @@ MangoPcieHostBridgeLibConstructor (
 
   VendorId = 0x17CD;
   DeviceId = 0x2042;
+
   //
   // the number least significant bits kept during
   // inbound (PCIe -> AXI) address translations
