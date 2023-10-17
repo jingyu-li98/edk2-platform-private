@@ -351,24 +351,31 @@ MemoryPeimInitialization (
           CurBase + CurSize - 1
           ));
 #if 0
-        if (PrevEnd == 0 || CurBase == PrevEnd) {
-          if (CurLength == 0) {
-            CurStart = CurBase;
-          }
-          CurLength += CurSize;
+        //
+        // GRUB2 boot kernel will cause relocation overflow, GRUB2 needs a patch
+        //
+        DEBUG ((
+          DEBUG_INFO,
+          "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
+          __func__,
+          CurBase,
+          CurBase + CurSize - 1
+          ));
 
-          if (CurLength > MaxLength) {
-            MaxLength = CurLength;
-            LongestStart = CurStart;
-            LongestLength = MaxLength;
-          }
-        } else {
-          CurStart = CurBase;
-          CurLength = CurSize;
-        }
-
-        PrevEnd = CurBase + CurSize;
+        InitializeRamRegions (CurBase, CurSize);
+      } else {
+        DEBUG ((
+          DEBUG_ERROR,
+          "%a: Failed to parse FDT memory node\n",
+          __func__
+          ));
+      }
+    }
+  }
 #else
+        //
+        // GRUB2 boot kernel will cause relocation overflow, GRUB2 needs a patch
+        //
         if (PrevEnd == 0 || CurBase == PrevEnd) {
           if (CurLength == 0) {
             CurStart = CurBase;
@@ -381,12 +388,22 @@ MemoryPeimInitialization (
             LongestLength = MaxLength;
           }
         } else {
-          CurStart = CurBase;
-          CurLength = CurSize;
+          //
+          // 3GB-4GB memory space is reserved for PCIe.
+          // The RAM space is not contiguous.
+          //
+          DEBUG ((
+            DEBUG_INFO,
+            "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
+            __func__,
+            CurBase,
+            CurBase + CurSize - 1
+            ));
+
+          InitializeRamRegions (CurBase, CurSize);
         }
 
         PrevEnd = CurBase - CurSize;
-#endif
       } else {
         DEBUG ((
           DEBUG_ERROR,
@@ -399,13 +416,14 @@ MemoryPeimInitialization (
 
   DEBUG ((
     DEBUG_INFO,
-    "%a: Total System RAM @ 0x%lx - 0x%lx\n",
+    "%a: Initialize Contiguous System RAM @ 0x%lx - 0x%lx\n",
     __func__,
     LongestStart,
     LongestStart + LongestLength - 1
   ));
 
   InitializeRamRegions (LongestStart, LongestLength);
+#endif
 
   AddReservedMemoryMap (FdtPointer);
 

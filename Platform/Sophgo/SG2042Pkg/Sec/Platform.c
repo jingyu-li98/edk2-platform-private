@@ -79,7 +79,9 @@ PopulateIoResources (
         SwapBytes64 (Reg[0]),
         SwapBytes64 (Reg[1])
         ));
-      /* PCIe node may have two regions for reg ("reg" and "cfg") */
+      //
+      // PCIe node may have two regions for reg ("reg" and "cfg")
+      //
       if (LenP > (2 * sizeof (UINT64))) {
         AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[2]), SwapBytes64 (Reg[3]));
         DEBUG ((
@@ -155,9 +157,14 @@ PlatformPeimInitialization (
 
   BuildFvHob (PcdGet32 (PcdRiscVDxeFvBase), PcdGet32 (PcdRiscVDxeFvSize));
 
+  //
   // Add PCI resource
+  //
   PopulateIoResources (Base, "sophgo,cdns-pcie-host");
+
+  //
   // Add SDHI resource
+  //
   PopulateIoResources (Base, "bitmain,bm-sd");
 
   return EFI_SUCCESS;
