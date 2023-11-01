@@ -71,7 +71,7 @@ SyncIs (
   VOID
   )
 {
-  asm volatile (".long 0x01b0000b"); // sync.i
+  asm volatile (".long 0x01b0000b"); // sync.is
 }
 
 /**
@@ -112,7 +112,7 @@ WriteBackInvalidateDataCacheRange (
   register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1UL);
 
   for (; i < (UINTN)Address + Length; i += gCpu.DmaBufferAlignment) {
-    asm volatile (".long 0x0275000b"); /* dcache.civa rs1 */
+    asm volatile (".long 0x02b5000b"); /* dcache.cipa rs1 */
   }
 
   SyncIs ();
@@ -159,7 +159,7 @@ InvalidateDataCacheRange (
   register UINT64 i asm("a0") = (UINTN)Address & ~(gCpu.DmaBufferAlignment - 1UL);
 
   for (; i < (UINTN)Address + Length; i += gCpu.DmaBufferAlignment) {
-    asm volatile (".long 0x0265000b"); /* dcache.iva rs1 */
+    asm volatile (".long 0x02a5000b"); /* dcache.ipa rs1 */
   }
 
   SyncIs ();

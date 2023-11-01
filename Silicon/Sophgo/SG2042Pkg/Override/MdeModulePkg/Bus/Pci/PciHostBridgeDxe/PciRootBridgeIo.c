@@ -2103,7 +2103,7 @@ NonCoherentRootBridgeIoMap (
                         PhysicalAddress,
                         &GcdDescriptor
                         );
-        // DEBUG ((DEBUG_WARN, "%a[%d] EFI_ERROR (Status)=0x%x\tGcdDescriptor.Attributes=0x%x\t(EFI_MEMORY_WB(0x8) | EFI_MEMORY_WT(0x4))=0x%x\n", __func__, __LINE__, EFI_ERROR (Status), GcdDescriptor.Attributes, (EFI_MEMORY_WB | EFI_MEMORY_WT)));
+
         if (EFI_ERROR (Status) ||
             ((GcdDescriptor.Attributes & (EFI_MEMORY_WB | EFI_MEMORY_WT)) != 0))
         {
@@ -2138,7 +2138,6 @@ NonCoherentRootBridgeIoMap (
                EFI_PCI_ATTRIBUTE_MEMORY_WRITE_COMBINE
                );
     if (EFI_ERROR (Status)) {
-      // *NumberOfBytes = 0;
       goto FreeMapInfo;
     }
 
@@ -2215,42 +2214,14 @@ NonCoherentRootBridgeIoUnmap (
   )
 {
   MAP_INFO                  *MapInfo;
-  // LIST_ENTRY                *Link;
-  // PCI_ROOT_BRIDGE_INSTANCE  *RootBridge;
 
   if (Mapping == NULL) {
     return EFI_DEVICE_ERROR;
   }
 
-  // RootBridge = ROOT_BRIDGE_FROM_THIS (This);
-
   MapInfo = Mapping;
 
   if (MapInfo->MappedHostAddress != 0) {
-    // //
-    // // We are using a bounce buffer: copy back the data if necessary,
-    // // and free the buffer.
-    // //
-    // for (Link = GetFirstNode (&RootBridge->Maps)
-    //    ; !IsNull (&RootBridge->Maps, Link)
-    //    ; Link = GetNextNode (&RootBridge->Maps, Link)
-    //    )
-    // {
-    //   MapInfo = MAP_INFO_FROM_LINK (Link);
-    //   if (MapInfo == Mapping) {
-    //     break;
-    //   }
-    // }
-
-    // //
-    // // Mapping is not a valid value returned by Map()
-    // //
-    // if (MapInfo != Mapping) {
-    //   return EFI_INVALID_PARAMETER;
-    // }
-
-    // RemoveEntryList (&MapInfo->Link);
-
     if ((MapInfo->Operation == EfiPciOperationBusMasterWrite) ||
         (MapInfo->Operation == EfiPciOperationBusMasterWrite64))
     {
