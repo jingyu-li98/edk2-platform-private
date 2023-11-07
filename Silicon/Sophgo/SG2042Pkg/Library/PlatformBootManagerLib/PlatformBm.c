@@ -7,18 +7,6 @@
 
 **/
 
-#include <IndustryStandard/Pci22.h>
-#include <Library/BootLogoLib.h>
-#include <Library/PcdLib.h>
-#include <Library/UefiBootManagerLib.h>
-#include <Protocol/FirmwareVolume2.h>
-#include <Protocol/LoadedImage.h>
-#include <Protocol/PciIo.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Library/DebugLib.h>
-#include <Library/MemoryAllocationLib.h>
-#include <Library/UefiLib.h>
-#include <Library/BaseMemoryLib.h>
 #include "PlatformBm.h"
 
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
@@ -35,7 +23,7 @@ STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
   {
     { MESSAGING_DEVICE_PATH, MSG_UART_DP, DP_NODE_LEN (UART_DEVICE_PATH) },
-    0,                                      // Reserved
+    0,                  // Reserved
     115200,             // BaudRate
     8,                  // DataBits
     1,                  // Parity
@@ -431,136 +419,14 @@ PlatformRegisterFvBootOption (
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
 }
 
+
 /**
-  Remove all MemoryMapped (...)/FvFile (...) and Fv (...)/FvFile (...) boot options
-  whose device paths do not resolve exactly to an FvFile in the system.
+  Make a platform driver to create predefined boot options and related hot keys.
 
-  This removes any boot options that point to binaries built into the firmware
-  and have become stale due to any of the following:
-  - FvMain's base address or size changed (historical),
-  - FvMain's FvNameGuid changed,
-  - the FILE_GUID of the pointed-to binary changed,
-  - the referenced binary is no longer built into the firmware.
+  @param  VOID
 
-  EfiBootManagerFindLoadOption () used in PlatformRegisterFvBootOption () only
-  avoids exact duplicates.
+  @retval  VOID
 **/
-// VOID
-// RemoveStaleFvFileOptions (
-//   VOID
-//   )
-// {
-//   EFI_BOOT_MANAGER_LOAD_OPTION *BootOptions;
-//   UINTN                        BootOptionCount;
-//   UINTN                        Index;
-
-//   BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount,
-//                   LoadOptionTypeBoot);
-
-//   for (Index = 0; Index < BootOptionCount; ++Index) {
-//     EFI_DEVICE_PATH_PROTOCOL *Node1, *Node2, *SearchNode;
-//     EFI_STATUS               Status;
-//     EFI_HANDLE               FvHandle;
-
-//     //
-//     // If the device path starts with neither MemoryMapped (...) nor Fv (...),
-//     // then keep the boot option.
-//     //
-//     Node1 = BootOptions[Index].FilePath;
-//     if (!(DevicePathType (Node1) == HARDWARE_DEVICE_PATH
-//       && DevicePathSubType (Node1) == HW_MEMMAP_DP)
-//       && !(DevicePathType (Node1) == MEDIA_DEVICE_PATH
-//       && DevicePathSubType (Node1) == MEDIA_PIWG_FW_VOL_DP))
-//     {
-//       continue;
-//     }
-
-//     //
-//     // If the second device path node is not FvFile (...), then keep the boot
-//     // option.
-//     //
-//     Node2 = NextDevicePathNode (Node1);
-//     if ((DevicePathType (Node2) != MEDIA_DEVICE_PATH)
-//       || (DevicePathSubType (Node2) != MEDIA_PIWG_FW_FILE_DP))
-//     {
-//       continue;
-//     }
-
-//     //
-//     // Locate the Firmware Volume2 protocol instance that is denoted by the
-//     // boot option. If this lookup fails (i.e., the boot option references a
-//     // firmware volume that doesn't exist), then we'll proceed to delete the
-//     // boot option.
-//     //
-//     SearchNode = Node1;
-//     Status = gBS->LocateDevicePath (&gEfiFirmwareVolume2ProtocolGuid,
-//                     &SearchNode, &FvHandle);
-
-//     if (!EFI_ERROR (Status)) {
-//       //
-//       // The firmware volume was found; now let's see if it contains the FvFile
-//       // identified by GUID.
-//       //
-//       EFI_FIRMWARE_VOLUME2_PROTOCOL     *FvProtocol;
-//       MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *FvFileNode;
-//       UINTN                             BufferSize;
-//       EFI_FV_FILETYPE                   FoundType;
-//       EFI_FV_FILE_ATTRIBUTES            FileAttributes;
-//       UINT32                            AuthenticationStatus;
-
-//       Status = gBS->HandleProtocol (FvHandle, &gEfiFirmwareVolume2ProtocolGuid,
-//                       (VOID **)&FvProtocol);
-//       ASSERT_EFI_ERROR (Status);
-
-//       FvFileNode = (MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *)Node2;
-//       //
-//       // Buffer==NULL means we request metadata only: BufferSize, FoundType,
-//       // FileAttributes.
-//       //
-//       Status = FvProtocol->ReadFile (
-//                              FvProtocol,
-//                              &FvFileNode->FvFileName, // NameGuid
-//                              NULL,                    // Buffer
-//                              &BufferSize,
-//                              &FoundType,
-//                              &FileAttributes,
-//                              &AuthenticationStatus
-//                              );
-//       if (!EFI_ERROR (Status)) {
-//         //
-//         // The FvFile was found. Keep the boot option.
-//         //
-//         continue;
-//       }
-//     }
-
-//     //
-//     // Delete the boot option.
-//     //
-//     Status = EfiBootManagerDeleteLoadOptionVariable (
-//                BootOptions[Index].OptionNumber, LoadOptionTypeBoot);
-//     DEBUG_CODE (
-//       CHAR16 *DevicePathString;
-
-//       DevicePathString = ConvertDevicePathToText (BootOptions[Index].FilePath,
-//                            FALSE, FALSE);
-//       DEBUG ((
-//         EFI_ERROR (Status) ? EFI_D_WARN : DEBUG_VERBOSE,
-//         "%a: removing stale Boot#%04x %s: %r\n",
-//         __func__,
-//         (UINT32)BootOptions[Index].OptionNumber,
-//         DevicePathString == NULL ? L"<unavailable>" : DevicePathString,
-//         Status
-//         ));
-//       if (DevicePathString != NULL) {
-//         FreePool (DevicePathString);
-//       }
-//       );
-//   }
-
-//   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
-// }
-
 STATIC
 VOID
 GetPlatformOptions (
@@ -696,6 +562,9 @@ PlatformRegisterOptionsAndKeys (
   EFI_INPUT_KEY                Esc;
   EFI_BOOT_MANAGER_LOAD_OPTION BootOption;
 
+  //
+  // Load platform boot options
+  //
   GetPlatformOptions ();
 
   //
@@ -756,13 +625,11 @@ PlatformBootManagerBeforeConsole (
   //
   // Signal EndOfDxe PI Event
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Signal EndOfDxe PI Event !!!\n\n", __func__, __LINE__));
   EfiEventGroupSignal (&gEfiEndOfDxeEventGroupGuid);
 
   //
   // Dispatch deferred images after EndOfDxe event.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Dispatch deferred images after EndOfDxe event. !!!\n\n", __func__, __LINE__));
   EfiBootManagerDispatchDeferredImages ();
 
   //
@@ -770,7 +637,6 @@ PlatformBootManagerBeforeConsole (
   // non-recursively. This will produce a number of child handles with PciIo on
   // them.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Locate the PCI root bridges and make the PCI bus driver connect each. !!!\n\n", __func__, __LINE__));
   FilterAndProcess (&gEfiPciRootBridgeIoProtocolGuid, NULL, Connect);
 
   //
@@ -778,14 +644,12 @@ PlatformBootManagerBeforeConsole (
   // step), and connect them non-recursively. This should produce a number of
   // child handles with GOPs on them.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Find all display class PCI devices. !!!\n\n", __func__, __LINE__));
   FilterAndProcess (&gEfiPciIoProtocolGuid, IsPciDisplay, Connect);
 
   //
   // Now add the device path of all handles with GOP on them to ConOut and
   // ErrOut.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] add the device path of all handles with GOP. !!!\n\n", __func__, __LINE__));
   FilterAndProcess (&gEfiGraphicsOutputProtocolGuid, NULL, AddOutput);
 
   //
@@ -800,32 +664,15 @@ PlatformBootManagerBeforeConsole (
   //
   // Add the hardcoded short-form USB keyboard device path to ConIn.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Add the hardcoded short-form USB keyboard device path to ConIn. !!!\n\n", __func__, __LINE__));
   EfiBootManagerUpdateConsoleVariable (
     ConIn,
     (EFI_DEVICE_PATH_PROTOCOL *)&mUsbKeyboard,
     NULL
     );
 
-  // //
-  // // Add the hardcoded serial console device path to ConIn, ConOut, ErrOut.
-  // //
-  // STATIC_ASSERT (
-  //   FixedPcdGet8 (PcdDefaultTerminalType) == 4,
-  //   "PcdDefaultTerminalType must be TTYTERM"
-  //   );
-  // STATIC_ASSERT (
-  //   FixedPcdGet8 (PcdUartDefaultParity) != 0,
-  //   "PcdUartDefaultParity must be set to an actual value, not 'default'"
-  //   );
-  // STATIC_ASSERT (
-  //   FixedPcdGet8 (PcdUartDefaultStopBits) != 0,
-  //   "PcdUartDefaultStopBits must be set to an actual value, not 'default'"
-  //   );
   //
   // Add the hardcoded serial console device path to ConIn, ConOut, ErrOut.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Add the hardcoded serial console device path to ConIn, ConOut, ErrOut. !!!\n\n", __func__, __LINE__));
   CopyGuid (&mSerialConsole.TermType.Guid, &gEfiTtyTermGuid);
 
   EfiBootManagerUpdateConsoleVariable (
@@ -847,7 +694,6 @@ PlatformBootManagerBeforeConsole (
   //
   // Register platform-specific boot options and keyboard shortcuts.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Register platform-specific boot options and keyboard shortcuts.. !!!\n\n", __func__, __LINE__));
   PlatformRegisterOptionsAndKeys ();
 }
 
@@ -879,8 +725,6 @@ PlatformBootManagerAfterConsole (
   //
   // Show the splash screen.
   //
-  // BootLogoEnableLogo ();
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Show the splah screen !!!\n\n", __func__, __LINE__));
   Status = BootLogoEnableLogo ();
   if (EFI_ERROR (Status)) {
     if (FirmwareVerLength > 0) {
@@ -917,25 +761,17 @@ PlatformBootManagerAfterConsole (
   //
   // Connect the rest of the devices.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Connect the rest of the devices. !!!\n\n", __func__, __LINE__));
   EfiBootManagerConnectAll ();
 
   //
   // Enumerate all possible boot options, then filter and reorder them based on
   // the QEMU configuration.
   //
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Enumerate all possible boot options. !!!\n\n", __func__, __LINE__));
   EfiBootManagerRefreshAllBootOption ();
 
-  // //
-  // // Register UEFI Shell
-  // //
-  // PlatformRegisterFvBootOption (
-  //   &gUefiShellFileGuid,
-  //   L"EFI Internal Shell",
-  //   LOAD_OPTION_ACTIVE
-  //   );
-  DEBUG ((DEBUG_WARN, "!!! %a[%d] Register UEFI Shell. !!!\n\n", __func__, __LINE__));
+  //
+  // Register UEFI Shell
+  //
   Key.ScanCode    = SCAN_NULL;
   Key.UnicodeChar = L's';
   PlatformRegisterFvBootOption (
@@ -943,19 +779,20 @@ PlatformBootManagerAfterConsole (
     L"UEFI Shell",
     LOAD_OPTION_ACTIVE,
     &Key);
-    //
-  // Boot the 'UEFI Shell'. If the Pcd is not set, the UEFI Shell is not
-  // an active boot option and must be manually selected through UiApp
-  // (at least during the fist boot).
-  //
-  // if (FixedPcdGetBool (PcdUefiShellDefaultBootEnable)) {
-  //   PlatformBootFvBootOption (
-  //     &gUefiShellFileGuid,
-  //     L"UEFI Shell (default)"
-  //     );
-  // }
 
-  // RemoveStaleFvFileOptions ();
+  //
+  // Register Grub
+  //
+  PlatformRegisterFvBootOption (
+    &gGrubFileGuid,
+    L"Grub Bootloader",
+    LOAD_OPTION_ACTIVE,
+    &Key);
+
+  //
+  // Print status codes of BdsDxe to the UEFI console for dubug
+  //
+  PlatformBmPrintScRegisterHandler ();
 }
 
 /**
@@ -1006,51 +843,5 @@ PlatformBootManagerUnableToBoot (
   VOID
   )
 {
-  // EFI_STATUS                   Status;
-  // EFI_INPUT_KEY                Key;
-  // EFI_BOOT_MANAGER_LOAD_OPTION BootManagerMenu;
-  // UINTN                        Index;
-
-  // //
-  // // BootManagerMenu doesn't contain the correct information when return status
-  // // is EFI_NOT_FOUND.
-  // //
-  // Status = EfiBootManagerGetBootManagerMenu (&BootManagerMenu);
-  // if (EFI_ERROR (Status)) {
-  //   return;
-  // }
-  // //
-  // // Normally BdsDxe does not print anything to the system console, but this is
-  // // a last resort -- the end-user will likely not see any DEBUG messages
-  // // logged in this situation.
-  // //
-  // // AsciiPrint () will NULL-check gST->ConOut internally. We check gST->ConIn
-  // // here to see if it makes sense to request and wait for a keypress.
-  // //
-  // if (gST->ConIn != NULL) {
-  //   AsciiPrint (
-  //     "%a: No bootable option or device was found.\n"
-  //     "%a: Press any key to enter the Boot Manager Menu.\n",
-  //     gEfiCallerBaseName,
-  //     gEfiCallerBaseName
-  //     );
-  //   Status = gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &Index);
-  //   ASSERT_EFI_ERROR (Status);
-  //   ASSERT (Index == 0);
-
-  //   //
-  //   // Drain any queued keys.
-  //   //
-  //   while (!EFI_ERROR (gST->ConIn->ReadKeyStroke (gST->ConIn, &Key))) {
-  //     //
-  //     // just throw away Key
-  //     //
-  //   }
-  // }
-
-  // for (;;) {
-  //   EfiBootManagerBoot (&BootManagerMenu);
-  // }
-
   return;
 }

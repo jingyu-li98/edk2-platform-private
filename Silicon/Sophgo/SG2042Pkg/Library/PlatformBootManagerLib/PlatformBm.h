@@ -10,11 +10,24 @@
 #ifndef PLATFORM_BM_H_
 #define PLATFORM_BM_H_
 
+#include <Library/PcdLib.h>
+#include <Library/DebugLib.h>
+#include <Library/BootLogoLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/PlatformBmPrintScLib.h>
+#include <Library/UefiLib.h>
+#include <Library/UefiBootManagerLib.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Protocol/PciIo.h>
+#include <Protocol/LoadedImage.h>
+#include <Protocol/FirmwareVolume2.h>
 #include <Protocol/PlatformBootManager.h>
-#include <Guid/NonDiscoverableDevice.h>
 #include <Protocol/NonDiscoverableDevice.h>
+#include <IndustryStandard/Pci22.h>
 #include <Guid/SerialPortLibVendor.h>
+#include <Guid/NonDiscoverableDevice.h>
 
 #define DP_NODE_LEN(Type) { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
 
