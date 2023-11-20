@@ -16,10 +16,10 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/PlatformBmPrintScLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootManagerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Protocol/PciIo.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/FirmwareVolume2.h>

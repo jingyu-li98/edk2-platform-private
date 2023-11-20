@@ -38,13 +38,13 @@
   UefiBootServicesTableLib
   UefiLib
   UefiRuntimeServicesTableLib
-  PlatformBmPrintScLib
 
 [FixedPcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
 
 [Pcd]
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut
+  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable
 
 [Guids]
   gEfiFileInfoGuid
@@ -52,7 +52,6 @@
   gEfiFileSystemVolumeLabelInfoIdGuid
   gEfiEndOfDxeEventGroupGuid
   gUefiShellFileGuid
-  gGrubFileGuid
   gEfiTtyTermGuid
   gEdkiiNonDiscoverableEhciDeviceGuid
   gEdkiiNonDiscoverableUhciDeviceGuid
