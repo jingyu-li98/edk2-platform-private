@@ -659,6 +659,311 @@ PlatformRegisterOptionsAndKeys (
              );
   ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
 }
+#if 1
+VOID
+PrintDp (
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  CHAR16  *Str;
+
+  Str = ConvertDevicePathToText (DevicePath, FALSE, FALSE);
+  DEBUG ((DEBUG_INFO, "%s", Str));
+  if (Str != NULL) {
+    FreePool (Str);
+  }
+}
+
+EFI_DEVICE_PATH_PROTOCOL *
+ExpandMediaDevicePath (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  EFI_HANDLE                Handle;
+  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
+  EFI_DEVICE_PATH_PROTOCOL  *FilePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
+  UINTN                     TempSize;
+  EFI_HANDLE                *BlockIoHandles;
+  EFI_HANDLE                *SimpleFileSystemHandles;
+  UINTN                     NumberBlockIoHandles;
+  UINTN                     NumberSimpleFileSystemHandles;
+  UINTN                     Index;
+  VOID                      *Buffer;
+  UINTN                     Size;
+
+  //
+  // Step 1. Get the device path
+  //
+  Status = gBS->LocateHandleBuffer (
+                 ByProtocol,
+                 &gEfiBlockIoProtocolGuid,
+                 NULL,
+                 &NumberBlockIoHandles,
+                 &BlockIoHandles
+                 );
+
+  if (EFI_ERROR (Status)) {
+    //
+    // This is not an error, just an informative condition.
+    //
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %g: %r\n",
+      __func__,
+      gEfiBlockIoProtocolGuid,
+      Status
+      ));
+    return NULL;
+  }
+  ASSERT (NumberBlockIoHandles > 0);
+
+  for (Index = 0; Index < NumberBlockIoHandles; Index++) {
+    //
+    // Get the device path of SimpleFileSystem handle
+    //
+    TempDevicePath = DevicePathFromHandle (BlockIoHandles[Index]);
+  }
+
+  //
+  // Step 2. Check whether the device is connected
+  //
+  Status = gBS->LocateDevicePath (
+                 &gEfiBlockIoProtocolGuid,
+                 &TempDevicePath,
+                 &Handle
+                 );
+  ASSERT_EFI_ERROR (Status);
+
+  gBS->ConnectController (Handle, NULL, NULL, TRUE);
+
+  //
+  // Issue a dummy read to the device to check for media change.
+  // When the removable media is changed, any Block IO read/write will
+  // cause the BlockIo protocol be reinstalled and EFI_MEDIA_CHANGED is
+  // returned. After the Block IO protocol is reinstalled, subsequent
+  // Block IO read/write will success.
+  //
+  Status = gBS->HandleProtocol (
+                 Handle,
+                 &gEfiBlockIoProtocolGuid,
+                 (VOID **)&BlockIo
+                 );
+  ASSERT_EFI_ERROR (Status);
+  if (EFI_ERROR (Status)) {
+    return NULL;
+  }
+
+  Buffer = AllocatePool (BlockIo->Media->BlockSize);
+  if (Buffer != NULL) {
+    BlockIo->ReadBlocks (
+               BlockIo,
+               BlockIo->Media->MediaId,
+               0,
+               BlockIo->Media->BlockSize,
+               Buffer
+               );
+    FreePool (Buffer);
+  }
+
+  //
+  // Step 3. Detect the ASpeedAst2600Gop.efi file from device
+  //
+  FilePath = NULL;
+  Size = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+  gBS->LocateHandleBuffer (
+         ByProtocol,
+         &gEfiSimpleFileSystemProtocolGuid,
+         NULL,
+         &NumberSimpleFileSystemHandles,
+         &SimpleFileSystemHandles
+         );
+  for (Index = 0; Index < NumberSimpleFileSystemHandles; Index++) {
+    //
+    // Get the device path size of SimpleFileSystem handle
+    //
+    TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
+    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+    //
+    // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
+    //
+    if ((Size <= TempSize) && (CompareMem (TempDevicePath, TempDevicePath, Size) == 0)) {
+      FilePath = FileDevicePath (SimpleFileSystemHandles[Index], EFI_FILE_NAME);
+    }
+  }
+
+  if (BlockIoHandles != NULL) {
+    FreePool (BlockIoHandles);
+  }
+
+  if (SimpleFileSystemHandles != NULL) {
+    FreePool (SimpleFileSystemHandles);
+  }
+
+  return FilePath;
+}
+
+/**
+  Return the next matched file buffer.
+
+  @return The load option buffer. Caller is responsible to free the memory.
+**/
+VOID
+GetFileBuffer (
+  VOID
+  )
+{
+  EFI_STATUS                 Status;
+  EFI_DEVICE_PATH_PROTOCOL   *OriFilePath;
+  // EFI_DEVICE_PATH_PROTOCOL   *FilePath;
+  UINTN                      LocalFileSize;
+  UINT32                     AuthenticationStatus;
+
+  // EFI_HANDLE                Handle;
+  UINT8                      *ImageBuffer;
+  UINTN                      ImageBufferSize;
+  EFI_HANDLE                 LoadedDriverHandle;
+  EFI_LOADED_IMAGE_PROTOCOL  *LoadedDriverImage;
+
+  LoadedDriverImage     = NULL;
+  LocalFileSize         = 0;
+  LoadedDriverHandle    = NULL;
+  AuthenticationStatus  = 0;
+  ImageBuffer           = NULL;
+  ImageBufferSize       = 0;
+  // do {
+  //   OriFilePath = ExpandMediaDevicePath ();
+  //   DEBUG ((DEBUG_WARN, "CurFullPath: \n"));
+  //   PrintDp (OriFilePath);
+  //   DEBUG ((DEBUG_WARN, "\n"));
+
+  //   //
+  //   // Get the file buffer by its device path.
+  //   //
+  //   ImageBuffer = GetFileBufferByFilePath (
+  //                   TRUE,
+  //                   OriFilePath,
+  //                   &LocalFileSize,
+  //                   &AuthenticationStatus
+  //                   );
+
+  //   if (ImageBuffer != NULL) {
+  //     //
+  //     // Free the invalid load option buffer.
+  //     //
+  //     FreePool (ImageBuffer);
+  //     ImageBuffer = NULL;
+  //   }
+    
+  // } while (ImageBuffer != NULL);
+
+  // if (ImageBuffer == NULL) {
+  //   FilePath   = NULL;
+  //   LocalFileSize = 0;
+  // }
+  OriFilePath = ExpandMediaDevicePath ();
+  DEBUG ((DEBUG_WARN, "CurFullPath: \n"));
+  PrintDp (OriFilePath);
+  DEBUG ((DEBUG_WARN, "\n"));
+  //
+  // Use LoadImage to get it into memory
+  //
+  Status = gBS->LoadImage (
+                  FALSE,
+                  gImageHandle,
+                  OriFilePath,
+                  NULL,
+                  0,
+                  &LoadedDriverHandle
+                  );
+  if (EFI_ERROR (Status)) {
+    //
+    // With EFI_SECURITY_VIOLATION retval, the Image was loaded and an ImageHandle was created
+    // with a valid EFI_LOADED_IMAGE_PROTOCOL, but the image can not be started right now.
+    // If the caller doesn't have the option to defer the execution of an image, we should
+    // unload image for the EFI_SECURITY_VIOLATION to avoid resource leak.
+    //
+    if (Status == EFI_SECURITY_VIOLATION) {
+      gBS->UnloadImage (LoadedDriverHandle);
+    }
+
+    DEBUG ((DEBUG_WARN, "Image '%s' is not an image.\r\n", EFI_FILE_NAME));
+
+  } else {
+    //
+    // Make sure it is a driver image
+    //
+    Status = gBS->HandleProtocol (
+                   LoadedDriverHandle,
+                   &gEfiLoadedImageProtocolGuid,
+                   (VOID *)&LoadedDriverImage
+                   );
+
+    ASSERT (LoadedDriverImage != NULL);
+
+    if (  EFI_ERROR (Status)
+       || (  (LoadedDriverImage->ImageCodeType != EfiBootServicesCode)
+          && (LoadedDriverImage->ImageCodeType != EfiRuntimeServicesCode))
+          )
+    {
+      DEBUG ((DEBUG_WARN, "Image '%s' is not a driver.\r\n", EFI_FILE_NAME));
+
+      //
+      // Exit and unload the non-driver image
+      //
+      gBS->Exit (LoadedDriverHandle, EFI_INVALID_PARAMETER, 0, NULL);
+      Status = EFI_INVALID_PARAMETER;
+    }
+  }
+
+  if (!EFI_ERROR (Status)) {
+    //
+    // Start the image
+    //
+    Status = gBS->StartImage (
+                   LoadedDriverHandle,
+                   NULL,
+                   NULL
+                   );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "Image '%s' error in StartImage: %r\r\n", EFI_FILE_NAME, Status));
+    } else {
+      DEBUG ((DEBUG_WARN, "Image '%s' loaded at %p - %r\r\n", EFI_FILE_NAME, Status));
+    }
+  }
+
+  if (!EFI_ERROR (Status) && Connect) {
+    //
+    // Connect it...
+    //
+      UINTN       HandleCount;
+      EFI_HANDLE  *HandleBuffer;
+      UINTN       Index;
+
+      Status = gBS->LocateHandleBuffer (
+                      AllHandles,
+                      NULL,
+                      NULL,
+                      &HandleCount,
+                      &HandleBuffer
+                      );
+      if (EFI_ERROR (Status)) {
+        return;
+      }
+
+      for (Index = 0; Index < HandleCount; Index++) {
+        Status = gBS->ConnectController (HandleBuffer[Index], NULL, NULL, TRUE);
+      }
+
+      if (HandleBuffer != NULL) {
+        FreePool (HandleBuffer);
+      }
+  }
+
+  return;
+}
+#endif
 
 //
 // BDS Platform Functions
@@ -718,6 +1023,8 @@ PlatformBootManagerBeforeConsole (
   // PCI driver attached first.
   //
   FilterAndProcess (&gEdkiiNonDiscoverableDeviceProtocolGuid, IsUsbHost, Connect);
+
+  GetFileBuffer ();
 
   //
   // Add the hardcoded short-form USB keyboard device path to ConIn.
