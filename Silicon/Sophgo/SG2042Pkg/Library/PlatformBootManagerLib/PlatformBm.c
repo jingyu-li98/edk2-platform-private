@@ -660,38 +660,28 @@ PlatformRegisterOptionsAndKeys (
   ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
 }
 #if 1
-VOID
-PrintDp (
-  EFI_DEVICE_PATH_PROTOCOL  *DevicePath
-  )
-{
-  CHAR16  *Str;
+/**
+  Get the ASpeedAst2600Gop.efi file path from a media device
 
-  Str = ConvertDevicePathToText (DevicePath, FALSE, FALSE);
-  DEBUG ((DEBUG_INFO, "%s", Str));
-  if (Str != NULL) {
-    FreePool (Str);
-  }
-}
-
+**/
 EFI_DEVICE_PATH_PROTOCOL *
-ExpandMediaDevicePath (
+ExpandMediaDeviceFilePath (
   VOID
   )
 {
   EFI_STATUS                Status;
   EFI_HANDLE                Handle;
+  EFI_HANDLE                *BlockIoHandles;
+  EFI_HANDLE                *SimpleFileSystemHandles;
   EFI_BLOCK_IO_PROTOCOL     *BlockIo;
   EFI_DEVICE_PATH_PROTOCOL  *FilePath;
   EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
-  UINTN                     TempSize;
-  EFI_HANDLE                *BlockIoHandles;
-  EFI_HANDLE                *SimpleFileSystemHandles;
   UINTN                     NumberBlockIoHandles;
   UINTN                     NumberSimpleFileSystemHandles;
   UINTN                     Index;
-  VOID                      *Buffer;
+  UINTN                     TempSize;
   UINTN                     Size;
+  VOID                      *Buffer;
 
   //
   // Step 1. Get the device path
@@ -805,74 +795,34 @@ ExpandMediaDevicePath (
 }
 
 /**
-  Return the next matched file buffer.
+  load a .EFI driver into memory and possible connect the driver
 
-  @return The load option buffer. Caller is responsible to free the memory.
 **/
 VOID
-GetFileBuffer (
+LoadDriverExtra (
   VOID
   )
 {
   EFI_STATUS                 Status;
-  EFI_DEVICE_PATH_PROTOCOL   *OriFilePath;
-  // EFI_DEVICE_PATH_PROTOCOL   *FilePath;
-  UINTN                      LocalFileSize;
-  UINT32                     AuthenticationStatus;
-
-  // EFI_HANDLE                Handle;
-  UINT8                      *ImageBuffer;
-  UINTN                      ImageBufferSize;
+  EFI_DEVICE_PATH_PROTOCOL   *FilePath;
   EFI_HANDLE                 LoadedDriverHandle;
   EFI_LOADED_IMAGE_PROTOCOL  *LoadedDriverImage;
 
   LoadedDriverImage     = NULL;
-  LocalFileSize         = 0;
   LoadedDriverHandle    = NULL;
-  AuthenticationStatus  = 0;
-  ImageBuffer           = NULL;
-  ImageBufferSize       = 0;
-  // do {
-  //   OriFilePath = ExpandMediaDevicePath ();
-  //   DEBUG ((DEBUG_WARN, "CurFullPath: \n"));
-  //   PrintDp (OriFilePath);
-  //   DEBUG ((DEBUG_WARN, "\n"));
 
-  //   //
-  //   // Get the file buffer by its device path.
-  //   //
-  //   ImageBuffer = GetFileBufferByFilePath (
-  //                   TRUE,
-  //                   OriFilePath,
-  //                   &LocalFileSize,
-  //                   &AuthenticationStatus
-  //                   );
+  //
+  // Get the file path
+  //
+  FilePath = ExpandMediaDeviceFilePath ();
 
-  //   if (ImageBuffer != NULL) {
-  //     //
-  //     // Free the invalid load option buffer.
-  //     //
-  //     FreePool (ImageBuffer);
-  //     ImageBuffer = NULL;
-  //   }
-    
-  // } while (ImageBuffer != NULL);
-
-  // if (ImageBuffer == NULL) {
-  //   FilePath   = NULL;
-  //   LocalFileSize = 0;
-  // }
-  OriFilePath = ExpandMediaDevicePath ();
-  DEBUG ((DEBUG_WARN, "CurFullPath: \n"));
-  PrintDp (OriFilePath);
-  DEBUG ((DEBUG_WARN, "\n"));
   //
   // Use LoadImage to get it into memory
   //
   Status = gBS->LoadImage (
                   FALSE,
                   gImageHandle,
-                  OriFilePath,
+                  FilePath,
                   NULL,
                   0,
                   &LoadedDriverHandle
@@ -937,28 +887,28 @@ GetFileBuffer (
     //
     // Connect it...
     //
-      UINTN       HandleCount;
-      EFI_HANDLE  *HandleBuffer;
-      UINTN       Index;
+    UINTN       HandleCount;
+    EFI_HANDLE  *HandleBuffer;
+    UINTN       Index;
 
-      Status = gBS->LocateHandleBuffer (
-                      AllHandles,
-                      NULL,
-                      NULL,
-                      &HandleCount,
-                      &HandleBuffer
-                      );
-      if (EFI_ERROR (Status)) {
-        return;
-      }
+    Status = gBS->LocateHandleBuffer (
+                    AllHandles,
+                    NULL,
+                    NULL,
+                    &HandleCount,
+                    &HandleBuffer
+                    );
+    if (EFI_ERROR (Status)) {
+      return;
+    }
 
-      for (Index = 0; Index < HandleCount; Index++) {
-        Status = gBS->ConnectController (HandleBuffer[Index], NULL, NULL, TRUE);
-      }
+    for (Index = 0; Index < HandleCount; Index++) {
+      Status = gBS->ConnectController (HandleBuffer[Index], NULL, NULL, TRUE);
+    }
 
-      if (HandleBuffer != NULL) {
-        FreePool (HandleBuffer);
-      }
+    if (HandleBuffer != NULL) {
+      FreePool (HandleBuffer);
+    }
   }
 
   return;
@@ -995,6 +945,8 @@ PlatformBootManagerBeforeConsole (
   //
   EfiBootManagerDispatchDeferredImages ();
 
+  LoadDriverExtra ();
+
   //
   // Locate the PCI root bridges and make the PCI bus driver connect each,
   // non-recursively. This will produce a number of child handles with PciIo on
@@ -1023,8 +975,6 @@ PlatformBootManagerBeforeConsole (
   // PCI driver attached first.
   //
   FilterAndProcess (&gEdkiiNonDiscoverableDeviceProtocolGuid, IsUsbHost, Connect);
-
-  GetFileBuffer ();
 
   //
   // Add the hardcoded short-form USB keyboard device path to ConIn.

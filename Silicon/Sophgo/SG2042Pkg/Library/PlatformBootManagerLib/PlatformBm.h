@@ -30,12 +30,6 @@
 #include <Guid/NonDiscoverableDevice.h>
 
 #include <Protocol/BlockIo.h>
-#include <Protocol/LoadFile2.h>
-#include <Protocol/DevicePath.h>
-#include <Protocol/SimpleFileSystem.h>
-#include <Uefi/UefiSpec.h>
-#include <Uefi/UefiBaseType.h>
-#include <Library/DxeServicesLib.h>
 
 #define EFI_FILE_NAME L"\\ASpeedAst2600Gop.efi"
 
