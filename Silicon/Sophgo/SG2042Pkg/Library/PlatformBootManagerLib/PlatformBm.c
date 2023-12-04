@@ -1036,10 +1036,10 @@ PlatformBootManagerAfterConsole (
   )
 {
   EFI_STATUS                    Status;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphicsOutput;
+  //EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphicsOutput;
   UINTN                         FirmwareVerLength;
-  UINTN                         PosX;
-  UINTN                         PosY;
+  //UINTN                         PosX;
+  //UINTN                         PosY;
   EFI_INPUT_KEY                 Key;
 
   FirmwareVerLength = StrLen (PcdGetPtr (PcdFirmwareVersionString));
@@ -1047,6 +1047,7 @@ PlatformBootManagerAfterConsole (
   // Show the splash screen.
   //
   Status = BootLogoEnableLogo ();
+#if 0
   DEBUG ((DEBUG_WARN, "%a[%d] Status=%r\n", __func__, __LINE__, Status));
   if (EFI_ERROR (Status)) {
     if (FirmwareVerLength > 0) {
@@ -1079,7 +1080,7 @@ PlatformBootManagerAfterConsole (
         );
     }
   }
-
+#endif
   //
   // Connect the rest of the devices.
   //
@@ -1121,16 +1122,6 @@ PlatformBootManagerWaitCallback (
 
   Timeout = PcdGet16 (PcdPlatformBootTimeOut);
 
-  //
-  // If PcdPlatformBootTimeOut is set to zero, then we consider
-  // that no progress update should be enacted (since we'd only
-  // ever display a one-shot progress of either 0% or 100%).
-  //
-  // if (TimeoutInitial == 0) {
-  //   return;
-  // }
-
-  // DEBUG ((DEBUG_WARN, ""))
   Black.Raw = 0x00000000;
   White.Raw = 0x00FFFFFF;
 
@@ -1145,8 +1136,6 @@ PlatformBootManagerWaitCallback (
   if (EFI_ERROR (Status)) {
     Print (L".");
   }
-
-  // return;
 }
 
 /**
