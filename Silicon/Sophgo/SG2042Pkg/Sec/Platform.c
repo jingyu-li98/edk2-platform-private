@@ -157,5 +157,13 @@ PlatformPeimInitialization (
   //
   PopulateIoResources (Base, "bitmain,bm-sd");
 
+  //
+  // Add Timer resource
+  //
+  //PopulateIoResources (Base, "thead,c900-clint-mtimer");
+  // //
+  // // Add eMMC resource
+  // PopulateIoResources (Base, "bitmain,bm-emmc");
+
   return EFI_SUCCESS;
 }

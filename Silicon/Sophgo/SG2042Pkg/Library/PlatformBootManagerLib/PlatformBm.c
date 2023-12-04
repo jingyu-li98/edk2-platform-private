@@ -240,7 +240,6 @@ IsUsbHost (
   return FALSE;
 }
 
-
 /**
   This CALLBACK_FUNCTION attempts to connect a handle non-recursively, asking
   the matching driver to produce all first-level child handles.
@@ -955,6 +954,12 @@ PlatformBootManagerBeforeConsole (
   FilterAndProcess (&gEfiPciRootBridgeIoProtocolGuid, NULL, Connect);
 
   //
+  // Ensure that USB is initialized by connecting the PCI root bridge so
+  // that the xHCI PCI controller gets enumerated.
+  //
+  FilterAndProcess (&gEfiUsb2HcProtocolGuid, NULL, Connect);
+
+  //
   // Find all display class PCI devices (using the handles from the previous
   // step), and connect them non-recursively. This should produce a number of
   // child handles with GOPs on them.
@@ -988,6 +993,7 @@ PlatformBootManagerBeforeConsole (
   //
   // Add the hardcoded serial console device path to ConIn, ConOut, ErrOut.
   //
+  // ASSERT (FixedPcdGet8 (PcdDefaultTerminalType) == 4);
   CopyGuid (&mSerialConsole.TermType.Guid, &gEfiTtyTermGuid);
 
   EfiBootManagerUpdateConsoleVariable (
@@ -1041,6 +1047,7 @@ PlatformBootManagerAfterConsole (
   // Show the splash screen.
   //
   Status = BootLogoEnableLogo ();
+  DEBUG ((DEBUG_WARN, "%a[%d] Status=%r\n", __func__, __LINE__, Status));
   if (EFI_ERROR (Status)) {
     if (FirmwareVerLength > 0) {
       Print (
@@ -1114,6 +1121,16 @@ PlatformBootManagerWaitCallback (
 
   Timeout = PcdGet16 (PcdPlatformBootTimeOut);
 
+  //
+  // If PcdPlatformBootTimeOut is set to zero, then we consider
+  // that no progress update should be enacted (since we'd only
+  // ever display a one-shot progress of either 0% or 100%).
+  //
+  // if (TimeoutInitial == 0) {
+  //   return;
+  // }
+
+  // DEBUG ((DEBUG_WARN, ""))
   Black.Raw = 0x00000000;
   White.Raw = 0x00FFFFFF;
 
@@ -1128,6 +1145,8 @@ PlatformBootManagerWaitCallback (
   if (EFI_ERROR (Status)) {
     Print (L".");
   }
+
+  // return;
 }
 
 /**

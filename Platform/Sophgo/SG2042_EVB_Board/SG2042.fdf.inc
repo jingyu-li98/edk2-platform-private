@@ -53,3 +53,9 @@ SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFirmwareRegionSize        = $
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamBase                  = $(CODE_BASE_ADDRESS) + $(FW_SIZE) + 0x1FF0000
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize                  = 0x10000
 SET gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SDIOBase                 = 0x704002B000
+
+
+SET gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase             = 0x7040000000
+SET gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate                  = 115200
+SET gHisiTokenSpaceGuid.PcdSerialPortSendDelay                       = 10000000
+SET gHisiTokenSpaceGuid.PcdUartClkInHz                               = 500000000

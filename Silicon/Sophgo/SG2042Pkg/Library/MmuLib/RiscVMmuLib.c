@@ -699,6 +699,19 @@ RiscVMmuSetSatpMode (
     }
   }
 
+  //
+  // UART
+  //
+  Status = UpdateRegionMapping (
+        0xfffffff040000000,
+        0x4000,
+        RISCV_PG_R | RISCV_PG_W | THEAD_C920_PTE_SH | THEAD_C920_PTE_SO,
+        PTE_ATTRIBUTES_MASK,
+        TranslationTable,
+        FALSE
+        );
+  ASSERT_EFI_ERROR (Status);
+
   FreePool ((VOID *)MemoryMap);
 
   if (GetInterruptState ()) {
