@@ -158,12 +158,9 @@ PlatformPeimInitialization (
   PopulateIoResources (Base, "bitmain,bm-sd");
 
   //
-  // Add Timer resource
+  // Add SPI Flash Master Controller resource
   //
-  //PopulateIoResources (Base, "thead,c900-clint-mtimer");
-  // //
-  // // Add eMMC resource
-  // PopulateIoResources (Base, "bitmain,bm-emmc");
+  PopulateIoResources (Base, "sophgo,spifmc");
 
   return EFI_SUCCESS;
 }

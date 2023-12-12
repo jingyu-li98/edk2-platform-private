@@ -29,10 +29,6 @@
 #include <Guid/SerialPortLibVendor.h>
 #include <Guid/NonDiscoverableDevice.h>
 
-#include <Protocol/BlockIo.h>
-
-#define EFI_FILE_NAME L"\\ASpeedAst2600Gop.efi"
-
 #define DP_NODE_LEN(Type) { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
 
 #define VERSION_STRING_PREFIX  L"Tianocore/EDK2 firmware version "
