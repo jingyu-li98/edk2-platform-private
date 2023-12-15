@@ -7,25 +7,23 @@
 #**/
 
 [Defines]
-  INF_VERSION                    = 0x00010006
-  BASE_NAME                      = SpiDxe
-  FILE_GUID                      = C46D01DF-1D9D-48E4-B6B3-B3FC004FE04E
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = NorFlashDxe
+  FILE_GUID                      = 193C6420-E06F-4833-ACDB-876C4A69FE61
   MODULE_TYPE                    = DXE_RUNTIME_DRIVER
   VERSION_STRING                 = 1.0
-  ENTRY_POINT                    = SpifmcEntryPoint
+  ENTRY_POINT                    = SpiNorEntryPoint
 
 [Sources.common]
-  SpiFlashMasterController.c
-  SpiFlashMasterController.h
+  NorFlashDxe.c
+  NorFlashDxe.h
 
 [Packages]
   MdePkg/MdePkg.dec
-  UefiCpuPkg/UefiCpuPkg.dec
   EmbeddedPkg/EmbeddedPkg.dec
   Silicon/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
-  IoLib
   DebugLib
   MemoryAllocationLib
   NorFlashInfoLib
@@ -43,7 +41,6 @@
 
 [Pcd]
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SPIFMCBase      ## CONSUMES
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode             ## CONSUMES
 
 [Depex]
- TRUE
+  gSophgoSpiMasterProtocolGuid

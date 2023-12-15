@@ -7,10 +7,22 @@
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
  **/
+#ifndef __SPI_DXE_H__
+#define __SPI_DXE_H__
 
-#ifndef __SPI_FLASH_MASTER_CONTROLLER_H__
-#define __SPI_FLASH_MASTER_CONTROLLER_H__
+#include <Uefi.h>
+#include <Library/IoLib.h>
+#include <Library/PcdLib.h>
+#include <Library/UefiLib.h>
+#include <Library/DebugLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/UefiRuntimeLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/DxeServicesTableLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
+#include <Include/Spi.h>
+#include <Include/SpiNorFlash.h>
 //
 // SPIFMC registers
 //
@@ -89,29 +101,36 @@
   { 0xB67F29A5, 0x7E7D, 0x48C6,          \
     { 0xA0, 0x00, 0xE8, 0xB5, 0x1D, 0x6D, 0x3A, 0xA8 } }
 
+typedef struct {
+  SOPHGO_SPI_MASTER_PROTOCOL SpiMasterProtocol;
+  UINTN                      Signature;
+  EFI_HANDLE                 Handle;
+  EFI_LOCK                   Lock;
+} SPI_MASTER;
+
 EFI_STATUS
 EFIAPI
 SpifmcReadRegister (
   IN  SPI_NOR *Nor,
   IN  UINT8   Opcode,
-  IN  UINTN   Length
-  OUT UINT8   *Buffer,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcWriteRegister (
-  IN  SPI_NOR      *Nor,
-  IN  UINT8        Opcode,
-  IN  CONST UINT8 *Buffer,
-  IN  UINTN        Length
+  IN SPI_NOR      *Nor,
+  IN UINT8        Opcode,
+  IN CONST UINT8 *Buffer,
+  IN UINTN        Length
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcRead (
   IN  SPI_NOR *Nor,
-  IN  UINT32  From,
+  IN  UINTN   From,
   IN  UINTN   Length,
   OUT UINT8   *Buffer
   );
@@ -119,24 +138,43 @@ SpifmcRead (
 EFI_STATUS
 EFIAPI
 SpifmcWrite (
-  IN  SPI_NOR     *Nor,
-  IN  UINT32      To,
-  IN  UINTN       Length,
-  IN  CONST UINT8 *Buffer
+  IN SPI_NOR     *Nor,
+  IN UINTN       To,
+  IN UINTN       Length,
+  IN CONST UINT8 *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcErase (
-  IN  SPI_NOR *Nor,
-  IN  UINT32 Offs
+  IN SPI_NOR *Nor,
+  IN UINTN   Offs
+  );
+
+SPI_NOR *
+EFIAPI
+SpiMasterSetupSlave (
+  IN SOPHGO_SPI_MASTER_PROTOCOL *This,
+  IN SPI_NOR                    *Nor
+  );
+
+EFI_STATUS
+EFIAPI
+SpiMasterFreeSlave (
+  IN SPI_NOR *Nor
+  );
+
+EFI_STATUS
+EFIAPI
+SpifmcInit (
+  IN SPI_NOR *Nor
   );
 
 EFI_STATUS
 EFIAPI
 SpiMasterEntryPoint (
-  IN  EFI_HANDLE       ImageHandle,
-  IN  EFI_SYSTEM_TABLE *SystemTable
+  IN EFI_HANDLE       ImageHandle,
+  IN EFI_SYSTEM_TABLE *SystemTable
   );
 
-#endif //__SPI_FLASH_MASTER_CONTROLLER_H__
+#endif //__SPI_DXE_H__

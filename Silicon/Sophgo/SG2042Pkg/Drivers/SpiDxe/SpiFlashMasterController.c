@@ -8,16 +8,17 @@
  **/
 
 #include "SpiFlashMasterController.h"
-#include <Library/DebugLib.h>
+
+SPI_MASTER *mSpiMasterInstance;
 
 STATIC
 EFI_STATUS
 SpifmcWaitInt (
-  IN UINT32  SpiBase,
+  IN UINTN   SpiBase,
   IN UINT8   IntType
   )
 {
-  UINT32 Stat;
+  UINT32  Stat;
 
   while (1) {
     Stat = MmioRead32 ((UINTN)(SpiBase + SPIFMC_INT_STS));
@@ -32,13 +33,13 @@ SpifmcWaitInt (
 STATIC
 UINT32
 SpifmcInitReg (
-  UINT32 SpiBase
+  IN UINTN   SpiBase
   )
 {
-  UINT32 Reg;
+  UINT32 Register;
 
-  Reg = MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR));
-  Reg &= ~(SPIFMC_TRAN_CSR_TRAN_MODE_MASK
+  Register = MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR));
+  Register &= ~(SPIFMC_TRAN_CSR_TRAN_MODE_MASK
            | SPIFMC_TRAN_CSR_CNTNS_READ
            | SPIFMC_TRAN_CSR_FAST_MODE
            | SPIFMC_TRAN_CSR_BUS_WIDTH_2_BIT
@@ -48,7 +49,7 @@ SpifmcInitReg (
            | SPIFMC_TRAN_CSR_WITH_CMD
            | SPIFMC_TRAN_CSR_FIFO_TRG_LVL_MASK);
 
-  return Reg;
+  return Register;
 }
 
 /*
@@ -62,22 +63,22 @@ EFIAPI
 SpifmcReadRegister (
   IN  SPI_NOR *Nor,
   IN  UINT8   Opcode,
-  IN  UINTN   Length
-  OUT UINT8   *Buffer,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   )
 {
-  UINTN      Index;
-  UINT32     Reg;
-  UINT32     SpiBase;
+  INT32      Index;
+  UINTN      SpiBase;
+  UINT32     Register;
   EFI_STATUS Status;
 
   SpiBase = Nor->SpiBase;
 
-  Reg = SpifmcInitReg (SpiBase);
-  Reg |= SPIFMC_TRAN_CSR_BUS_WIDTH_1_BIT;
-  Reg |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
-  Reg |= SPIFMC_TRAN_CSR_WITH_CMD;
-  Reg |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
+  Register = SpifmcInitReg (SpiBase);
+  Register |= SPIFMC_TRAN_CSR_BUS_WIDTH_1_BIT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Opcode);
 
@@ -87,11 +88,17 @@ SpifmcReadRegister (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
-  Reg |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Reg);
+  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
   if (Status) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Transfer Done %r\n",
+      __func__,
+      Status
+      ));
     return Status;
   }
 
@@ -113,22 +120,23 @@ SpifmcWriteRegister (
   IN UINTN        Length
   )
 {
-  UINTN      Index;
-  UINT32     Reg;
-  UINT32     SpiBase;
+  INT32      Index;
+  UINTN      SpiBase;
+  UINT32     Register;
+  EFI_STATUS Status;
 
   SpiBase = Nor->SpiBase;
 
-  Reg = SpifmcInitReg (SpiBase);
-  Reg |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
-  Reg |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register = SpifmcInitReg (SpiBase);
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
 
   /*
    * If write values to the Status Register,
    * configure TRAN_CSR register as the same as SpifmcReadReg.
    */
   if (Opcode == SPINOR_OP_WRSR) {
-    Reg |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
+    Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
     MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
   }
 
@@ -140,9 +148,20 @@ SpifmcWriteRegister (
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
-  Reg |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Reg);
-  SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
+
+  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Transfer Done %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
   return EFI_SUCCESS;
@@ -152,42 +171,51 @@ EFI_STATUS
 EFIAPI
 SpifmcRead (
   IN  SPI_NOR *Nor,
-  IN  UINT32  From,
+  IN  UINTN   From,
   IN  UINTN   Length,
   OUT UINT8   *Buffer
   )
 {
-
   INT32      XferSize;
   INT32      Offset;
-  UINTN      Index;
-  UINT32     Reg;
-  UINT32     SpiBase;
+  INT32      Index;
+  UINTN      SpiBase;
+  UINT32     Register;
+  EFI_STATUS Status;
 
   SpiBase = Nor->SpiBase;
   Offset = 0;
 
-  Reg = SpifmcInitReg (SpiBase);
-  Reg |= (Nor->AddrNbytes) << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
-  Reg |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
-  Reg |= SPIFMC_TRAN_CSR_WITH_CMD;
-  Reg |= SPIFMC_TRAN_CSR_TRAN_MODE_RX;
+  Register = SpifmcInitReg (SpiBase);
+  Register |= (Nor->AddrNbytes) << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX;
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->ReadOpcode);
 
-  for (Index = Nor->AddrNbytes - 1; Index >= 0; Index--) {
+  for (Index = Nor->AddrNbytes - 1; Index >= 0; Index --) {
     MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), (From >> Index * 8) & 0xff);
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
-  Reg |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Reg);
-  SpifmcWaitInt (SpiBase, SPIFMC_INT_RD_FIFO);
+  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
+
+  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_RD_FIFO);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Read FIFO Done %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
 
   while (Offset < Length) {
     XferSize = MIN (SPIFMC_MAX_FIFO_DEPTH, Length - Offset);
-
     while ((MmioRead32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT)) & 0xf) != XferSize)
       ;
 
@@ -197,8 +225,19 @@ SpifmcRead (
 
     Offset += XferSize;
   }
+  DEBUG ((DEBUG_INFO, "\n"));
 
-  SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Transfer Done %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
   return EFI_SUCCESS;
@@ -208,26 +247,28 @@ EFI_STATUS
 EFIAPI
 SpifmcWrite (
   IN  SPI_NOR     *Nor,
-  IN  UINT32      To,
+  IN  UINTN       To,
   IN  UINTN       Length,
   IN  CONST UINT8 *Buffer
   )
 {
-  UINTN      Index;
+  INT32      Index;
+  UINTN      SpiBase;
   INT32      Offset;
   INT32      XferSize;
-  UINT32     Reg;
-  UINT32     Wait;
-  UINT32     SpiBase;
+  UINT32     Register;
+  UINT32     WaitTime;
+  EFI_STATUS Status;
 
-  SpiBase = Nor->SpiBase;
-  Offset = 0;
+  SpiBase     = Nor->SpiBase;
+  Offset      = 0;
+  WaitTime    = 0;
 
-  Reg = SpifmcInitReg (SpiBase);
-  Reg |= Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
-  Reg |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
-  Reg |= SPIFMC_TRAN_CSR_WITH_CMD;
-  Reg |= SPIFMC_TRAN_CSR_TRAN_MODE_TX;
+  Register = SpifmcInitReg (SpiBase);
+  Register |= Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register |= SPIFMC_TRAN_CSR_TRAN_MODE_TX;
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->ProgramOpcode);
 
@@ -237,8 +278,8 @@ SpifmcWrite (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
-  Reg |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Reg);
+  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   while ((MmioRead32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT)) & 0xf) != 0)
     ;
@@ -248,45 +289,60 @@ SpifmcWrite (
   while (Offset < Length) {
     XferSize = MIN (SPIFMC_MAX_FIFO_DEPTH, Length - Offset);
 
-    Wait = 0;
     while ((MmioRead32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT)) & 0xf) != 0) {
-      Wait ++;
+      WaitTime ++;
       gBS->Stall (10);
-      if (Wait > 30000) {
-        DEBUG ((DEBUG_ERROR, "%a: Wait to write FIFO timeout.\n", __func__));
+      if (WaitTime > 30000) {
+        DEBUG ((
+          DEBUG_ERROR,
+          "%a: Wait FIFO empty timeout!\n",
+          __func__
+          ));
         return EFI_TIMEOUT;
       }
     }
 
-    for (Index = 0; Index < XferSize; Index++)
+    for (Index = 0; Index < XferSize; Index++) {
       MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Buffer[Index + Offset]);
-
-      Offset += XferSize;
     }
 
-    SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-    MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
+    Offset += XferSize;
+  }
 
-    return EFI_SUCCESS;
+  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Transfer Done %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
+
+  return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
 SpifmcErase (
   IN  SPI_NOR *Nor,
-  IN  UINT32 Offs
+  IN  UINTN   Offs
   )
 {
-  UINTN      Index;
-  UINT32     Reg;
-  UINT32     SpiBase;
+  INT32      Index;
+  UINTN      SpiBase;
+  UINT32     Register;
+  EFI_STATUS Status;
 
   SpiBase = Nor->SpiBase;
 
-  Reg = SpifmcInitReg (SpiBase);
-  Reg |= Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
-  Reg |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
-  Reg |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register = SpifmcInitReg (SpiBase);
+  Register |= Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->EraseOpcode);
 
@@ -295,46 +351,139 @@ SpifmcErase (
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
-  Reg |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Reg);
-  SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
+  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
-  return EFI_SUCCESS;
-}
-
-
-
-EFI_STATUS
-SpiMasterInitProtocol (
-  IN SOPHGO_SPI_MASTER_PROTOCOL *SpiMasterProtocol,
-  IN SPI_NOR  *Nor
-  )
-{
-  Nor->SpiBase = SPIFMC_BASE;
-
-  if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL){
-    for (INT32 I = 39; I < 64; I++) {
-      if (Nor->SpiBase & (1ULL << 38)) {
-        Nor->SpiBase |= (1ULL << I);
-      } else {
-        Nor->SpiBase &= ~(1ULL << I);
-      }
-    }
+  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Wait Transfer Done %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
   }
 
-  SpiMasterProtocol->ReadRegister   = SpifmcReadRegister;
-  SpiMasterProtocol->WriteRegister  = SpifmcWriteRegister;
-  SpiMasterProtocol->Read           = SpifmcRead;
-  SpiMasterProtocol->Write          = SpifmcWrite;
-  SpiMasterProtocol->Erase          = SpifmcErase;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
-MangoSpifmcEntryPoint (
+SpifmcInit (
+  IN  SPI_NOR *Nor
+  )
+{
+  UINT32     Register;
+  UINTN      SpiBase;
+  // UINT32     Index;
+
+  // SpiBase = SPIFMC_BASE;
+
+  // if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
+  //   for (Index = 39; Index < 64; Index++) {
+  //     if (SpiBase & (1ULL << 38)) {
+  //       SpiBase |= (1ULL << Index);
+  //     } else {
+  //       SpiBase &= ~(1ULL << Index);
+  //     }
+  //   }
+  // }
+
+  // Nor->SpiBase = SpiBase;
+
+  SpiBase = Nor->SpiBase;
+
+  DEBUG ((DEBUG_WARN, "%a[%d] SPI Base Address = 0x%llx\n", __func__, __LINE__, SpiBase));
+
+  //
+  // disable DMMR (Direct Memory Mapping Read)
+  //
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 0);
+  
+  //
+  // soft reset
+  //
+  MmioWrite32 (SpiBase + SPIFMC_CTRL, MmioRead32 ((UINTN)(SpiBase + SPIFMC_CTRL)) | SPIFMC_CTRL_SRST | 0x3);
+  
+  //
+  // hardware CE contrl, soft reset cannot change the register
+  //
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_CE_CTRL), 0);
+
+  Register = Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_4_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
+
+  return EFI_SUCCESS;
+}
+
+
+SPI_NOR *
+EFIAPI
+SpiMasterSetupSlave (
+  IN SOPHGO_SPI_MASTER_PROTOCOL *This,
+  IN SPI_NOR                    *Nor
+  )
+{
+  UINT32 Index;
+
+  if (!Nor) {
+    Nor = AllocateZeroPool (sizeof(SPI_NOR));
+    if (!Nor) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a: Cannot allocate memory\n",
+        __func__
+        ));
+      return NULL;
+    }
+  }
+
+  Nor->SpiBase = SPIFMC_BASE;
+  Nor->BounceBufSize = SIZE_4KB;
+
+  Nor->BounceBuf = AllocateZeroPool (Nor->BounceBufSize);
+  if (!Nor->BounceBuf) {
+    return NULL;
+  }
+
+  DEBUG ((DEBUG_WARN, "%a[%d] SPI Base Address = 0x%llx\n", __func__, __LINE__, Nor->SpiBase));
+
+  if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
+    for (Index = 39; Index < 64; Index++) {
+      if (Nor->SpiBase & (1ULL << 38)) {
+        Nor->SpiBase |= (1ULL << Index);
+      } else {
+        Nor->SpiBase &= ~(1ULL << Index);
+      }
+    }
+  }
+
+  DEBUG ((DEBUG_WARN, "%a[%d] SPI Base Address = 0x%llx\n", __func__, __LINE__, Nor->SpiBase));
+
+  return Nor;
+}
+
+EFI_STATUS
+EFIAPI
+SpiMasterFreeSlave (
+  IN SPI_NOR *Nor
+  )
+{
+  FreePool (Nor);
+
+  FreePool (Nor->BounceBuf);
+
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+SpifmcEntryPoint (
   IN EFI_HANDLE       ImageHandle,
   IN EFI_SYSTEM_TABLE *SystemTable
   )
@@ -348,16 +497,23 @@ MangoSpifmcEntryPoint (
 
   EfiInitializeLock (&mSpiMasterInstance->Lock, TPL_NOTIFY);
 
-  SpiMasterInitProtocol (&mSpiMasterInstance->SpiMasterProtocol);
+  mSpiMasterInstance->SpiMasterProtocol.Init           = SpifmcInit;
+  mSpiMasterInstance->SpiMasterProtocol.ReadRegister   = SpifmcReadRegister;
+  mSpiMasterInstance->SpiMasterProtocol.WriteRegister  = SpifmcWriteRegister;
+  mSpiMasterInstance->SpiMasterProtocol.Read           = SpifmcRead;
+  mSpiMasterInstance->SpiMasterProtocol.Write          = SpifmcWrite;
+  mSpiMasterInstance->SpiMasterProtocol.Erase          = SpifmcErase;
+  mSpiMasterInstance->SpiMasterProtocol.SetupDevice    = SpiMasterSetupSlave;
+  mSpiMasterInstance->SpiMasterProtocol.FreeDevice     = SpiMasterFreeSlave;
 
   mSpiMasterInstance->Signature = SPI_MASTER_SIGNATURE;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
-                  &(mSpiMasterInstance->Handle),
-                  &gMarvellSpiMasterProtocolGuid,
-                  &(mSpiMasterInstance->SpiMasterProtocol),
-                  NULL
-                  );
+                    &(mSpiMasterInstance->Handle),
+                    &gSophgoSpiMasterProtocolGuid,
+                    &(mSpiMasterInstance->SpiMasterProtocol),
+                    NULL
+                    );
   if (EFI_ERROR (Status)) {
     FreePool (mSpiMasterInstance);
     return EFI_DEVICE_ERROR;

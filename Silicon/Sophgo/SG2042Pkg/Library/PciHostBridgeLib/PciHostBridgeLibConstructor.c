@@ -6,11 +6,10 @@
 
 **/
 
+#include <Uefi.h>
 #include <Library/IoLib.h>
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
-#include <Uefi/UefiSpec.h>
-#include <Uefi/UefiBaseType.h>
 #include <Protocol/FdtClient.h>
 #include <Include/SophgoPciRegs.h>
 #include <Include/PlatformPciLib.h>

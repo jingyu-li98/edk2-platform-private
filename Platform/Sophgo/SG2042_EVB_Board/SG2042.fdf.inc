@@ -54,3 +54,4 @@ SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamBase                  = $
 SET gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize                  = 0x10000
 SET gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SDIOBase                 = 0x704002B000
 SET gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SPIFMCBase               = 0x7000180000
+#SET gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SPIFMCBase               = 0x7002180000

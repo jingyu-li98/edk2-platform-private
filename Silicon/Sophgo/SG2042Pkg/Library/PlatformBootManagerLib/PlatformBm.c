@@ -8,6 +8,16 @@
 **/
 
 #include "PlatformBm.h"
+#include <Library/BaseMemoryLib.h>
+
+#include <Include/Spi.h>
+#include <Include/SpiNorFlash.h>
+
+STATIC SOPHGO_NOR_FLASH_PROTOCOL         *NorFlashProtocol;
+STATIC SOPHGO_SPI_MASTER_PROTOCOL        *SpiMasterProtocol;
+
+#define LOAD_EFI_FILE_NAME    L"ASpeedAst2600Gop.efi"
+#define DISK_PART_TABLE_ADDR  0x600000
 
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
@@ -659,6 +669,735 @@ PlatformRegisterOptionsAndKeys (
   ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
 }
 
+#if 1
+
+// STATIC
+// EFI_STATUS
+// GetFileSize (
+//   IN  EFI_FILE_HANDLE  RootDir,
+//   IN  CHAR16           *FileName,
+//   OUT UINTN            *Size
+//   )
+// {
+//   UINT64           FileSize;
+//   EFI_STATUS       Status;
+//   EFI_FILE_HANDLE  FileHandle;
+
+//   Status = RootDir->Open (RootDir, &FileHandle, FileName, EFI_FILE_MODE_READ, 0);
+//   if (EFI_ERROR (Status)) {
+//     return Status;
+//   }
+
+//   Status = FileHandleGetSize (FileHandle, &FileSize);
+//   if (EFI_ERROR (Status)) {
+//     goto CloseFile;
+//   }
+
+//   if (FileSize > MAX_UINTN) {
+//     Status = EFI_UNSUPPORTED;
+//     goto CloseFile;
+//   }
+
+//   *Size  = (UINTN)FileSize;
+//   Status = EFI_SUCCESS;
+
+// CloseFile:
+//   FileHandle->Close (FileHandle);
+//   return Status;
+// }
+
+
+// EFI_STATUS
+// EFIAPI
+// LoadImage (
+//   OUT EFI_HANDLE  *ImageHandle
+//   )
+// {
+//   EFI_STATUS                       Status;
+//   EFI_HANDLE                       KernelImageHandle;
+//   EFI_LOADED_IMAGE_PROTOCOL        *KernelLoadedImage;
+//   EFI_DEVICE_PATH_PROTOCOL         *DevicePathNode;
+//   EFI_HANDLE                       FsVolumeHandle;
+//   EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FsProtocol;
+//   EFI_FILE_HANDLE                  Root;
+//   UINTN                            CommandLineSize;
+//   CHAR8                            *CommandLine;
+//   UINTN                            InitrdSize;
+
+//   //
+//   // Load the image. This should call back into the QEMU EFI loader file system.
+//   //
+//   Status = gBS->LoadImage (
+//                   FALSE,                    // BootPolicy: exact match required
+//                   gImageHandle,             // ParentImageHandle
+//                   (EFI_DEVICE_PATH_PROTOCOL *)&mKernelDevicePath,
+//                   NULL,                     // SourceBuffer
+//                   0,                        // SourceSize
+//                   &KernelImageHandle
+//                   );
+//   switch (Status) {
+//     case EFI_SUCCESS:
+//       break;
+
+//     case EFI_SECURITY_VIOLATION:
+//       //
+//       // In this case, the image was loaded but failed to authenticate.
+//       //
+//       Status = EFI_ACCESS_DENIED;
+//       goto UnloadImage;
+
+//     default:
+//       DEBUG ((
+//         Status == EFI_NOT_FOUND ? DEBUG_INFO : DEBUG_ERROR,
+//         "%a: LoadImage(): %r\n",
+//         __func__,
+//         Status
+//         ));
+//       return Status;
+//   }
+
+//   //
+//   // Construct the kernel command line.
+//   //
+//   Status = gBS->OpenProtocol (
+//                   KernelImageHandle,
+//                   &gEfiLoadedImageProtocolGuid,
+//                   (VOID **)&KernelLoadedImage,
+//                   gImageHandle,                  // AgentHandle
+//                   NULL,                          // ControllerHandle
+//                   EFI_OPEN_PROTOCOL_GET_PROTOCOL
+//                   );
+//   ASSERT_EFI_ERROR (Status);
+
+//   //
+//   // Open the Qemu Kernel Loader abstract filesystem (volume) which will be
+//   // used to query the "initrd" and to read the "cmdline" synthetic files.
+//   //
+//   DevicePathNode = (EFI_DEVICE_PATH_PROTOCOL *)&mQemuKernelLoaderFsDevicePath;
+//   Status         = gBS->LocateDevicePath (
+//                           &gEfiSimpleFileSystemProtocolGuid,
+//                           &DevicePathNode,
+//                           &FsVolumeHandle
+//                           );
+//   if (EFI_ERROR (Status)) {
+//     goto UnloadImage;
+//   }
+
+//   Status = gBS->HandleProtocol (
+//                   FsVolumeHandle,
+//                   &gEfiSimpleFileSystemProtocolGuid,
+//                   (VOID **)&FsProtocol
+//                   );
+//   if (EFI_ERROR (Status)) {
+//     goto UnloadImage;
+//   }
+
+//   Status = FsProtocol->OpenVolume (FsVolumeHandle, &Root);
+//   if (EFI_ERROR (Status)) {
+//     goto UnloadImage;
+//   }
+
+//   Status = GetQemuKernelLoaderBlobSize (Root, L"cmdline", &CommandLineSize);
+//   if (EFI_ERROR (Status)) {
+//     goto CloseRoot;
+//   }
+
+//   if (CommandLineSize == 0) {
+//     KernelLoadedImage->LoadOptionsSize = 0;
+//   } else {
+//     CommandLine = AllocatePool (CommandLineSize);
+//     if (CommandLine == NULL) {
+//       Status = EFI_OUT_OF_RESOURCES;
+//       goto CloseRoot;
+//     }
+
+//     Status = ReadWholeQemuKernelLoaderBlob (
+//                Root,
+//                L"cmdline",
+//                CommandLineSize,
+//                CommandLine
+//                );
+//     if (EFI_ERROR (Status)) {
+//       goto FreeCommandLine;
+//     }
+
+//     //
+//     // Verify NUL-termination of the command line.
+//     //
+//     if (CommandLine[CommandLineSize - 1] != '\0') {
+//       DEBUG ((
+//         DEBUG_ERROR,
+//         "%a: kernel command line is not NUL-terminated\n",
+//         __func__
+//         ));
+//       Status = EFI_PROTOCOL_ERROR;
+//       goto FreeCommandLine;
+//     }
+
+//     //
+//     // Drop the terminating NUL, convert to UTF-16.
+//     //
+//     KernelLoadedImage->LoadOptionsSize = (UINT32)((CommandLineSize - 1) * 2);
+//   }
+
+//   Status = GetQemuKernelLoaderBlobSize (Root, L"initrd", &InitrdSize);
+//   if (EFI_ERROR (Status)) {
+//     goto FreeCommandLine;
+//   }
+
+//   if (InitrdSize > 0) {
+//     //
+//     // Append ' initrd=initrd' in UTF-16.
+//     //
+//     KernelLoadedImage->LoadOptionsSize += sizeof (L" initrd=initrd") - 2;
+//   }
+
+//   if (KernelLoadedImage->LoadOptionsSize == 0) {
+//     KernelLoadedImage->LoadOptions = NULL;
+//   } else {
+//     //
+//     // NUL-terminate in UTF-16.
+//     //
+//     KernelLoadedImage->LoadOptionsSize += 2;
+
+//     KernelLoadedImage->LoadOptions = AllocatePool (
+//                                        KernelLoadedImage->LoadOptionsSize
+//                                        );
+//     if (KernelLoadedImage->LoadOptions == NULL) {
+//       KernelLoadedImage->LoadOptionsSize = 0;
+//       Status                             = EFI_OUT_OF_RESOURCES;
+//       goto FreeCommandLine;
+//     }
+
+//     UnicodeSPrintAsciiFormat (
+//       KernelLoadedImage->LoadOptions,
+//       KernelLoadedImage->LoadOptionsSize,
+//       "%a%a",
+//       (CommandLineSize == 0) ?  "" : CommandLine,
+//       (InitrdSize == 0)      ?  "" : " initrd=initrd"
+//       );
+//     DEBUG ((
+//       DEBUG_INFO,
+//       "%a: command line: \"%s\"\n",
+//       __func__,
+//       (CHAR16 *)KernelLoadedImage->LoadOptions
+//       ));
+//   }
+
+//   *ImageHandle = KernelImageHandle;
+//   Status       = EFI_SUCCESS;
+
+// FreeCommandLine:
+//   if (CommandLineSize > 0) {
+//     FreePool (CommandLine);
+//   }
+
+// CloseRoot:
+//   Root->Close (Root);
+// UnloadImage:
+//   if (EFI_ERROR (Status)) {
+//     gBS->UnloadImage (KernelImageHandle);
+//   }
+
+//   return Status;
+// }
+
+
+/**
+  Get the ASpeedAst2600Gop.efi file path from a SPI Flash
+
+  @param[in]   FileSize            Size of the file to be flashed
+  @param[in]  *FileBuffer          Pointer to the file in memory
+  @param[in]   Offset              First logical block to be updated.
+                                   Irrelevant for SPI.
+
+**/
+STATIC
+EFI_STATUS
+ReadFileFromSpiFlash (
+  // IN UINT64      FileSize,
+  // IN UINTN      *FileBuffer,
+  // IN EFI_LBA     Offset
+  VOID
+  )
+{
+  SPI_NOR        *NorFlash;
+  EFI_STATUS     Status;
+
+  //
+  // Locate SPI Master protocol
+  //
+  DEBUG ((DEBUG_INFO, "%a[%d] Locate SPI Master protocol\n", __func__, __LINE__));
+  Status = gBS->LocateProtocol (
+                  &gSophgoSpiMasterProtocolGuid,
+                  NULL,
+                  (VOID **)&SpiMasterProtocol
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Cannot locate SPI Master protocol\n",
+        __func__
+        ));
+    return Status;
+  }
+
+  //
+  // Locate SPI Nor Flash protocol
+  //
+  DEBUG ((DEBUG_INFO, "%a[%d] Locate SPI Nor Flash protocol\n", __func__, __LINE__));
+  Status = gBS->LocateProtocol (
+                  &gSophgoNorFlashProtocolGuid,
+                  NULL,
+                  (VOID **)&NorFlashProtocol
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Cannot locate SPI Nor Flash protocol\n",
+        __func__
+        ));
+    return Status;
+  }
+
+  //
+  // Setup SPI Flash Master Controller
+  //
+  NorFlash = NULL;
+  DEBUG ((DEBUG_INFO, "%a[%d] Setup SPI Flash Master Controller\n", __func__, __LINE__));
+  NorFlash = SpiMasterProtocol->SetupDevice (SpiMasterProtocol,
+                                  NorFlash);
+  if (NorFlash == NULL) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Cannot allocate SPI Nor Flash device!\n",
+        __func__
+        ));
+    return EFI_ABORTED;
+  }
+
+  DEBUG ((DEBUG_INFO, "%a[%d] Initialize SPIFMC\n", __func__, __LINE__));
+  Status = SpiMasterProtocol->Init (NorFlash);
+  if (EFI_ERROR (Status)) {
+     DEBUG ((
+        DEBUG_ERROR,
+        "%a: Error while performing SPI flash probe!\n",
+        __func__
+        ));
+    goto FlashProbeError;
+  }
+
+  //
+  // Read SPI Nor Flash ID
+  //
+  DEBUG ((DEBUG_INFO, "%a[%d] Read SPI Nor Flash ID\n", __func__, __LINE__));
+  Status = NorFlashProtocol->GetFlashid (NorFlash, FALSE);
+  if (EFI_ERROR (Status)) {
+     DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read SPI Nor flash ID failed!\n",
+        __func__
+        ));
+    return EFI_NOT_FOUND;
+  }
+
+  //
+  // Initialize SPI Nor Flash
+  //
+  DEBUG ((DEBUG_INFO, "%a[%d] Initialize SPI Nor Flash\n", __func__, __LINE__));
+  Status = NorFlashProtocol->Init (NorFlashProtocol, NorFlash);
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Initialize Nor Flash device failed!\n",
+        __func__
+        ));
+    return EFI_DEVICE_ERROR;
+  }
+
+  // //
+  // // Load *.efi file
+  // //
+  // Status = NorFlashProtocol->LoadImage (NorFlash, (UINTN)DISK_PART_TABLE_ADDR, (CONST UINT8 *)LOAD_EFI_FILE_NAME);
+  // if (EFI_ERROR (Status)) {
+  //   DEBUG ((
+  //     DEBUG_ERROR,
+  //     "%a: Failed Load %s image from Nor Flash\n",
+  //     __func__,
+  //     LOAD_EFI_FILE_NAME
+  //     ));
+  //   return Status;
+  // }
+
+  // 16MB
+  UINT8   *FileBuffer;
+  UINT8   *WriteBuffer;
+  UINTN   Size;
+
+  Size = 0x1100000;
+
+  FileBuffer = AllocateZeroPool (Size);
+  if (!FileBuffer) {
+    DEBUG ((DEBUG_ERROR, "%a[%d] EFI_OUT_OF_RESOURCE\n", __func__, __LINE__));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  WriteBuffer = AllocateZeroPool (Size);
+  if (!WriteBuffer) {
+    DEBUG ((DEBUG_ERROR, "%a[%d] EFI_OUT_OF_RESOURCE\n", __func__, __LINE__));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Initialize the WriteBuffer\n", __func__, __LINE__));
+  for (INT32 Index = 0; Index < Size; Index++) {
+    WriteBuffer[Index] = Index;
+  }
+  // Status = NorFlashProtocol->ReadData (NorFlash, 0x0, FileSize, (UINT8 *)FileBuffer);
+  // if (EFI_ERROR (Status)) {
+  //   DEBUG ((
+  //       DEBUG_ERROR,
+  //       "%a: Read file from Nor Flash device failed!\n",
+  //       __func__
+  //       ));
+  //   return Status;
+  // }
+
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] The first Print -----\n", __func__, __LINE__));
+  // for (INT32 Index = 0; Index < Size; Index++) {
+  //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
+  // }
+  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Erase\n", __func__, __LINE__));
+  // Status = NorFlashProtocol->Erase (NorFlash, 0x0, Size);
+  // if (EFI_ERROR (Status)) {
+  //   DEBUG ((
+  //       DEBUG_ERROR,
+  //       "%a: Read file from Nor Flash device failed!\n",
+  //       __func__
+  //       ));
+  //   return Status;
+  // }
+
+  Status = NorFlashProtocol->ReadData (NorFlash, 0x0, Size, (UINT8 *)FileBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read file from Nor Flash device failed!\n",
+        __func__
+        ));
+    return Status;
+  }
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Erase -- Read Print -----\n", __func__, __LINE__));
+  // for (UINT32 Index = 0; Index < Size; Index++) {
+  //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
+  // }
+
+  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Write Data\n", __func__, __LINE__));
+  // Status = NorFlashProtocol->WriteData (NorFlash, 0x0, Size, (UINT8 *)WriteBuffer);
+  // if (EFI_ERROR (Status)) {
+  //   DEBUG ((
+  //       DEBUG_ERROR,
+  //       "%a: Read file from Nor Flash device failed!\n",
+  //       __func__
+  //       ));
+  //   return Status;
+  // }
+  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Read Data\n", __func__, __LINE__));
+  // Status = NorFlashProtocol->ReadData (NorFlash, 0x0, Size, (UINT8 *)FileBuffer);
+  // if (EFI_ERROR (Status)) {
+  //   DEBUG ((
+  //       DEBUG_ERROR,
+  //       "%a: Read file from Nor Flash device failed!\n",
+  //       __func__
+  //       ));
+  //   return Status;
+  // }
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Write -- Read Print -----\n", __func__, __LINE__));
+  // // for (UINT32 Index = 0; Index < Size; Index++) {
+  // //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
+  // // }
+
+  // INT32 Ret;
+
+  // Ret = CompareMem (FileBuffer, WriteBuffer, Size);
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] !!! Compare result = %d\n -----\n", __func__, __LINE__, Ret));
+
+  // //
+  // // Update firmware image in flash at offset 0x0
+  // Status = SpiFlashProtocol->Update (NorFlash,
+  //                              0x0,
+  //                              FileSize,
+  //                              (UINT8 *)FileBuffer);
+  // if (EFI_ERROR (Status)) {
+  //   Print (L"%s: Error while performing flash update\n", CMD_NAME_STRING);
+  //   goto FlashProbeError;
+  // }
+
+  // Release resources
+  SpiMasterProtocol->FreeDevice (NorFlash);
+
+  return EFI_SUCCESS;
+
+FlashProbeError:
+  SpiMasterProtocol->FreeDevice (NorFlash);
+
+  return Status;
+}
+
+/**
+  Get the ASpeedAst2600Gop.efi file path from a media device
+
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+ExpandMediaDeviceFilePath (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  EFI_HANDLE                Handle;
+  EFI_HANDLE                *BlockIoHandles;
+  EFI_HANDLE                *SimpleFileSystemHandles;
+  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
+  EFI_DEVICE_PATH_PROTOCOL  *FilePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
+  UINTN                     NumberBlockIoHandles;
+  UINTN                     NumberSimpleFileSystemHandles;
+  UINTN                     Index;
+  UINTN                     TempSize;
+  UINTN                     Size;
+  VOID                      *Buffer;
+
+  //
+  // Step 1. Get the device path
+  //
+  Status = gBS->LocateHandleBuffer (
+                 ByProtocol,
+                 &gEfiBlockIoProtocolGuid,
+                 NULL,
+                 &NumberBlockIoHandles,
+                 &BlockIoHandles
+                 );
+
+  if (EFI_ERROR (Status)) {
+    //
+    // This is not an error, just an informative condition.
+    //
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %g: %r\n",
+      __func__,
+      gEfiBlockIoProtocolGuid,
+      Status
+      ));
+    return NULL;
+  }
+  ASSERT (NumberBlockIoHandles > 0);
+
+  for (Index = 0; Index < NumberBlockIoHandles; Index++) {
+    //
+    // Get the device path of SimpleFileSystem handle
+    //
+    TempDevicePath = DevicePathFromHandle (BlockIoHandles[Index]);
+  }
+
+  //
+  // Step 2. Check whether the device is connected
+  //
+  Status = gBS->LocateDevicePath (
+                 &gEfiBlockIoProtocolGuid,
+                 &TempDevicePath,
+                 &Handle
+                 );
+  ASSERT_EFI_ERROR (Status);
+
+  gBS->ConnectController (Handle, NULL, NULL, TRUE);
+
+  //
+  // Issue a dummy read to the device to check for media change.
+  // When the removable media is changed, any Block IO read/write will
+  // cause the BlockIo protocol be reinstalled and EFI_MEDIA_CHANGED is
+  // returned. After the Block IO protocol is reinstalled, subsequent
+  // Block IO read/write will success.
+  //
+  Status = gBS->HandleProtocol (
+                 Handle,
+                 &gEfiBlockIoProtocolGuid,
+                 (VOID **)&BlockIo
+                 );
+  ASSERT_EFI_ERROR (Status);
+  if (EFI_ERROR (Status)) {
+    return NULL;
+  }
+
+  Buffer = AllocatePool (BlockIo->Media->BlockSize);
+  if (Buffer != NULL) {
+    BlockIo->ReadBlocks (
+               BlockIo,
+               BlockIo->Media->MediaId,
+               0,
+               BlockIo->Media->BlockSize,
+               Buffer
+               );
+    FreePool (Buffer);
+  }
+
+  //
+  // Step 3. Detect the ASpeedAst2600Gop.efi file from device
+  //
+  FilePath = NULL;
+  Size = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+  gBS->LocateHandleBuffer (
+         ByProtocol,
+         &gEfiSimpleFileSystemProtocolGuid,
+         NULL,
+         &NumberSimpleFileSystemHandles,
+         &SimpleFileSystemHandles
+         );
+  for (Index = 0; Index < NumberSimpleFileSystemHandles; Index++) {
+    //
+    // Get the device path size of SimpleFileSystem handle
+    //
+    TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
+    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+    //
+    // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
+    //
+    if ((Size <= TempSize) && (CompareMem (TempDevicePath, TempDevicePath, Size) == 0)) {
+      FilePath = FileDevicePath (SimpleFileSystemHandles[Index], EFI_FILE_NAME);
+    }
+  }
+
+  if (BlockIoHandles != NULL) {
+    FreePool (BlockIoHandles);
+  }
+
+  if (SimpleFileSystemHandles != NULL) {
+    FreePool (SimpleFileSystemHandles);
+  }
+
+  return FilePath;
+}
+
+/**
+  load a .EFI driver into memory and possible connect the driver
+
+**/
+VOID
+LoadDriverExtra (
+  VOID
+  )
+{
+  EFI_STATUS                 Status;
+  EFI_DEVICE_PATH_PROTOCOL   *FilePath;
+  EFI_HANDLE                 LoadedDriverHandle;
+  EFI_LOADED_IMAGE_PROTOCOL  *LoadedDriverImage;
+
+  LoadedDriverImage     = NULL;
+  LoadedDriverHandle    = NULL;
+
+  //
+  // Get the file path
+  //
+  FilePath = ExpandMediaDeviceFilePath ();
+
+  //
+  // Use LoadImage to get it into memory
+  //
+  Status = gBS->LoadImage (
+                  FALSE,
+                  gImageHandle,
+                  FilePath,
+                  NULL,
+                  0,
+                  &LoadedDriverHandle
+                  );
+  if (EFI_ERROR (Status)) {
+    //
+    // With EFI_SECURITY_VIOLATION retval, the Image was loaded and an ImageHandle was created
+    // with a valid EFI_LOADED_IMAGE_PROTOCOL, but the image can not be started right now.
+    // If the caller doesn't have the option to defer the execution of an image, we should
+    // unload image for the EFI_SECURITY_VIOLATION to avoid resource leak.
+    //
+    if (Status == EFI_SECURITY_VIOLATION) {
+      gBS->UnloadImage (LoadedDriverHandle);
+    }
+
+    DEBUG ((DEBUG_WARN, "Image '%s' is not an image.\r\n", EFI_FILE_NAME));
+
+  } else {
+    //
+    // Make sure it is a driver image
+    //
+    Status = gBS->HandleProtocol (
+                   LoadedDriverHandle,
+                   &gEfiLoadedImageProtocolGuid,
+                   (VOID *)&LoadedDriverImage
+                   );
+
+    ASSERT (LoadedDriverImage != NULL);
+
+    if (  EFI_ERROR (Status)
+       || (  (LoadedDriverImage->ImageCodeType != EfiBootServicesCode)
+          && (LoadedDriverImage->ImageCodeType != EfiRuntimeServicesCode))
+          )
+    {
+      DEBUG ((DEBUG_WARN, "Image '%s' is not a driver.\r\n", EFI_FILE_NAME));
+
+      //
+      // Exit and unload the non-driver image
+      //
+      gBS->Exit (LoadedDriverHandle, EFI_INVALID_PARAMETER, 0, NULL);
+      Status = EFI_INVALID_PARAMETER;
+    }
+  }
+
+  if (!EFI_ERROR (Status)) {
+    //
+    // Start the image
+    //
+    Status = gBS->StartImage (
+                   LoadedDriverHandle,
+                   NULL,
+                   NULL
+                   );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "Image '%s' error in StartImage: %r\r\n", EFI_FILE_NAME, Status));
+    } else {
+      DEBUG ((DEBUG_WARN, "Image '%s' loaded at %p - %r\r\n", EFI_FILE_NAME, Status));
+    }
+  }
+
+  if (!EFI_ERROR (Status) && Connect) {
+    //
+    // Connect it...
+    //
+    UINTN       HandleCount;
+    EFI_HANDLE  *HandleBuffer;
+    UINTN       Index;
+
+    Status = gBS->LocateHandleBuffer (
+                    AllHandles,
+                    NULL,
+                    NULL,
+                    &HandleCount,
+                    &HandleBuffer
+                    );
+    if (EFI_ERROR (Status)) {
+      return;
+    }
+
+    for (Index = 0; Index < HandleCount; Index++) {
+      Status = gBS->ConnectController (HandleBuffer[Index], NULL, NULL, TRUE);
+    }
+
+    if (HandleBuffer != NULL) {
+      FreePool (HandleBuffer);
+    }
+  }
+
+  return;
+}
+#endif
+
 //
 // BDS Platform Functions
 //
@@ -688,6 +1427,14 @@ PlatformBootManagerBeforeConsole (
   // Dispatch deferred images after EndOfDxe event.
   //
   EfiBootManagerDispatchDeferredImages ();
+
+  DEBUG ((DEBUG_INFO, "%a[%d] Start ReadFileFromSpiFlash\n", __func__, __LINE__));
+
+  FilterAndProcess (&gSophgoNorFlashProtocolGuid, NULL, Connect);
+
+  ReadFileFromSpiFlash ();
+
+  LoadDriverExtra ();
 
   //
   // Locate the PCI root bridges and make the PCI bus driver connect each,

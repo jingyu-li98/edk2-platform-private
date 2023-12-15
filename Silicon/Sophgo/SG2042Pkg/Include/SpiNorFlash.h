@@ -1,13 +1,53 @@
 /** @file
  *
+ *  The definitions of SPI NOR Flash commands and registers are from Linux Kernel.
+ *
  *  Copyright (c) 2023, SOPHGO Inc. All rights reserved.
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
  **/
-#include <Include/Spi.h>
+
 #ifndef __NOR_FLASH_PROTOCOL_H__
 #define __NOR_FLASH_PROTOCOL_H__
+
+#include <Include/Spi.h>
+
+#define SPI_NOR_MAX_ID_LEN      6
+
+//
+// Flash opcodes.
+//
+#define SPINOR_OP_WRDI          0x04    /* Write disable */
+#define SPINOR_OP_WREN          0x06    /* Write enable */
+#define SPINOR_OP_RDSR          0x05    /* Read status register */
+#define SPINOR_OP_WRSR          0x01    /* Write status register 1 byte */
+#define SPINOR_OP_READ          0x03    /* Read data bytes (low frequency) */
+#define SPINOR_OP_READ_FAST     0x0b    /* Read data bytes (high frequency) */
+
+#define SPINOR_OP_PP            0x02    /* Page program (up to 256 bytes) */
+#define SPINOR_OP_SE            0xd8    /* Sector erase (usually 64KiB) */
+#define SPINOR_OP_RDID          0x9f    /* Read JEDEC ID */
+#define SPINOR_OP_RDCR          0x35    /* Read configuration register */
+
+//
+// 4-byte address opcodes.
+//
+#define SPINOR_OP_READ_4B       0x13    /* Read data bytes (low frequency) */
+#define SPINOR_OP_READ_FAST_4B  0x0c    /* Read data bytes (high frequency) */
+#define SPINOR_OP_PP_4B         0x12    /* Page program (up to 256 bytes) */
+#define SPINOR_OP_SE_4B         0xdc    /* Sector erase (usually 64KiB) */
+#define SPINOR_OP_EN4B          0xb7    /* Enter 4-byte mode */
+#define SPINOR_OP_EX4B          0xe9    /* Exit 4-byte mode */
+
+//
+// Status Register bits.
+//
+#define SR_WIP                  BIT0  /* Write in progress */
+#define SR_WEL                  BIT1  /* Write enable latch */
+
+
+extern EFI_GUID  gSophgoNorFlashProtocolGuid;
 
 typedef struct _SOPHGO_NOR_FLASH_PROTOCOL SOPHGO_NOR_FLASH_PROTOCOL;
 
@@ -15,15 +55,15 @@ typedef
 EFI_STATUS
 (EFIAPI *SG_NOR_FLASH_PROTOCOL_GET_FLASH_ID)(
   IN  SPI_NOR                          *Nor,
-  IN  BOOLEAN UseInRuntime
+  IN  BOOLEAN                           UseInRuntime
   );
 
 typedef
 EFI_STATUS
 (EFIAPI *SG_NOR_FLASH_PROTOCOL_READ_DATA)(
   IN  SPI_NOR                          *Nor,
-  IN  UINT32                           FlashAddress,
-  IN  UINT32                           LengthInBytes,
+  IN  UINTN                            FlashAddress,
+  IN  UINTN                            LengthInBytes,
   OUT UINT8                            *Buffer
   );
 
@@ -34,55 +74,20 @@ EFI_STATUS
   OUT UINT8                            *FlashStatus
   );
 
-/**
-  Write the flash status register.
-
-  This routine must be called at or below TPL_N OTIFY.
-  This routine writes the flash part status register.
-
-  @param[in] This           Pointer to an SPI_NOR_FLASH_PROTOCOL data
-                            structure.
-  @param[in] LengthInBytes  Number of status bytes to write.
-  @param[in] FlashStatus    Pointer to a buffer containing the new status.
-
-  @retval EFI_SUCCESS           The status write was successful.
-  @retval EFI_OUT_OF_RESOURCES  Failed to allocate the write buffer.
-
-**/
 typedef
 EFI_STATUS
 (EFIAPI *SG_NOR_FLASH_PROTOCOL_WRITE_STATUS)(
   IN SPI_NOR                          *Nor,
   IN UINT8                            *FlashStatus,
-  IN UINT32                           LengthInBytes
+  IN UINTN                            LengthInBytes
   );
 
-/**
-  Write data to the SPI flash.
-
-  This routine must be called at or below TPL_NOTIFY.
-  This routine breaks up the write operation as necessary to write the data to
-  the SPI part.
-
-  @param[in] This           Pointer to an SPI_NOR_FLASH_PROTOCOL data
-                            structure.
-  @param[in] FlashAddress   Address in the flash to start writing
-  @param[in] LengthInBytes  Write length in bytes
-  @param[in] Buffer         Address of a buffer containing the data
-
-  @retval EFI_SUCCESS            The data was written successfully.
-  @retval EFI_INVALID_PARAMETER  Buffer is NULL, or
-                                 FlashAddress >= This->FlashSize, or
-                                 LengthInBytes > This->FlashSize - FlashAddress
-  @retval EFI_OUT_OF_RESOURCES   Insufficient memory to copy buffer.
-
-**/
 typedef
 EFI_STATUS
 (EFIAPI *SG_NOR_FLASH_PROTOCOL_WRITE_DATA)(
   IN SPI_NOR                          *Nor,
-  IN UINT32                           FlashAddress,
-  IN UINT32                           LengthInBytes,
+  IN UINTN                            FlashAddress,
+  IN UINTN                            LengthInBytes,
   IN UINT8                            *Buffer
   );
 
@@ -90,68 +95,40 @@ typedef
 EFI_STATUS
 (EFIAPI *SG_NOR_FLASH_PROTOCOL_ERASE)(
   IN SPI_NOR                          *Nor,
-  IN UINT32                           FlashAddress,
-  IN UINT32                           BlockCount
+  IN UINTN                            FlashAddress,
+  IN UINTN                            Length
   );
 
-///
-/// The SPI_NOR_FLASH_PROTOCOL exists in the SPI peripheral layer.
-/// This protocol manipulates the SPI NOR flash parts using a common set of
-/// commands. The board layer provides the interconnection and configuration
-/// details for the SPI NOR flash part. The SPI NOR flash driver uses this
-/// configuration data to expose a generic interface which provides the
-/// following APls:
-/// * Read manufacture and device ID
-/// * Read data
-/// * Read data using low frequency
-/// * Read status
-/// * Write data
-/// * Erase 4 KiB blocks
-/// * Erase 32 or 64 KiB blocks
-/// * Write status
-/// The SPI_NOR_FLASH_PROTOCOL also exposes some APls to set the security
-/// features on the legacy SPI flash controller.
-///
+typedef
+EFI_STATUS
+(EFIAPI *SG_NOR_FLASH_PROTOCOL_INIT)(
+  IN SOPHGO_NOR_FLASH_PROTOCOL       *This,
+  IN SPI_NOR                         *Nor
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *SG_NOR_FLASH_PROTOCOL_LOAD_IMAGE)(
+  IN SPI_NOR                         *Nor,
+  IN UINTN                           PartitionTableAddr,
+  IN CONST UINT8                     *ImageName
+  );
+
 struct _SOPHGO_NOR_FLASH_PROTOCOL {
-  ///
-  /// Read the 3 byte manufacture and device ID from the SPI flash.
-  ///
   SG_NOR_FLASH_PROTOCOL_GET_FLASH_ID    GetFlashid;
-
-  ///
-  /// Read data from the SPI flash.
-  ///
   SG_NOR_FLASH_PROTOCOL_READ_DATA       ReadData;
-
-  ///
-  /// Read the flash status register.
-  ///
   SG_NOR_FLASH_PROTOCOL_READ_STATUS     ReadStatus;
-
-  ///
-  /// Write the flash status register.
-  ///
   SG_NOR_FLASH_PROTOCOL_WRITE_STATUS    WriteStatus;
-
-  ///
-  /// Write data to the SPI flash.
-  ///
   SG_NOR_FLASH_PROTOCOL_WRITE_DATA      WriteData;
-
-  ///
-  /// Efficiently erases one or more 4KiB regions in the SPI flash.
-  ///
   SG_NOR_FLASH_PROTOCOL_ERASE           Erase;
+  SG_NOR_FLASH_PROTOCOL_INIT            Init;
+  SG_NOR_FLASH_PROTOCOL_LOAD_IMAGE      LoadImage;
 };
-
-extern EFI_GUID  gSophgoNorFlashProtocolGuid;
-
 
 typedef struct {
   SOPHGO_NOR_FLASH_PROTOCOL  NorFlashProtocol;
   UINTN                      Signature;
   EFI_HANDLE                 Handle;
 } NOR_FLASH_INSTANCE;
-
 
 #endif // __NOR_FLASH_PROTOCOL_H__

@@ -150,6 +150,12 @@ INF  MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 
 #
+# SPI Nor Flash Support
+#
+INF  Silicon/Sophgo/SG2042Pkg/Drivers/SpiDxe/SpiFlashMasterController.inf
+INF  Silicon/Sophgo/SG2042Pkg/Drivers/NorFlashDxe/NorFlashDxe.inf
+
+#
 # Multiple Console IO support
 #
 INF  MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf

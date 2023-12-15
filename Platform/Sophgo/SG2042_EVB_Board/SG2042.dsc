@@ -590,7 +590,8 @@
   #
   # SPI Nor Flash Support
   #
-  Silicon/Sophgo/SG2042Pkg/Drivers/NorFlashDxe/NorFlash.inf
+  Silicon/Sophgo/SG2042Pkg/Drivers/SpiDxe/SpiFlashMasterController.inf
+  Silicon/Sophgo/SG2042Pkg/Drivers/NorFlashDxe/NorFlashDxe.inf
 
   #
   # Emulator for x64 OpRoms, etc.

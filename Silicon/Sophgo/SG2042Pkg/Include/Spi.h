@@ -6,10 +6,10 @@
  *
  **/
 
-#include <Library/NorFlashInfoLib.h>
-
 #ifndef __SPI_FLASH_MASTER_CONTROLLER_H__
 #define __SPI_FLASH_MASTER_CONTROLLER_H__
+
+#include <Library/NorFlashInfoLib.h>
 
 extern EFI_GUID gSophgoSpiMasterProtocolGuid;
 
@@ -40,47 +40,76 @@ typedef struct {
   NOR_FLASH_INFO *Info;
 } SPI_NOR;
 
+typedef struct  {
+  /* disk partition table magic number */
+  UINTN  Magic;
+  UINT8  Name[32];
+  UINTN  Offset;
+  UINT32 Size;
+  UINT8  Reserve[4];
+  UINTN  TargetMemAddr;
+} PART_INFO;
+
 typedef
 EFI_STATUS
 (EFIAPI *SG_SPI_MASTER_PROTOCOL_READ_REGISTER)(
-  IN  SPI_NOR *Nor,
-  IN  UINT8   Opcode,
-  IN  UINTN   Length,
-  OUT UINT8   *Buffer
+  IN  SPI_NOR                                 *Nor,
+  IN  UINT8                                   Opcode,
+  IN  UINTN                                   Length,
+  OUT UINT8                                   *Buffer
   );
 
 typedef
 EFI_STATUS
 (EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE_REGISTER)(
-  IN  SPI_NOR      *Nor,
-  IN  UINT8        Opcode,
-  IN  CONST UINT8 *Buffer,
-  IN  UINTN        Length
+  IN  SPI_NOR                                 *Nor,
+  IN  UINT8                                   Opcode,
+  IN  CONST UINT8                             *Buffer,
+  IN  UINTN                                   Length
   );
 
 typedef
 EFI_STATUS
 (EFIAPI *SG_SPI_MASTER_PROTOCOL_READ)(
-  IN  SPI_NOR *Nor,
-  IN  UINT32  From,
-  IN  UINTN   Length,
-  OUT UINT8   *Buffer
+  IN  SPI_NOR                                 *Nor,
+  IN  UINTN                                   From,
+  IN  UINTN                                   Length,
+  OUT UINT8                                   *Buffer
   );
 
 typedef
 EFI_STATUS
 (EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE)(
-  IN  SPI_NOR     *Nor,
-  IN  UINT32      To,
-  IN  UINTN       Length,
-  IN  CONST UINT8 *Buffer
+  IN  SPI_NOR                                 *Nor,
+  IN  UINTN                                   To,
+  IN  UINTN                                   Length,
+  IN  CONST UINT8                             *Buffer
   );
 
 typedef
 EFI_STATUS
 (EFIAPI *SG_SPI_MASTER_PROTOCOL_ERASE)(
-  IN  SPI_NOR *Nor,
-  IN  UINT32 Offs
+  IN  SPI_NOR                                 *Nor,
+  IN  UINTN                                   Offs
+  );
+
+typedef
+SPI_NOR *
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_SETUP_DEVICE) (
+  IN SOPHGO_SPI_MASTER_PROTOCOL              *This,
+  IN SPI_NOR                                 *Nor
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_FREE_DEVICE)(
+  IN SPI_NOR                                 *Nor
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_INIT)(
+  IN  SPI_NOR                                 *Nor
   );
 
 struct _SOPHGO_SPI_MASTER_PROTOCOL {
@@ -89,9 +118,9 @@ struct _SOPHGO_SPI_MASTER_PROTOCOL {
   SG_SPI_MASTER_PROTOCOL_READ             Read;
   SG_SPI_MASTER_PROTOCOL_WRITE            Write;
   SG_SPI_MASTER_PROTOCOL_ERASE            Erase;
+  SG_SPI_MASTER_PROTOCOL_SETUP_DEVICE     SetupDevice;
+  SG_SPI_MASTER_PROTOCOL_FREE_DEVICE      FreeDevice;
+  SG_SPI_MASTER_PROTOCOL_INIT             Init;
 };
-
-extern EFI_GUID  gSophgoMasterProtocolGuid;
-
 
 #endif // __SPI_FLASH_MASTER_CONTROLLER_H__
