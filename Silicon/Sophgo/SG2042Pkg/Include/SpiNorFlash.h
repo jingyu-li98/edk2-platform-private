@@ -114,21 +114,39 @@ EFI_STATUS
   IN CONST UINT8                     *ImageName
   );
 
+typedef
+EFI_STATUS
+(EFIAPI *SG_NOR_FLASH_PROTOCOL_BUILD_DEVICE_PATH)(
+  // IN  SOPHGO_NOR_FLASH_PROTOCOL      *This,
+  OUT EFI_DEVICE_PATH_PROTOCOL       **DevicePath
+  );
+
 struct _SOPHGO_NOR_FLASH_PROTOCOL {
-  SG_NOR_FLASH_PROTOCOL_GET_FLASH_ID    GetFlashid;
-  SG_NOR_FLASH_PROTOCOL_READ_DATA       ReadData;
-  SG_NOR_FLASH_PROTOCOL_READ_STATUS     ReadStatus;
-  SG_NOR_FLASH_PROTOCOL_WRITE_STATUS    WriteStatus;
-  SG_NOR_FLASH_PROTOCOL_WRITE_DATA      WriteData;
-  SG_NOR_FLASH_PROTOCOL_ERASE           Erase;
-  SG_NOR_FLASH_PROTOCOL_INIT            Init;
-  SG_NOR_FLASH_PROTOCOL_LOAD_IMAGE      LoadImage;
+  SG_NOR_FLASH_PROTOCOL_GET_FLASH_ID       GetFlashid;
+  SG_NOR_FLASH_PROTOCOL_READ_DATA          ReadData;
+  SG_NOR_FLASH_PROTOCOL_READ_STATUS        ReadStatus;
+  SG_NOR_FLASH_PROTOCOL_WRITE_STATUS       WriteStatus;
+  SG_NOR_FLASH_PROTOCOL_WRITE_DATA         WriteData;
+  SG_NOR_FLASH_PROTOCOL_ERASE              Erase;
+  SG_NOR_FLASH_PROTOCOL_INIT               Init;
+  SG_NOR_FLASH_PROTOCOL_LOAD_IMAGE         LoadImage;
+  SG_NOR_FLASH_PROTOCOL_BUILD_DEVICE_PATH  BuildDevicePath;
 };
+
+#pragma pack(1)
+typedef struct {
+  VENDOR_DEVICE_PATH                  Vendor;
+  UINT8                               Index;
+  EFI_DEVICE_PATH_PROTOCOL            End;
+} NOR_FLASH_DEVICE_PATH;
+#pragma pack()
 
 typedef struct {
   SOPHGO_NOR_FLASH_PROTOCOL  NorFlashProtocol;
   UINTN                      Signature;
   EFI_HANDLE                 Handle;
+  NOR_FLASH_DEVICE_PATH      *DevicePath;
+  // EFI_DEVICE_PATH_PROTOCOL    *DevicePath;
 } NOR_FLASH_INSTANCE;
 
 #endif // __NOR_FLASH_PROTOCOL_H__
