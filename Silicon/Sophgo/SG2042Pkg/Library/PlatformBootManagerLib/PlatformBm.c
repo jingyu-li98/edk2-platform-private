@@ -9,15 +9,16 @@
 
 #include "PlatformBm.h"
 #include <Library/BaseMemoryLib.h>
-
+#include <Library/RngLib.h>
 #include <Include/Spi.h>
 #include <Include/SpiNorFlash.h>
 
-STATIC SOPHGO_NOR_FLASH_PROTOCOL         *NorFlashProtocol;
-STATIC SOPHGO_SPI_MASTER_PROTOCOL        *SpiMasterProtocol;
+// STATIC SOPHGO_NOR_FLASH_PROTOCOL         *NorFlashProtocol;
+// STATIC SOPHGO_SPI_MASTER_PROTOCOL        *SpiMasterProtocol;
 
-#define LOAD_EFI_FILE_NAME    L"ASpeedAst2600Gop.efi"
-#define DISK_PART_TABLE_ADDR  0x600000
+// // #define LOAD_EFI_FILE_NAME    L"ASpeedAst2600Gop.efi"
+// #define LOAD_EFI_FILE_NAME    L"zsbl.bin"
+// #define DISK_PART_TABLE_ADDR  0x600000
 
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
@@ -669,7 +670,7 @@ PlatformRegisterOptionsAndKeys (
   ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
 }
 
-#if 1
+#if 0
 
 // STATIC
 // EFI_STATUS
@@ -1028,14 +1029,21 @@ ReadFileFromSpiFlash (
   //     ));
   //   return Status;
   // }
-
+#if 0
   // 16MB
   UINT8   *FileBuffer;
   UINT8   *WriteBuffer;
+  UINT8   *EraseBuffer;
   UINTN   Size;
 
   Size = 0x1100000;
-
+  // Size = 0x200;
+  // Size = SIZE_64KB; // √
+  // Size = SIZE_128KB; // √
+  // Size = SIZE_256KB;
+  // Size = SIZE_512KB;
+  // Size = SIZE_1MB;
+  // Size = SIZE_16MB;
   FileBuffer = AllocateZeroPool (Size);
   if (!FileBuffer) {
     DEBUG ((DEBUG_ERROR, "%a[%d] EFI_OUT_OF_RESOURCE\n", __func__, __LINE__));
@@ -1048,10 +1056,22 @@ ReadFileFromSpiFlash (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  DEBUG ((DEBUG_WARN, "%a[%d]: Start Initialize the WriteBuffer\n", __func__, __LINE__));
-  for (INT32 Index = 0; Index < Size; Index++) {
-    WriteBuffer[Index] = Index;
+  EraseBuffer = AllocateZeroPool (Size);
+  if (!EraseBuffer) {
+    DEBUG ((DEBUG_ERROR, "%a[%d] EFI_OUT_OF_RESOURCE\n", __func__, __LINE__));
+    return EFI_OUT_OF_RESOURCES;
   }
+
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Initialize the WriteBuffer\n", __func__, __LINE__));
+  for (INTN Index = 0; Index < Size; Index++) {
+    WriteBuffer[Index] = 0xFF;
+  }
+
+  // for (INTN Index = 0; Index < Size; Index++) {
+  //   DEBUG ((DEBUG_INFO, "0x%lx-", WriteBuffer[Index]));
+  // }
+
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] The first Read -----\n", __func__, __LINE__));
   // Status = NorFlashProtocol->ReadData (NorFlash, 0x0, FileSize, (UINT8 *)FileBuffer);
   // if (EFI_ERROR (Status)) {
   //   DEBUG ((
@@ -1063,21 +1083,11 @@ ReadFileFromSpiFlash (
   // }
 
   // DEBUG ((DEBUG_INFO, "\n\n%a[%d] The first Print -----\n", __func__, __LINE__));
-  // for (INT32 Index = 0; Index < Size; Index++) {
-  //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
-  // }
-  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Erase\n", __func__, __LINE__));
-  // Status = NorFlashProtocol->Erase (NorFlash, 0x0, Size);
-  // if (EFI_ERROR (Status)) {
-  //   DEBUG ((
-  //       DEBUG_ERROR,
-  //       "%a: Read file from Nor Flash device failed!\n",
-  //       __func__
-  //       ));
-  //   return Status;
-  // }
-
-  Status = NorFlashProtocol->ReadData (NorFlash, 0x0, Size, (UINT8 *)FileBuffer);
+  // // for (INT32 Index = 0; Index < Size; Index++) {
+  // //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
+  // // }
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Erase\n", __func__, __LINE__));
+  Status = NorFlashProtocol->Erase (NorFlash, 0x0, Size);
   if (EFI_ERROR (Status)) {
     DEBUG ((
         DEBUG_ERROR,
@@ -1086,40 +1096,63 @@ ReadFileFromSpiFlash (
         ));
     return Status;
   }
-  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Erase -- Read Print -----\n", __func__, __LINE__));
+  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Start Read Data -----\n", __func__, __LINE__));
+  Status = NorFlashProtocol->ReadData (NorFlash, 0x0, Size, (UINT8 *)EraseBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read file from Nor Flash device failed!\n",
+        __func__
+        ));
+    return Status;
+  }
+
+  INT32 Ret;
+
+  Ret = CompareMem (EraseBuffer, WriteBuffer, Size);
+  DEBUG ((DEBUG_INFO, "\n\n%a[%d] !!! Compare result(0xff) = %d\n -----\n", __func__, __LINE__, Ret));
+  // // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Erase -- Read Print -----\n", __func__, __LINE__));
   // for (UINT32 Index = 0; Index < Size; Index++) {
   //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
   // }
 
-  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Write Data\n", __func__, __LINE__));
-  // Status = NorFlashProtocol->WriteData (NorFlash, 0x0, Size, (UINT8 *)WriteBuffer);
-  // if (EFI_ERROR (Status)) {
-  //   DEBUG ((
-  //       DEBUG_ERROR,
-  //       "%a: Read file from Nor Flash device failed!\n",
-  //       __func__
-  //       ));
-  //   return Status;
-  // }
-  // DEBUG ((DEBUG_WARN, "%a[%d]: Start Read Data\n", __func__, __LINE__));
-  // Status = NorFlashProtocol->ReadData (NorFlash, 0x0, Size, (UINT8 *)FileBuffer);
-  // if (EFI_ERROR (Status)) {
-  //   DEBUG ((
-  //       DEBUG_ERROR,
-  //       "%a: Read file from Nor Flash device failed!\n",
-  //       __func__
-  //       ));
-  //   return Status;
-  // }
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Initialize the WriteBuffer\n", __func__, __LINE__));
+  for (INTN Index = 0; Index < Size; Index++) {
+    WriteBuffer[Index] = Index;
+  }
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Write Data\n", __func__, __LINE__));
+  Status = NorFlashProtocol->WriteData (NorFlash, 0x00, Size, (UINT8 *)WriteBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read file from Nor Flash device failed!\n",
+        __func__
+        ));
+    return Status;
+  }
+
+  DEBUG ((DEBUG_WARN, "%a[%d]: Start Read Data\n", __func__, __LINE__));
+  Status = NorFlashProtocol->ReadData (NorFlash, 0x00, Size, (UINT8 *)FileBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read file from Nor Flash device failed!\n",
+        __func__
+        ));
+    return Status;
+  }
   // DEBUG ((DEBUG_INFO, "\n\n%a[%d] Write -- Read Print -----\n", __func__, __LINE__));
-  // // for (UINT32 Index = 0; Index < Size; Index++) {
-  // //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
-  // // }
+  // for (UINT32 Index = 0; Index < Size; Index++) {
+  //   DEBUG ((DEBUG_INFO, "0x%lx-", FileBuffer[Index]));
+  // }
 
   // INT32 Ret;
 
-  // Ret = CompareMem (FileBuffer, WriteBuffer, Size);
-  // DEBUG ((DEBUG_INFO, "\n\n%a[%d] !!! Compare result = %d\n -----\n", __func__, __LINE__, Ret));
+  Ret = CompareMem (FileBuffer, WriteBuffer, Size);
+  DEBUG ((DEBUG_INFO, "\n\n%a[%d] !!! Compare result = %d\n -----\n", __func__, __LINE__, Ret));
+
+
+  Ge
 
   // //
   // // Update firmware image in flash at offset 0x0
@@ -1131,7 +1164,10 @@ ReadFileFromSpiFlash (
   //   Print (L"%s: Error while performing flash update\n", CMD_NAME_STRING);
   //   goto FlashProbeError;
   // }
-
+  FreePool (EraseBuffer);
+  FreePool (WriteBuffer);
+  FreePool (FileBuffer);
+#endif
   // Release resources
   SpiMasterProtocol->FreeDevice (NorFlash);
 
@@ -1141,6 +1177,160 @@ FlashProbeError:
   SpiMasterProtocol->FreeDevice (NorFlash);
 
   return Status;
+}
+
+VOID
+NewBmPrintDp (
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  CHAR16  *Str;
+ 
+  Str = ConvertDevicePathToText (DevicePath, FALSE, FALSE);
+  DEBUG ((DEBUG_INFO, "%s", Str));
+  if (Str != NULL) {
+    FreePool (Str);
+  }
+}
+
+/**
+  Get the ASpeedAst2600Gop.efi file path from a media device
+
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+GetSpiFlashDevicePath (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  // EFI_HANDLE                Handle;
+  EFI_HANDLE                *NorFlashHandles;
+  EFI_HANDLE                *SimpleFileSystemHandles;
+  // EFI_BLOCK_IO_PROTOCOL     *BlockIo;
+  EFI_DEVICE_PATH_PROTOCOL  *FilePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
+  UINTN                     NumberNorFlashHandles;
+  UINTN                     NumberSimpleFileSystemHandles;
+  UINTN                     Index;
+  UINTN                     TempSize;
+  UINTN                     Size;
+  // VOID                      *Buffer;
+
+  //
+  // Step 1. Get the device path
+  //
+  Status = gBS->LocateHandleBuffer (
+                 ByProtocol,
+                 &gSophgoNorFlashProtocolGuid,
+                 NULL,
+                 &NumberNorFlashHandles,
+                 &NorFlashHandles
+                 );
+
+  if (EFI_ERROR (Status)) {
+    //
+    // This is not an error, just an informative condition.
+    //
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %g: %r\n",
+      __func__,
+      gSophgoNorFlashProtocolGuid,
+      Status
+      ));
+    return NULL;
+  }
+  ASSERT (NumberNorFlashHandles > 0);
+
+  for (Index = 0; Index < NumberNorFlashHandles; Index++) {
+    //
+    // Get the device path of NorFlash handle
+    //
+    TempDevicePath = DevicePathFromHandle (NorFlashHandles[Index]);
+
+    DEBUG ((DEBUG_WARN, "Nor Flash Device Path\n"));
+
+    NewBmPrintDp (TempDevicePath);
+
+    DEBUG ((DEBUG_WARN, "\n"));
+  }
+
+  // //
+  // // Step 2. Check whether the device is connected
+  // //
+  // Status = gBS->LocateDevicePath (
+  //                &gEfiBlockIoProtocolGuid,
+  //                &TempDevicePath,
+  //                &Handle
+  //                );
+  // ASSERT_EFI_ERROR (Status);
+
+  // gBS->ConnectController (Handle, NULL, NULL, TRUE);
+
+  // //
+  // // Issue a dummy read to the device to check for media change.
+  // // When the removable media is changed, any Block IO read/write will
+  // // cause the BlockIo protocol be reinstalled and EFI_MEDIA_CHANGED is
+  // // returned. After the Block IO protocol is reinstalled, subsequent
+  // // Block IO read/write will success.
+  // //
+  // Status = gBS->HandleProtocol (
+  //                Handle,
+  //                &gEfiBlockIoProtocolGuid,
+  //                (VOID **)&BlockIo
+  //                );
+  // ASSERT_EFI_ERROR (Status);
+  // if (EFI_ERROR (Status)) {
+  //   return NULL;
+  // }
+
+  // Buffer = AllocatePool (BlockIo->Media->BlockSize);
+  // if (Buffer != NULL) {
+  //   BlockIo->ReadBlocks (
+  //              BlockIo,
+  //              BlockIo->Media->MediaId,
+  //              0,
+  //              BlockIo->Media->BlockSize,
+  //              Buffer
+  //              );
+  //   FreePool (Buffer);
+  // }
+
+  //
+  // Step 3. Detect the ASpeedAst2600Gop.efi file from device
+  //
+  FilePath = NULL;
+  Size = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+  gBS->LocateHandleBuffer (
+         ByProtocol,
+         &gEfiSimpleFileSystemProtocolGuid,
+         NULL,
+         &NumberSimpleFileSystemHandles,
+         &SimpleFileSystemHandles
+         );
+  for (Index = 0; Index < NumberSimpleFileSystemHandles; Index++) {
+    //
+    // Get the device path size of SimpleFileSystem handle
+    //
+    TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
+    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
+    //
+    // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
+    //
+    if ((Size <= TempSize) && (CompareMem (TempDevicePath, TempDevicePath, Size) == 0)) {
+      FilePath = FileDevicePath (SimpleFileSystemHandles[Index], EFI_FILE_NAME);
+    }
+  }
+
+  // if (BlockIoHandles != NULL) {
+  //   FreePool (BlockIoHandles);
+  // }
+
+  if (SimpleFileSystemHandles != NULL) {
+    FreePool (SimpleFileSystemHandles);
+  }
+
+  return FilePath;
 }
 
 /**
@@ -1298,6 +1488,7 @@ LoadDriverExtra (
   // Get the file path
   //
   FilePath = ExpandMediaDeviceFilePath ();
+  // FilePath = GetSpiFlashDevicePath ();
 
   //
   // Use LoadImage to get it into memory
@@ -1428,14 +1619,16 @@ PlatformBootManagerBeforeConsole (
   //
   EfiBootManagerDispatchDeferredImages ();
 
-  DEBUG ((DEBUG_INFO, "%a[%d] Start ReadFileFromSpiFlash\n", __func__, __LINE__));
+  // DEBUG ((DEBUG_INFO, "%a[%d] Start ReadFileFromSpiFlash\n", __func__, __LINE__));
 
-  FilterAndProcess (&gSophgoNorFlashProtocolGuid, NULL, Connect);
+  // // FilterAndProcess (&gSophgoNorFlashProtocolGuid, NULL, Connect);
+  // DEBUG ((DEBUG_INFO, "%a[%d] Start ReadFileFromSpiFlash\n", __func__, __LINE__));
+  // ReadFileFromSpiFlash ();
 
-  ReadFileFromSpiFlash ();
-
-  LoadDriverExtra ();
-
+  // GetSpiFlashDevicePath ();
+  // DEBUG ((DEBUG_INFO, "%a[%d] Start LoadDriverExtra\n", __func__, __LINE__));
+  // LoadDriverExtra ();
+  // DEBUG ((DEBUG_INFO, "%a[%d] End LoadDriverExtra\n", __func__, __LINE__));
   //
   // Locate the PCI root bridges and make the PCI bus driver connect each,
   // non-recursively. This will produce a number of child handles with PciIo on

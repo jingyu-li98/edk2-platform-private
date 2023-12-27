@@ -52,12 +52,12 @@ SpifmcInitReg (
   return Register;
 }
 
-/*
- * SpifmcReadRegister is a workaround function:
- * AHB bus could only do 32-bit access to SPIFMC fifo,
- * so cmd without 3-byte addr will leave 3-byte data in fifo.
- * Set TX to mark that these 3-byte data would be sent out.
- */
+/**
+  SpifmcReadRegister is a workaround function:
+  AHB bus could only do 32-bit access to SPIFMC fifo,
+  so cmd without 3-byte addr will leave 3-byte data in fifo.
+  Set TX to mark that these 3-byte data would be sent out.
+**/
 EFI_STATUS
 EFIAPI
 SpifmcReadRegister (
@@ -92,7 +92,7 @@ SpifmcReadRegister (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (Status) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Transfer Done %r\n",
@@ -131,10 +131,10 @@ SpifmcWriteRegister (
   Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
   Register |= SPIFMC_TRAN_CSR_WITH_CMD;
 
-  /*
-   * If write values to the Status Register,
-   * configure TRAN_CSR register as the same as SpifmcReadReg.
-   */
+  //
+  // If write values to the Status Register,
+  // configure TRAN_CSR register as the same as SpifmcReadReg.
+  //
   if (Opcode == SPINOR_OP_WRSR) {
     Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
     MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
@@ -152,7 +152,7 @@ SpifmcWriteRegister (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Transfer Done %r\n",
@@ -204,7 +204,7 @@ SpifmcRead (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_RD_FIFO);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Read FIFO Done %r\n",
@@ -216,6 +216,7 @@ SpifmcRead (
 
   while (Offset < Length) {
     XferSize = MIN (SPIFMC_MAX_FIFO_DEPTH, Length - Offset);
+
     while ((MmioRead32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT)) & 0xf) != XferSize)
       ;
 
@@ -225,10 +226,9 @@ SpifmcRead (
 
     Offset += XferSize;
   }
-  DEBUG ((DEBUG_INFO, "\n"));
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Transfer Done %r\n",
@@ -310,7 +310,7 @@ SpifmcWrite (
   }
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Transfer Done %r\n",
@@ -355,7 +355,7 @@ SpifmcErase (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
 
   Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a: Wait Transfer Done %r\n",
@@ -376,23 +376,8 @@ SpifmcInit (
   IN  SPI_NOR *Nor
   )
 {
-  UINT32     Register;
   UINTN      SpiBase;
-  // UINT32     Index;
-
-  // SpiBase = SPIFMC_BASE;
-
-  // if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
-  //   for (Index = 39; Index < 64; Index++) {
-  //     if (SpiBase & (1ULL << 38)) {
-  //       SpiBase |= (1ULL << Index);
-  //     } else {
-  //       SpiBase &= ~(1ULL << Index);
-  //     }
-  //   }
-  // }
-
-  // Nor->SpiBase = SpiBase;
+  UINT32     Register;
 
   SpiBase = Nor->SpiBase;
 
@@ -421,7 +406,6 @@ SpifmcInit (
   return EFI_SUCCESS;
 }
 
-
 SPI_NOR *
 EFIAPI
 SpiMasterSetupSlave (
@@ -443,16 +427,13 @@ SpiMasterSetupSlave (
     }
   }
 
-  Nor->SpiBase = SPIFMC_BASE;
   Nor->BounceBufSize = SIZE_4KB;
-
   Nor->BounceBuf = AllocateZeroPool (Nor->BounceBufSize);
   if (!Nor->BounceBuf) {
     return NULL;
   }
 
-  DEBUG ((DEBUG_WARN, "%a[%d] SPI Base Address = 0x%llx\n", __func__, __LINE__, Nor->SpiBase));
-
+  Nor->SpiBase = SPIFMC_BASE;
   if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
     for (Index = 39; Index < 64; Index++) {
       if (Nor->SpiBase & (1ULL << 38)) {
@@ -476,7 +457,7 @@ SpiMasterFreeSlave (
 {
   FreePool (Nor);
 
-  FreePool (Nor->BounceBuf);
+  // FreePool (Nor->BounceBuf);
 
   return EFI_SUCCESS;
 }

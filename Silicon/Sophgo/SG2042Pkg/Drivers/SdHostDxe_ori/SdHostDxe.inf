@@ -41,10 +41,9 @@
   UefiRuntimeServicesTableLib
 
 [Protocols]
-  #gSophgoMmcHostProtocolGuid        ## PRODUCES
-  gEmbeddedMmcHostProtocolGuid      ## PRODUCES
+  gSophgoMmcHostProtocolGuid        ## PRODUCES
 
 [FixedPcd]
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042EMMCBase        ## CONSUMES
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042SDIOBase        ## CONSUMES
+  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042EMMCBase        ## CONSUMES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode             ## CONSUMES

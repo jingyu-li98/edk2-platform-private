@@ -25,10 +25,11 @@
 #include <Protocol/EmbeddedExternalDevice.h>
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
-// #include <Include/MmcHost.h>
-#include <Protocol/MmcHost.h>
+#include <Include/MmcHost.h>
 
 #include "SdHci.h"
+
+#define SDHOST_BLOCK_BYTE_LENGTH  512
 
 #define DEBUG_MMCHOST_SD          DEBUG_VERBOSE
 #define DEBUG_MMCHOST_SD_INFO     DEBUG_INFO
@@ -99,40 +100,18 @@ STATIC
 EFI_STATUS
 SdSendCommand (
   IN EFI_MMC_HOST_PROTOCOL    *This,
-  IN MMC_CMD                  MmcCmd,
-  IN UINT32                   Argument
-  )
-{
-  EFI_STATUS Status;
-  DEBUG ((DEBUG_WARN, "%a[%d] MmcCmd=0x%x, Index=%d, Argument=0x%lx\n", __func__, __LINE__, MmcCmd, MMC_GET_INDX(MmcCmd), Argument));
-  Status = BmSdSendCmd (MmcCmd, Argument);
-
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdSendCommand Error, Status=%r.\n", Status));
-    return Status;
-  }
-
-  return EFI_SUCCESS;
-}
-
-STATIC EFI_STATUS
-SdReceiveResponse (
-  IN EFI_MMC_HOST_PROTOCOL    *This,
+  IN MMC_IDX                  MmcCmd,
+  IN UINT32                   Argument,
   IN MMC_RESPONSE_TYPE        Type,
   IN UINT32*                  Buffer
   )
 {
   EFI_STATUS Status;
-
-  // if (Buffer == NULL) {
-  //   DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdHost: SdReceiveResponse(): Input Buffer is NULL\n"));
-  //   return EFI_INVALID_PARAMETER;
-  // }
-
-  Status = BmResonse (Type, Buffer);
+  DEBUG ((DEBUG_WARN, "%a[%d] MmcCmd=%d, Argument=0x%lx, Type=0x%lx\n", __func__, __LINE__, MmcCmd, Argument, Type));
+  Status = BmSdSendCmd (MmcCmd, Argument, Type, Buffer);
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "%a[%d] SdReceiveResponse Error, Status=%r.\n", __func__, __LINE__, Status));
+    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdSendCommand Error, Status=%r.\n", Status));
     return Status;
   }
 
@@ -164,18 +143,11 @@ SdReadBlockData (
 
   ASSERT (Buffer != NULL);
   ASSERT (Length % 4 == 0);
-  DEBUG ((DEBUG_WARN, "%a[%d] Lba=0x%lx, Length=0x%lx\n", __func__, __LINE__, Lba, Length));
-  DEBUG ((DEBUG_WARN, "%a[%d] Start BmSdPrepare\n", __func__, __LINE__));
-  Status = BmSdPrepare (Lba, Buffer[0], Length);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdPrepare Error, Status=%r.\n", Status));
-    return Status;
-  }
-  DEBUG ((DEBUG_WARN, "%a[%d] Start Read\n", __func__, __LINE__));
+
   Status = BmSdRead (Lba, Buffer, Length);
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "%a[%d] SdReadBlockData Error, Status=%r.\n", __func__, __LINE__, Status));
+    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdReadBlockData Error, Status=%r.\n", Status));
     return Status;
   }
 
@@ -206,13 +178,7 @@ SdWriteBlockData (
   EFI_STATUS Status;
 
   ASSERT (Buffer != NULL);
-  ASSERT (Length % MMC_BLOCK_SIZE == 0);
-
-  Status = BmSdPrepare (Lba, Buffer[0], Length);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdPrepare Error, Status=%r.\n", Status));
-    return Status;
-  }
+  ASSERT (Length % SDHOST_BLOCK_BYTE_LENGTH == 0);
 
   Status = BmSdWrite (Lba, Buffer, Length);
 
@@ -240,8 +206,7 @@ EFI_STATUS
 SdSetIos (
   IN EFI_MMC_HOST_PROTOCOL      *This,
   IN  UINT32                    BusClockFreq,
-  IN  UINT32                    BusWidth,
-  IN  UINT32                    TimingMode
+  IN  UINT32                    BusWidth
   )
 {
   EFI_STATUS Status;
@@ -253,6 +218,39 @@ SdSetIos (
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdSetIos Error, Status=%r.\n", Status));
+    return Status;
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
+  Prepare the SD card for data transfer.
+
+  @param[in]  This       Pointer to the EFI_MMC_HOST_PROTOCOL instance.
+  @param[in]  Lba        Logical Block Address of the starting block to prepare.
+  @param[in]  Length     Number of blocks to prepare.
+  @param[in]  Buffer     Buffer containing the data to be prepared.
+
+  @retval EFI_SUCCESS    The operation completed successfully.
+  @retval Other          The operation failed.
+
+**/
+STATIC
+EFI_STATUS
+SdPrepare (
+  IN EFI_MMC_HOST_PROTOCOL    *This,
+  IN EFI_LBA                  Lba,
+  IN UINTN                    Length,
+  IN UINTN                    Buffer
+  )
+{
+  EFI_STATUS Status;
+
+  Status = BmSdPrepare (Lba, Buffer, Length);
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_MMCHOST_SD_ERROR, "SdPrepare Error, Status=%r.\n", Status));
     return Status;
   }
 
@@ -374,66 +372,6 @@ out:
   mCardIsPresent = TRUE;
   return mCardIsPresent;
 #endif
-
-
-//   EFI_STATUS Status;
-
-//   //
-//   // If we are already in progress (we may get concurrent calls)
-//   // or completed the detection, just return the current value.
-//   //
-//   if (mCardDetectState != CardDetectRequired) {
-//     return mCardIsPresent;
-//   }
-
-//   mCardDetectState = CardDetectInProgress;
-//   mCardIsPresent = FALSE;
-
-//   //
-//   // The two following commands should succeed even if no card is present.
-//   //
-//   Status = SdNotifyState (This, MmcHwInitializationState);
-//   if (EFI_ERROR (Status)) {
-//     DEBUG ((DEBUG_ERROR, "SdIsCardPresent: Error MmcHwInitializationState, Status=%r.\n", Status));
-//     // If we failed init, go back to requiring card detection
-//     mCardDetectState = CardDetectRequired;
-//     return FALSE;
-//   }
-
-//   //
-//   // CMD0 reset to IDLE
-//   //
-//   Status = SdSendCommand (This, MMC_CMD0, 0, 0, NULL);
-//   if (EFI_ERROR (Status)) {
-//     DEBUG ((DEBUG_ERROR, "SdIsCardPresent: CMD0 Error, Status=%r.\n", Status));
-//     goto out;
-//   }
-
-//   //
-//   // CMD8 should tell us if an SD card is present.
-//   //
-//   Status = SdSendCommand (This, MMC_CMD8, CMD8_SD_ARG, 0, NULL);
-//   if (!EFI_ERROR (Status)) {
-//      DEBUG ((DEBUG_INFO, "SdIsCardPresent: Maybe SD card detected.\n"));
-//      mCardIsPresent = TRUE;
-//      goto out;
-//   }
-
-//   //
-//   // MMC/eMMC won't accept CMD8, but we can try CMD1.
-//   //
-//   Status = SdSendCommand (This, MMC_CMD1, EMMC_CMD1_CAPACITY_GREATER_THAN_2GB);
-//   if (!EFI_ERROR (Status)) {
-//      DEBUG ((DEBUG_INFO, "SdIsCardPresent: Maybe MMC card detected.\n"));
-//      mCardIsPresent = TRUE;
-//      goto out;
-//   }
-
-//   DEBUG ((DEBUG_INFO, "SdIsCardPresent: Not detected, Status=%r.\n", Status));
-
-// out:
-//   mCardDetectState = CardDetectCompleted;
-//   return mCardIsPresent;
 }
 
 /**
@@ -459,10 +397,10 @@ EFI_MMC_HOST_PROTOCOL gMmcHost = {
   SdBuildDevicePath,
   SdNotifyState,
   SdSendCommand,
-  SdReceiveResponse,
   SdReadBlockData,
   SdWriteBlockData,
   SdSetIos,
+  SdPrepare,
   SdIsMultiBlock
 };
 
@@ -484,47 +422,38 @@ SdHostInitialize (
   EFI_STATUS  Status;
   EFI_HANDLE  Handle;
   UINTN       Base;
-  // UINTN       Index;
 
   DEBUG ((DEBUG_MMCHOST_SD, "SdHost: Initialize\n"));
 
   Handle            = NULL;
+  Base              = SDIO_BASE;
+  // Base              = EMMC_BASE;
 
-  // Base = SDIO_BASE;
-  Base = EMMC_BASE;
-
-  // // for (Index = 0; Index < 1; Index++) {
-  //   if (MmcDevInfo[Index].MmcDevType == MMC_IS_EMMC) {
-  //     Base = EMMC_BASE;
-  //   } else {
-  //     Base = SDIO_BASE;
-  //   }
-
-    if(PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
-      for (INT32 I = 39; I < 64; I++) {
-        if (Base & (1ULL << 38)) {
-          Base |= (1ULL << I);
-        } else {
-          Base &= ~(1ULL << I);
-        }
+  if(PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL){
+    for (INT32 I = 39; I < 64; I++) {
+      if (Base & (1ULL << 38)) {
+        Base |= (1ULL << I);
+      } else {
+        Base &= ~(1ULL << I);
       }
     }
+  }
 
-    BmParams.RegBase  = Base;
-    BmParams.ClkRate  = 50 * 1000 * 1000;
-    BmParams.BusWidth = MMC_BUS_WIDTH_4;
-    BmParams.Flags    = 0;
-    BmParams.CardIn   = SDCARD_STATUS_UNKNOWN;
+  BmParams.RegBase  = Base;
+  BmParams.ClkRate  = 50 * 1000 * 1000;
+  BmParams.BusWidth = MMC_BUS_WIDTH_4;
+  BmParams.Flags    = 0;
+  BmParams.CardIn   = SDCARD_STATUS_UNKNOWN;
 
-    Status = gBS->InstallMultipleProtocolInterfaces (
-        &Handle,
-        // &gSophgoMmcHostProtocolGuid,
-        &gEmbeddedMmcHostProtocolGuid,
-        &gMmcHost,
-        NULL
-      );
-    ASSERT_EFI_ERROR (Status);
-  // }
+  Status = gBS->InstallMultipleProtocolInterfaces (
+    &Handle,
+    &gSophgoMmcHostProtocolGuid,
+    &gMmcHost,
+    NULL
+  );
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_WARN, "sdioCap0=0x%lx\temmcCap0=0x%x\nsdioCap1=0x%lx\temmcCap1=0x%x\nsdioPresent=0x%lx\temmcPresent=0x%x\n", __func__, __LINE__, MmioRead32 (SDIO_BASE + SDHCI_CAPABILITIES1), MmioRead32 (EMMC_BASE + SDHCI_CAPABILITIES1),MmioRead32 (SDIO_BASE + SDHCI_CAPABILITIES2), MmioRead32 (EMMC_BASE + SDHCI_CAPABILITIES2),MmioRead32 (SDIO_BASE + SDHCI_PSTATE), MmioRead32 (EMMC_BASE + SDHCI_PSTATE)));
 
   return Status;
 }

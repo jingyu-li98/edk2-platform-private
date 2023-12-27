@@ -53,6 +53,15 @@ typedef struct {
 } PLATFORM_USB_KEYBOARD;
 #pragma pack ()
 
+#pragma pack (1)
+typedef struct {
+  VENDOR_DEVICE_PATH         NorFlashDxe;
+  UART_DEVICE_PATH           Uart;
+  VENDOR_DEFINED_DEVICE_PATH TermType;
+  EFI_DEVICE_PATH_PROTOCOL   End;
+} PLATFORM_FLASH_CONSOLE;
+#pragma pack ()
+
 /**
   Check if the handle satisfies a particular condition.
 

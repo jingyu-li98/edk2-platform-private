@@ -14,6 +14,7 @@
 #include <Library/PcdLib.h>
 #include <Library/UefiLib.h>
 #include <Library/DebugLib.h>
+#include <Library/DevicePathLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/UefiRuntimeLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -96,6 +97,13 @@ SpiNorLoadImage (
   IN SPI_NOR     *Nor,
   IN UINTN       PartitionTableAddr,
   IN CONST UINT8 *ImageName
+  );
+
+EFI_STATUS
+EFIAPI
+SpiNorBuildDevicePath (
+  // IN  SOPHGO_NOR_FLASH_PROTOCOL   *This,
+  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath
   );
 
 #endif // __NOR_FLASH_DXE_H__

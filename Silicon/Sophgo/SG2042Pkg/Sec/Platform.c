@@ -158,6 +158,11 @@ PlatformPeimInitialization (
   PopulateIoResources (Base, "bitmain,bm-sd");
 
   //
+  // Add eMMC resource
+  //
+  PopulateIoResources (Base, "bitmain,bm-emmc");
+
+  //
   // Add SPI Flash Master Controller resource
   //
   PopulateIoResources (Base, "sophgo,spifmc");

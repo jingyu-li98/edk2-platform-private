@@ -328,6 +328,20 @@
   #
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
 
+  #
+  # DW MMC/SD card controller
+  #
+  #error 3000: Too large PCD value[482110251008] for datum type [UINT32]
+  #      gDesignWareTokenSpaceGuid.PcdDwEmmcDxeBaseAddress
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeBaseAddress|0x704002A000
+  #gDesignWareTokenSpaceGuid.PcdDwSdDxeBaseAddress|0x704002B000
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeClockFrequencyInHz|50000000
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeMaxClockFreqInHz|50000000
+  #gDesignWareTokenSpaceGuid.PcdDwPermitObsoleteDrivers|TRUE
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeFifoDepth|32
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeUHSEn|FALSE
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeCPULittleEndian|TRUE
+
 [PcdsFixedAtBuild.common]
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x7060800000
@@ -492,8 +506,22 @@
   # RISC-V Platform module
   #
   Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
+  #Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
+  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
   Silicon/Sophgo/SG2042Pkg/Drivers/SdHostDxe/SdHostDxe.inf
+
+  #
+  # sdio/mmc support
+  #
+  #EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
+  #Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf {
+  #  <BuildOptions>
+  #    GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWEMMC
+  #}
+  #Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf {
+  #  <BuildOptions>
+  #    GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWSDMMC
+  #}
 
   #
   # RISC-V Core module

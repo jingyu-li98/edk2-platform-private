@@ -72,8 +72,12 @@ INF  EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
 
 # RISC-V Platform Drivers
 INF  Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-INF  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
+#INF  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
+INF  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
 INF  Silicon/Sophgo/SG2042Pkg/Drivers/SdHostDxe/SdHostDxe.inf
+
+#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf
+#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf
 
 # RISC-V Core Drivers
 INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
