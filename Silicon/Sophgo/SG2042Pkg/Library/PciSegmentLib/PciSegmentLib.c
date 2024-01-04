@@ -87,10 +87,10 @@ PciGenericConfigRead32 (
   UINT32   Buffer;
 
   if (Width == PciCfgWidthUint8) {
-    Buffer = MmioRead32 ((UINTN)(Address & (~0x3)));
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
     return BitFieldRead32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7);
   } else if (Width == PciCfgWidthUint16) {
-    Buffer = MmioRead32 ((UINTN)(Address & (~0x3)));
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
     return BitFieldRead32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15);
   } else if (Width == PciCfgWidthUint32) {
     return MmioRead32 ((UINTN)Address);
@@ -110,11 +110,11 @@ PciGenericConfigWrite32 (
   UINT32   Buffer;
 
   if (Width == PciCfgWidthUint8) {
-    Buffer = MmioRead32 ((UINTN)(Address & (~0x3)));
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
     Buffer = BitFieldWrite32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 7, Data);
     MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
   } else if (Width == PciCfgWidthUint16) {
-    Buffer = MmioRead32 ((UINTN)(Address & (~0x3)));
+    Buffer = MmioRead32((UINTN)(Address & (~0x3)));
     Buffer = BitFieldWrite32 (Buffer, (Address & 0x3) * 8, (Address & 0x3) * 8 + 15, Data);
     MmioWrite32 ((UINTN)(Address & (~0x3)), Buffer);
   } else if (Width == PciCfgWidthUint32) {

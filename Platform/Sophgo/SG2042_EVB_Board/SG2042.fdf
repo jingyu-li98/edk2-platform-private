@@ -72,12 +72,8 @@ INF  EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
 
 # RISC-V Platform Drivers
 INF  Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-#INF  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
-INF  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
+INF  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
 INF  Silicon/Sophgo/SG2042Pkg/Drivers/SdHostDxe/SdHostDxe.inf
-
-#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf
-#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf
 
 # RISC-V Core Drivers
 INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
@@ -154,12 +150,6 @@ INF  MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 
 #
-# SPI Nor Flash Support
-#
-INF  Silicon/Sophgo/SG2042Pkg/Drivers/SpiDxe/SpiFlashMasterController.inf
-INF  Silicon/Sophgo/SG2042Pkg/Drivers/NorFlashDxe/NorFlashDxe.inf
-
-#
 # Multiple Console IO support
 #
 INF  MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
@@ -185,6 +175,11 @@ INF  MdeModulePkg/Logo/LogoDxe.inf
 !if $(X64EMU_ENABLE) == TRUE
   INF  Emulator/MultiArchUefiPkg/EmulatorDxe.inf
 !endif
+
+#
+# ASPEED AST2600 GOP driver
+#
+INF  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2600GopDxe.inf
 
 #
 # FAT filesystem + GPT/MBR partitioning + UDF filesystem

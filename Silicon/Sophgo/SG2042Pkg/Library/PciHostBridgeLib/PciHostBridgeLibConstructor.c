@@ -348,14 +348,6 @@ MangoPcieHostBridgeLibConstructor (
         continue;
       }
 
-      //
-      // Ensure the devices under the PCIe Switch are ready on the Pisces Server,
-      // after enabling MultiArchUefiPkg
-      //
-      if (PcieEnableCount == 4) {
-        gBS->Stall (3500000);
-      }
-
       PcieHostInitRootPort (
         VendorId,
         DeviceId,

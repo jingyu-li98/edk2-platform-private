@@ -29,10 +29,6 @@
 #include <Guid/SerialPortLibVendor.h>
 #include <Guid/NonDiscoverableDevice.h>
 
-#include <Protocol/BlockIo.h>
-
-#define EFI_FILE_NAME L"\\ASpeedAst2600Gop.efi"
-
 #define DP_NODE_LEN(Type) { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
 
 #define VERSION_STRING_PREFIX  L"Tianocore/EDK2 firmware version "
@@ -51,15 +47,6 @@ typedef struct {
   USB_CLASS_DEVICE_PATH    Keyboard;
   EFI_DEVICE_PATH_PROTOCOL End;
 } PLATFORM_USB_KEYBOARD;
-#pragma pack ()
-
-#pragma pack (1)
-typedef struct {
-  VENDOR_DEVICE_PATH         NorFlashDxe;
-  UART_DEVICE_PATH           Uart;
-  VENDOR_DEFINED_DEVICE_PATH TermType;
-  EFI_DEVICE_PATH_PROTOCOL   End;
-} PLATFORM_FLASH_CONSOLE;
 #pragma pack ()
 
 /**

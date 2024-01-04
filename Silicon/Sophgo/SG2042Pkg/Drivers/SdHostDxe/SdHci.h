@@ -11,7 +11,6 @@
 #ifndef _SD_HCI_H_
 #define _SD_HCI_H_
 
-#define EMMC_BASE                       (FixedPcdGet64(PcdSG2042EMMCBase))
 #define SDIO_BASE                       (FixedPcdGet64(PcdSG2042SDIOBase))
 #define SDHCI_DMA_ADDRESS               0x00
 #define SDHCI_BLOCK_SIZE                0x04
@@ -25,44 +24,18 @@
 #define SDHCI_TRNS_READ                 BIT4
 #define SDHCI_TRNS_MULTI                BIT5
 #define SDHCI_TRNS_RESP_INT             BIT8
-
-#define SDHCI_COMMAND                     0x0E
+#define SDHCI_COMMAND                   0x0E
 #define SDHCI_CMD_RESP_MASK             0x03
-#define SDHCI_CMD_CRC                   BIT3
-#define SDHCI_CMD_INDEX                 BIT4
-#define SDHCI_CMD_DATA                  BIT5
+#define SDHCI_CMD_CRC                   0x08
+#define SDHCI_CMD_INDEX                 0x10
+#define SDHCI_CMD_DATA                  0x20
 #define SDHCI_CMD_ABORTCMD              0xC0
 #define SDHCI_CMD_RESP_NONE             0x00
 #define SDHCI_CMD_RESP_LONG             0x01
 #define SDHCI_CMD_RESP_SHORT            0x02
 #define SDHCI_CMD_RESP_SHORT_BUSY       0x03
 #define SDHCI_MAKE_CMD(c, f)            ((((c) & 0xff) << 8) | ((f) & 0xff))
-
-// #define MMC_RSP_48          BIT0
-// #define MMC_RSP_136         BIT1    /* 136 bit response */
-// #define MMC_RSP_CRC         BIT2    /* expect valid crc */
-// #define MMC_RSP_CMD_IDX     BIT3    /* response contains cmd idx */
-// #define MMC_RSP_BUSY        BIT4    /* device may be busy */
-
-#define MMC_RSP_PRESENT BIT0
-#define MMC_RSP_136     BIT1        /* 136 bit response */
-#define MMC_RSP_CRC     BIT2        /* expect valid crc */
-#define MMC_RSP_BUSY    BIT3        /* card may send busy */
-#define MMC_RSP_OPCODE  BIT4        /* response contains opcode */
-
-#define MMC_RSP_NONE    (0)
-#define MMC_RSP_R1  (MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
-#define MMC_RSP_R1B (MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE|MMC_RSP_BUSY)
-#define MMC_RSP_R2  (MMC_RSP_PRESENT|MMC_RSP_136|MMC_RSP_CRC)
-#define MMC_RSP_R3  (MMC_RSP_PRESENT)
-#define MMC_RSP_R4  (MMC_RSP_PRESENT)
-#define MMC_RSP_R5  (MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
-#define MMC_RSP_R6  (MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
-#define MMC_RSP_R7  (MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
-
-#define MMC_SD_CARD_BUSY   0xc0000000  /* Card Power up status bit */
-
-#define SDHCI_RESPONSE_01                 0x10
+#define SDHCI_RESPONSE_01               0x10
 #define SDHCI_RESPONSE_23               0x14
 #define SDHCI_RESPONSE_45               0x18
 #define SDHCI_RESPONSE_67               0x1C
@@ -83,7 +56,6 @@
 #define SDHCI_BUF_DATA_R                0x20
 #define SDHCI_BLOCK_GAP_CONTROL         0x2A
 #define SDHCI_CLK_CTRL                  0x2C
-#define SDHCI_CLK_INT_STABLE            BIT1
 #define SDHCI_TOUT_CTRL                 0x2E
 #define SDHCI_SOFTWARE_RESET            0x2F
 #define SDHCI_RESET_CMD                 0x02
@@ -181,23 +153,7 @@
 #define ATDL_CNFG_INPSEL_CNFG_MSK     0x3
 
 #define SD_USE_PIO                    0x1
-#define MMC_BLOCK_SIZE      512U
-#define MMC_BLOCK_MASK      (MMC_BLOCK_SIZE - 1U)
-#define MMC_BOOT_CLK_RATE   (400 * 1000)
 
-
-/* Values in EXT CSD register */
-#define MMC_BUS_WIDTH_1       1U
-#define MMC_BUS_WIDTH_4       4U
-#define MMC_BUS_WIDTH_8       8U
-// #define MMC_BUS_WIDTH_DDR_4   5U
-// #define MMC_BUS_WIDTH_DDR_8   6U
-
-typedef enum _CARD_DETECT_STATE {
-  CardDetectRequired = 0,
-  CardDetectInProgress,
-  CardDetectCompleted
-} CARD_DETECT_STATE;
 /**
   card detect status
   -1: haven't check the card detect register
@@ -208,12 +164,12 @@ typedef enum _CARD_DETECT_STATE {
 #define SDCARD_STATUS_INSERTED      (1)
 #define SDCARD_STATUS_NOT_INSERTED  (0)
 
-// typedef struct {
-//   UINT32  CmdIdx;
-//   UINT32  CmdArg;
-//   UINT32  ResponseType;
-//   UINT32  Response[4];
-// } MMC_CMD;
+typedef struct {
+  UINT32  CmdIdx;
+  UINT32  CmdArg;
+  UINT32  ResponseType;
+  UINT32  Response[4];
+} MMC_CMD;
 
 typedef struct {
   UINTN   RegBase;
@@ -233,6 +189,8 @@ extern BM_SD_PARAMS BmParams;
 
   @param[in]  Idx       Command ID.
   @param[in]  Arg       Command argument.
+  @param[in]  RespType  Type of response data.
+  @param[out] Response  Response data.
 
   @retval  EFI_SUCCESS             The command was sent successfully.
   @retval  EFI_DEVICE_ERROR        There was an error during the command transmission or response handling.
@@ -242,8 +200,10 @@ extern BM_SD_PARAMS BmParams;
 EFI_STATUS
 EFIAPI
 BmSdSendCmd (
-  IN  MMC_CMD MmcCmd,
-  IN  UINT32 Arg
+  IN  UINT32 Idx,
+  IN  UINT32 Arg,
+  IN  UINT32 RespType,
+  OUT UINT32 *Response
   );
 
 /**
@@ -346,10 +306,4 @@ SdInit (
   IN UINT32  flags
   );
 
-
-EFI_STATUS
-BmResonse (
-  IN MMC_RESPONSE_TYPE        Type,
-  IN UINT32*                  Buffer
-  );
 #endif

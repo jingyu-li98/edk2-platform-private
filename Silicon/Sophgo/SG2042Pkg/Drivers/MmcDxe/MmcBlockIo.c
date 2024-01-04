@@ -324,8 +324,8 @@ MmcTransferBlock (
   EFI_MMC_HOST_PROTOCOL   *MmcHost;
   UINTN                   CmdArg;
 
-  DEBUG ((DEBUG_WARN, "%a(): Lba: %lx\n", __func__, Lba));
-  DEBUG ((DEBUG_WARN, "%a(): BufferSize: %lx\n", __func__, BufferSize));
+  DEBUG ((DEBUG_VERBOSE, "%a(): Lba: %lx\n", __func__, Lba));
+  DEBUG ((DEBUG_VERBOSE, "%a(): BufferSize: %lx\n", __func__, BufferSize));
 
   MmcHostInstance = MMC_HOST_INSTANCE_FROM_BLOCK_IO_THIS (This);
   MmcHost         = MmcHostInstance->MmcHost;

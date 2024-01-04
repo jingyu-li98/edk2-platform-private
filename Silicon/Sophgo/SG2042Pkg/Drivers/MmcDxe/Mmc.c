@@ -426,13 +426,12 @@ CheckCardsCallback (
       MmcHostInstance->Initialized = !MmcHostInstance->Initialized;
 
       if (MmcHostInstance->BlockIo.Media->MediaPresent) {
-        InitializeMmcDevice (MmcHostInstance);
-        // if (EFI_ERROR (Status)) {
-        //   DEBUG ((DEBUG_ERROR, "CheckCardsCallback: Error InitializeMmcDevice, Status=%r.\n", Status));
-        //   MmcHostInstance->Initialized = !MmcHostInstance->Initialized;
-        //   DEBUG ((DEBUG_ERROR, "%a[%d] MmcHostInstance->Initialized=%r\n", __func__, __LINE__, Status));
-        //   return Status;
-        // }
+        Status = InitializeMmcDevice (MmcHostInstance);
+        if (EFI_ERROR (Status)) {
+          DEBUG ((DEBUG_ERROR, "CheckCardsCallback: Error InitializeMmcDevice, Status=%r.\n", Status));
+          MmcHostInstance->Initialized = !MmcHostInstance->Initialized;
+          continue;
+        }
       }
 
       Status = gBS->ReinstallProtocolInterface (

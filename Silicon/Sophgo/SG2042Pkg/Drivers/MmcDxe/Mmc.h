@@ -48,6 +48,10 @@
 #define OCR_VDD_MIN_2V0        GENMASK(14, 8)
 #define OCR_VDD_MIN_1V7        BIT7
 
+/* Value randomly chosen for eMMC RCA, it should be > 1 */
+#define MMC_FIX_RCA                  6
+#define RCA_SHIFT_OFFSET             16
+
 #define CMD_EXTCSD_PARTITION_CONFIG  179
 #define CMD_EXTCSD_BUS_WIDTH         183
 #define CMD_EXTCSD_HS_TIMING         185
