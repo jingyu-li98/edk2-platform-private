@@ -43,8 +43,12 @@ typedef struct {
   MMC_DEVICE_TYPE  MmcDevType;  /* Type of MMC */
 } MMC_DEVICE_INFO;
 
+//STATIC MMC_DEVICE_INFO MmcDevInfo = {
+//  .MmcDevType = MMC_IS_SD_HC,
+//  .OCRVoltage = 0x00300000, // OCR 3.2~3.3 3.3~3.4
+//};
 STATIC MMC_DEVICE_INFO MmcDevInfo = {
-  .MmcDevType = MMC_IS_SD_HC,
+  .MmcDevType = MMC_IS_EMMC,
   .OCRVoltage = 0x00300000, // OCR 3.2~3.3 3.3~3.4
 };
 
@@ -665,7 +669,7 @@ MmcIdentificationMode (
     }
   }
 
-  Status = MmcEnumerte (MmcHostInstance, 25 * 1000 * 1000, MMC_BUS_WIDTH_4);
+  Status = MmcEnumerte (MmcHostInstance, 6 * 1000 * 1000, MMC_BUS_WIDTH_4);
 
   if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_ERROR, "MmcIdentificationMode() : Error MmcEnumerte, Status=%r.\n", Status));

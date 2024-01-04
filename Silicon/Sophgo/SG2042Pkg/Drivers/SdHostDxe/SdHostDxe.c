@@ -339,6 +339,7 @@ SdIsCardPresent (
   IN EFI_MMC_HOST_PROTOCOL *This
   )
 {
+#if 0
   //
   // If we are already in progress (we may get concurrent calls)
   // or completed the detection, just return the current value.
@@ -365,6 +366,11 @@ SdIsCardPresent (
 out:
   mCardDetectState = CardDetectCompleted;
   return mCardIsPresent;
+#else
+  mCardDetectState = CardDetectCompleted;
+  mCardIsPresent = TRUE;
+  return mCardIsPresent;
+#endif
 }
 
 /**
@@ -419,7 +425,8 @@ SdHostInitialize (
   DEBUG ((DEBUG_MMCHOST_SD, "SdHost: Initialize\n"));
 
   Handle            = NULL;
-  Base              = SDIO_BASE;
+  //Base              = SDIO_BASE;
+  Base              = EMMC_BASE;
 
   if(PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL){
     for (INT32 I = 39; I < 64; I++) {

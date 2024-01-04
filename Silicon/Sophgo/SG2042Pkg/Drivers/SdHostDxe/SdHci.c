@@ -64,15 +64,20 @@ SdSendCmdWithData (
   Mode  = 0;
   Flags = 0;
 
+  DEBUG ((DEBUG_INFO, "%a[%d]: with data\n", __func__, __LINE__));
   // Make sure Cmd line is clear
   while (1) {
     if (!(MmioRead32 (Base + SDHCI_PSTATE) & SDHCI_CMD_INHIBIT))
     break;
   }
 
+  DEBUG ((DEBUG_INFO, "%a[%d]: with data\n", __func__, __LINE__));
   switch (Cmd->CmdIdx) {
+    case MMC_CMD1:
+    case MMC_CMD8:
     case MMC_CMD17:
     case MMC_CMD18:
+    case MMC_ACMD41:
     case MMC_ACMD51:
       Mode = SDHCI_TRNS_BLK_CNT_EN | SDHCI_TRNS_MULTI | SDHCI_TRNS_READ;
       if (!(BmParams.Flags & SD_USE_PIO))
@@ -200,6 +205,8 @@ SdSendCmdWithoutData (
   Flags   = 0x0;
   Timeout = 10000;
 
+
+  DEBUG ((DEBUG_INFO, "%a: without data\n", __func__));
   // make sure Cmd line is clear
   while (1) {
     if (!(MmioRead32 (Base + SDHCI_PSTATE) & SDHCI_CMD_INHIBIT))
@@ -294,7 +301,7 @@ BmSdSendCmd (
   EFI_STATUS  Status;
   MMC_CMD     Cmd;
 
-  // DEBUG ((DEBUG_INFO, "%a: SDHCI Cmd, Idx=%d, Arg=0x%x, ResponseType=0x%x\n", __func__, Idx, Arg, RespType));
+  DEBUG ((DEBUG_INFO, "%a: SDHCI Cmd, Idx=%d, Arg=0x%x, ResponseType=0x%x\n", __func__, Idx, Arg, RespType));
 
   ZeroMem(&Cmd,sizeof(MMC_CMD));
 
@@ -303,6 +310,7 @@ BmSdSendCmd (
   Cmd.ResponseType = RespType;
 
   switch (Cmd.CmdIdx) {
+    case MMC_CMD8:
     case MMC_CMD17:
     case MMC_CMD18:
     case MMC_CMD24:

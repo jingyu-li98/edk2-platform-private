@@ -153,6 +153,11 @@ PlatformPeimInitialization (
   AddIoMemoryBaseSizeHob (0xC0000000, 0x40000000);
 
   //
+  // Add eMMC resource
+  //
+  PopulateIoResources (Base, "bitmain,bm-emmc");
+
+  //
   // Add SDHI resource
   //
   PopulateIoResources (Base, "bitmain,bm-sd");

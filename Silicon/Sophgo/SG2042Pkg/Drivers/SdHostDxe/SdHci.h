@@ -11,6 +11,7 @@
 #ifndef _SD_HCI_H_
 #define _SD_HCI_H_
 
+#define EMMC_BASE                       (FixedPcdGet64(PcdSG2042EMMCBase))
 #define SDIO_BASE                       (FixedPcdGet64(PcdSG2042SDIOBase))
 #define SDHCI_DMA_ADDRESS               0x00
 #define SDHCI_BLOCK_SIZE                0x04
