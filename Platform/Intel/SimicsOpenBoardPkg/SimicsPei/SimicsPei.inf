@@ -2,7 +2,7 @@
 #  Platform PEI driver
 #
 #  This module provides platform specific function to detect boot mode.
-# Copyright (c) 2006 - 2019 Intel Corporation. All rights reserved. <BR>
+# Copyright (c) 2006 - 2023 Intel Corporation. All rights reserved. <BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -36,10 +36,12 @@
   SimicsX58SktPkg/SktPkg.dec
   SimicsIch10Pkg/Ich10Pkg.dec
   BoardModulePkg/BoardModulePkg.dec
+  IntelSiliconPkg/IntelSiliconPkg.dec
 
 [Guids]
   gEfiMemoryTypeInformationGuid
   gEfiSmmSmramMemoryGuid              ## CONSUMES
+  gEfiAcpiVariableGuid
 
 [LibraryClasses]
   BaseLib
@@ -54,6 +56,7 @@
   MtrrLib
   PcdLib
   CmosAccessLib
+  SmmAccessLib
 
 [Pcd]
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsPeiMemFvBase
@@ -62,7 +65,6 @@
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsDxeMemFvSize
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageSize
-  gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPageTablesBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPeiTempRamBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPeiTempRamSize
   gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress

@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2020 - 2023, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -600,6 +600,16 @@ CreateDevMapOptions (
     DevMapMode4
     );
 
+  if (RootComplex->Type == RootComplexTypeA) {
+    HiiCreateOneOfOptionOpCode (
+      OptionsOpCodeHandle,
+      STRING_TOKEN (STR_PCIE_BIFUR_SELECT_AUTO),
+      0,
+      EFI_IFR_NUMERIC_SIZE_1,
+      DevMapModeAuto
+      );
+  }
+
   return OptionsOpCodeHandle;
 }
 
@@ -723,7 +733,8 @@ PcieRCScreenSetup (
     //
     OptionsOpCodeHandle = CreateDevMapOptions (RootComplex);
 
-    if (RootComplex->DefaultDevMapLow != 0) {
+    if ((RootComplex->DefaultDevMapLow != 0)
+        && (RootComplex->DefaultDevMapLow != DevMapModeAuto)) {
       QuestionFlags |= EFI_IFR_FLAG_READ_ONLY;
     }
 
@@ -1192,8 +1203,8 @@ RootComplexDriverEntry (
     RootComplex = GetRootComplex (RCIndex);
 
     if (EFI_ERROR (Status)) {
-      VarStoreConfig->RCBifurcationLow[RCIndex] = RootComplex->DevMapLow;
-      VarStoreConfig->RCBifurcationHigh[RCIndex] = RootComplex->DevMapHigh;
+      VarStoreConfig->RCBifurcationLow[RCIndex] = RootComplex->DefaultDevMapLow;
+      VarStoreConfig->RCBifurcationHigh[RCIndex] = RootComplex->DefaultDevMapHigh;
       VarStoreConfig->RCStatus[RCIndex] = RootComplex->Active;
       IsUpdated = TRUE;
     }

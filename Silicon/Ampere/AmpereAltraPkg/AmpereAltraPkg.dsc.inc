@@ -1,6 +1,6 @@
 ## @file
 #
-# Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+# Copyright (c) 2020 - 2023, Ampere Computing LLC. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -81,6 +81,7 @@
   NVParamLib|Silicon/Ampere/AmpereAltraPkg/Library/NVParamLib/NVParamLib.inf
   MailboxInterfaceLib|Silicon/Ampere/AmpereAltraPkg/Library/MailboxInterfaceLib/MailboxInterfaceLib.inf
   SystemFirmwareInterfaceLib|Silicon/Ampere/AmpereAltraPkg/Library/SystemFirmwareInterfaceLib/SystemFirmwareInterfaceLib.inf
+  PcieHotPlugLib|Silicon/Ampere/AmpereAltraPkg/Library/PcieHotPlugLib/PcieHotPlugLib.inf
   PciePhyLib|Silicon/Ampere/AmpereAltraBinPkg/Library/PciePhyLib/PciePhyLib.inf
   Ac01PcieLib|Silicon/Ampere/AmpereAltraPkg/Library/Ac01PcieLib/Ac01PcieLib.inf
   AmpereCpuLib|Silicon/Ampere/AmpereAltraPkg/Library/AmpereCpuLib/AmpereCpuLib.inf
@@ -410,8 +411,8 @@
   #
   # Ampere Altra Core-Cluster profile
   #
-  gArmPlatformTokenSpaceGuid.PcdCoreCount|80
-  gArmPlatformTokenSpaceGuid.PcdClusterCount|40
+  gArmPlatformTokenSpaceGuid.PcdCoreCount|128
+  gArmPlatformTokenSpaceGuid.PcdClusterCount|64
 
   #
   # PL011 - Serial Terminal

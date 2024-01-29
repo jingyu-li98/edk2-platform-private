@@ -2,7 +2,7 @@
   Pcie board specific driver to handle asserting PERST signal to Endpoint
   card. PERST asserting is via group of GPIO pins to CPLD as Platform Specification.
 
-  Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2020 - 2023, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -20,6 +20,8 @@
 #define RCB_MAX_PERST_GROUPVAL          46
 #define DEFAULT_SEGMENT_NUMBER          0x0F
 
+#define PCIE_PERST_DELAY  (100 * 1000)               // 100ms
+
 VOID
 BoardPcieReleaseAllPerst (
   IN UINT8 SocketId
@@ -32,6 +34,56 @@ BoardPcieReleaseAllPerst (
   for (GpioIndex = 0; GpioIndex < 6; GpioIndex++) {
     GpioModeConfig (GpioPin + GpioIndex, GpioConfigOutHigh);
   }
+
+  MicroSecondDelay (PCIE_PERST_DELAY);
+}
+
+EFI_STATUS
+GetGpioGroup (
+  IN  UINT8 RootComplexId,
+  IN  UINT8 PcieIndex,
+  OUT UINT32 *GpioGroupVal
+  )
+{
+  /* Ampere Altra Max RootComplex->ID: 4:7 */
+  if (PcieIndex < 2) {
+    switch (RootComplexId) {
+      case 4:
+        *GpioGroupVal = 34 - (PcieIndex * 2);
+        break;
+      case 5:
+        *GpioGroupVal = 38 - (PcieIndex * 2);
+        break;
+      case 6:
+        *GpioGroupVal = 30 - (PcieIndex * 2);
+        break;
+      case 7:
+        *GpioGroupVal = 26 - (PcieIndex * 2);
+        break;
+      default:
+        return EFI_INVALID_PARAMETER;
+    }
+  } else {
+    /* Ampere Altra Max RootComplex->ID: 4:7 */
+    switch (RootComplexId) {
+      case 4:
+        *GpioGroupVal = 46 - ((PcieIndex - 2) * 2);
+        break;
+      case 5:
+        *GpioGroupVal = 42 - ((PcieIndex - 2) * 2);
+        break;
+      case 6:
+        *GpioGroupVal = 18 - ((PcieIndex - 2) * 2);
+        break;
+      case 7:
+        *GpioGroupVal = 22 - ((PcieIndex - 2) * 2);
+        break;
+      default:
+        return EFI_INVALID_PARAMETER;
+    }
+  }
+
+  return EFI_SUCCESS;
 }
 
 /**
@@ -52,15 +104,28 @@ BoardPcieAssertPerst (
   IN BOOLEAN           IsPullToHigh
   )
 {
-  UINT32 GpioGroupVal, Val, GpioIndex, GpioPin;
+  UINT32     GpioGroupVal;
+  UINT32     Val;
+  UINT32     GpioIndex;
+  UINT32     GpioPin;
+  EFI_STATUS Status;
 
   if (!IsPullToHigh) {
     if (RootComplex->Type == RootComplexTypeA) {
-      //
-      // RootComplexTypeA: RootComplex->ID: 0->3 ; PcieIndex: 0->3
-      //
-      GpioGroupVal = RCA_MAX_PERST_GROUPVAL - PcieIndex
-                     - RootComplex->ID * MaxPcieControllerOfRootComplexA;
+      if (RootComplex->ID < MaxPcieControllerOfRootComplexA) {
+        /* Ampere Altra: 4 */
+        //
+        // RootComplexTypeA: RootComplex->ID: 0->3 ; PcieIndex: 0->3
+        //
+        GpioGroupVal = RCA_MAX_PERST_GROUPVAL - PcieIndex
+                       - RootComplex->ID * MaxPcieControllerOfRootComplexA;
+      } else {
+        Status = GetGpioGroup (RootComplex->ID, PcieIndex, &GpioGroupVal);
+        if (EFI_ERROR (Status)) {
+          DEBUG ((DEBUG_ERROR, "Invalid Root Complex ID %d\n", RootComplex->ID));
+          return Status;
+        }
+      }
     } else {
       //
       // RootComplexTypeB: RootComplex->ID: 4->7 ; PcieIndex: 0->7
@@ -81,7 +146,7 @@ BoardPcieAssertPerst (
     }
 
     // Keep reset as low as 100 ms as specification
-    MicroSecondDelay (100 * 1000);
+    MicroSecondDelay (PCIE_PERST_DELAY);
   } else {
     BoardPcieReleaseAllPerst (RootComplex->Socket);
   }
@@ -113,5 +178,5 @@ BoardPcieGetSegmentNumber (
     return Ac01BoardSegment[RootComplex->Socket][RootComplex->ID];
   }
 
-  return DEFAULT_SEGMENT_NUMBER;
+  return (RootComplex->ID - 2);
 }

@@ -11,7 +11,6 @@
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_platform.h>
-#include <sbi_utils/fdt/fdt_helper.h>
 #include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/ipi/aclint_mswi.h>
 #include <sbi_utils/irqchip/plic.h>
@@ -23,12 +22,10 @@
 #define ARIANE_UART_BAUDRATE			115200
 #define ARIANE_UART_REG_SHIFT			2
 #define ARIANE_UART_REG_WIDTH			4
-#define ARIANE_UART_REG_OFFSET			0
 #define ARIANE_PLIC_ADDR			0xc000000
 #define ARIANE_PLIC_NUM_SOURCES			3
 #define ARIANE_HART_COUNT			1
 #define ARIANE_CLINT_ADDR			0x2000000
-#define ARIANE_ACLINT_MTIMER_FREQ		1000000
 #define ARIANE_ACLINT_MSWI_ADDR			(ARIANE_CLINT_ADDR + \
 						 CLINT_MSWI_OFFSET)
 #define ARIANE_ACLINT_MTIMER_ADDR		(ARIANE_CLINT_ADDR + \
@@ -47,16 +44,11 @@ static struct aclint_mswi_data mswi = {
 };
 
 static struct aclint_mtimer_data mtimer = {
-	.mtime_freq = ARIANE_ACLINT_MTIMER_FREQ,
-	.mtime_addr = ARIANE_ACLINT_MTIMER_ADDR +
-		      ACLINT_DEFAULT_MTIME_OFFSET,
-	.mtime_size = ACLINT_DEFAULT_MTIME_SIZE,
-	.mtimecmp_addr = ARIANE_ACLINT_MTIMER_ADDR +
-			 ACLINT_DEFAULT_MTIMECMP_OFFSET,
-	.mtimecmp_size = ACLINT_DEFAULT_MTIMECMP_SIZE,
+	.addr = ARIANE_ACLINT_MTIMER_ADDR,
+	.size = ACLINT_MTIMER_SIZE,
 	.first_hartid = 0,
 	.hart_count = ARIANE_HART_COUNT,
-	.has_64bit_mmio = true,
+	.has_64bit_mmio = TRUE,
 };
 
 /*
@@ -78,7 +70,7 @@ static int ariane_final_init(bool cold_boot)
 	if (!cold_boot)
 		return 0;
 
-	fdt = fdt_get_address();
+	fdt = sbi_scratch_thishart_arg1_ptr();
 	fdt_fixups(fdt);
 
 	return 0;
@@ -93,27 +85,29 @@ static int ariane_console_init(void)
 			     ARIANE_UART_FREQ,
 			     ARIANE_UART_BAUDRATE,
 			     ARIANE_UART_REG_SHIFT,
-			     ARIANE_UART_REG_WIDTH,
-			     ARIANE_UART_REG_OFFSET);
+			     ARIANE_UART_REG_WIDTH);
 }
 
 static int plic_ariane_warm_irqchip_init(int m_cntx_id, int s_cntx_id)
 {
-	int ret;
+	size_t i, ie_words = ARIANE_PLIC_NUM_SOURCES / 32 + 1;
 
 	/* By default, enable all IRQs for M-mode of target HART */
 	if (m_cntx_id > -1) {
-		ret = plic_context_init(&plic, m_cntx_id, true, 0x1);
-		if (ret)
-			return ret;
+		for (i = 0; i < ie_words; i++)
+			plic_set_ie(&plic, m_cntx_id, i, 1);
 	}
-
 	/* Enable all IRQs for S-mode of target HART */
 	if (s_cntx_id > -1) {
-		ret = plic_context_init(&plic, s_cntx_id, true, 0x0);
-		if (ret)
-			return ret;
+		for (i = 0; i < ie_words; i++)
+			plic_set_ie(&plic, s_cntx_id, i, 1);
 	}
+	/* By default, enable M-mode threshold */
+	if (m_cntx_id > -1)
+		plic_set_thresh(&plic, m_cntx_id, 1);
+	/* By default, disable S-mode threshold */
+	if (s_cntx_id > -1)
+		plic_set_thresh(&plic, s_cntx_id, 0);
 
 	return 0;
 }

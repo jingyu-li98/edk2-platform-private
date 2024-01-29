@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2020 - 2023, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -28,6 +28,9 @@
 // Maximum number of cores supported.
 //
 #define PLATFORM_CPU_MAX_NUM_CORES        (PLATFORM_CPU_MAX_SOCKET * PLATFORM_CPU_MAX_CPM * PLATFORM_CPU_NUM_CORES_PER_CPM)
+
+#define MAX_AMPERE_ALTRA_CORES            80
+#define MAX_AMPERE_ALTRA_MAX_CORES        128
 
 //
 // Maximum number of memory region
@@ -292,7 +295,7 @@
 //
 // DSDT RCB0 PCIe MMIO32 Attribute
 //
-#define AC01_PCIE_RCB0_QMEM_LIST         0x0000000000000000, 0x0000000001000000, 0x000000000FFFFFFF, 0x0000000000000000, 0x000000000F000000
+#define AC01_PCIE_RCB0_QMEM_LIST         0x0000000000000000, 0x0000000008000000, 0x000000000FFFFFFF, 0x0000000000000000, 0x0000000008000000
 
 //
 // DSDT RCB1 PCIe MMIO32 Attribute

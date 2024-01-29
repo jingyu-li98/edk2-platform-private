@@ -555,7 +555,6 @@ GetDeviceTreeAddress (
   EFI_STATUS                 Status;
   EFI_COMMON_SECTION_HEADER  *FoundSection;
 
-  // DEBUG((DEBUG_INFO,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"));
   if (FixedPcdGet32 (PcdDeviceTreeAddress)) {
     DEBUG ((DEBUG_INFO, "Use fixed address of DBT from PcdDeviceTreeAddress 0x%x 0x%x.\n", FixedPcdGet32 (PcdDeviceTreeAddress), *((unsigned long *)FixedPcdGet32 (PcdDeviceTreeAddress))));
     //

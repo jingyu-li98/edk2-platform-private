@@ -9,7 +9,6 @@
 
 #include <libfdt.h>
 #include <sbi/riscv_asm.h>
-#include <sbi/riscv_io.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hartmask.h>
 #include <sbi_utils/fdt/fdt_helper.h>
@@ -23,39 +22,6 @@ static struct plic_data plic[PLIC_MAX_NR];
 
 static struct plic_data *plic_hartid2data[SBI_HARTMASK_MAX_BITS];
 static int plic_hartid2context[SBI_HARTMASK_MAX_BITS][2];
-
-void fdt_plic_priority_save(u8 *priority, u32 num)
-{
-	struct plic_data *plic = plic_hartid2data[current_hartid()];
-
-	plic_priority_save(plic, priority, num);
-}
-
-void fdt_plic_priority_restore(const u8 *priority, u32 num)
-{
-	struct plic_data *plic = plic_hartid2data[current_hartid()];
-
-	plic_priority_restore(plic, priority, num);
-}
-
-void fdt_plic_context_save(bool smode, u32 *enable, u32 *threshold, u32 num)
-{
-	u32 hartid = current_hartid();
-
-	plic_context_save(plic_hartid2data[hartid],
-			  plic_hartid2context[hartid][smode],
-			  enable, threshold, num);
-}
-
-void fdt_plic_context_restore(bool smode, const u32 *enable, u32 threshold,
-			      u32 num)
-{
-	u32 hartid = current_hartid();
-
-	plic_context_restore(plic_hartid2data[hartid],
-			     plic_hartid2context[hartid][smode],
-			     enable, threshold, num);
-}
 
 static int irqchip_plic_warm_init(void)
 {
@@ -87,7 +53,7 @@ static int irqchip_plic_update_hartid_table(void *fdt, int nodeoff,
 			continue;
 
 		cpu_offset = fdt_parent_offset(fdt, cpu_intc_offset);
-		if (cpu_offset < 0)
+		if (cpu_intc_offset < 0)
 			continue;
 
 		err = fdt_parse_hart_id(fdt, cpu_offset, &hartid);
@@ -125,11 +91,6 @@ static int irqchip_plic_cold_init(void *fdt, int nodeoff,
 	if (rc)
 		return rc;
 
-	if (match->data) {
-		void (*plic_plat_init)(struct plic_data *) = match->data;
-		plic_plat_init(pd);
-	}
-
 	rc = plic_cold_irqchip_init(pd);
 	if (rc)
 		return rc;
@@ -145,27 +106,10 @@ static int irqchip_plic_cold_init(void *fdt, int nodeoff,
 	return irqchip_plic_update_hartid_table(fdt, nodeoff, pd);
 }
 
-#define THEAD_PLIC_CTRL_REG 0x1ffffc
-
-static void thead_plic_plat_init(struct plic_data *pd)
-{
-	writel_relaxed(BIT(0), (char *)pd->addr + THEAD_PLIC_CTRL_REG);
-}
-
-void thead_plic_restore(void)
-{
-	struct plic_data *plic = plic_hartid2data[current_hartid()];
-
-	thead_plic_plat_init(plic);
-}
-
 static const struct fdt_match irqchip_plic_match[] = {
-	{ .compatible = "andestech,nceplic100" },
 	{ .compatible = "riscv,plic0" },
 	{ .compatible = "sifive,plic-1.0.0" },
-	{ .compatible = "thead,c900-plic",
-	  .data = thead_plic_plat_init },
-	{ /* sentinel */ }
+	{ },
 };
 
 struct fdt_irqchip fdt_irqchip_plic = {

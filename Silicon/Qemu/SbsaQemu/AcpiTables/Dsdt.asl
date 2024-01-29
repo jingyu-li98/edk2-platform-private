@@ -68,18 +68,19 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
       }
     }
 
-    // USB EHCI Host Controller
+    // USB XHCI Host Controller
     Device (USB0) {
-        Name (_HID, "LNRO0D20")
-        Name (_CID, "PNP0D20")
+        Name (_HID, "PNP0D10")      // _HID: Hardware ID
+        Name (_UID, 0x00)            // _UID: Unique ID
+        Name (_CCA, 0x01)            // _CCA: Cache Coherency Attribute
         Method (_STA) {
           Return (0xF)
         }
         Method (_CRS, 0x0, Serialized) {
             Name (RBUF, ResourceTemplate() {
                 Memory32Fixed (ReadWrite,
-                               FixedPcdGet32 (PcdPlatformEhciBase),
-                               FixedPcdGet32 (PcdPlatformEhciSize))
+                               FixedPcdGet32 (PcdPlatformXhciBase),
+                               FixedPcdGet32 (PcdPlatformXhciSize))
                 Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 43 }
             })
             Return (RBUF)
@@ -146,7 +147,7 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
                     Name (_ADR, 0x00000003)
                     Name (_UPC, Package() {
                         0xFF,        // Port is connectable
-                        0x00,        // Port connector is A
+                        0x09,        // Type C connector - USB2 and SS with Switch
                         0x00000000,
                         0x00000000
                     })
@@ -165,7 +166,7 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
                     Name (_ADR, 0x00000004)
                     Name (_UPC, Package() {
                         0xFF,        // Port is connectable
-                        0x00,        // Port connector is A
+                        0x09,        // Type C connector - USB2 and SS with Switch
                         0x00000000,
                         0x00000000
                     })
@@ -449,7 +450,7 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
        */
       Method (_OSC,4) {
         // Check for proper UUID
-        If (LEqual(Arg0,ToUUID("33DB4D5B-1FF7-401C-9657-7441C03DD766"))) {
+        If (Arg0 == ToUUID("33DB4D5B-1FF7-401C-9657-7441C03DD766")) {
           // Create DWord-adressable fields from the Capabilities Buffer
           CreateDWordField (Arg3,0,CDW1)
           CreateDWordField (Arg3,4,CDW2)
@@ -463,28 +464,28 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
           // * ASPM
           // * Clock PM
           // * MSI/MSI-X
-          If (LNotEqual(And(SUPP, 0x16), 0x16)) {
-            And (CTRL,0x1E,CTRL) // Mask bit 0 (and undefined bits)
+          If ((SUPP & 0x16) != 0x16) {
+            CTRL &= 0x1E // Mask bit 0 (and undefined bits)
           }
 
           // Always allow native PME, AER (no dependencies)
 
           // Never allow SHPC (no SHPC controller in this system)
-          And (CTRL,0x1D,CTRL)
+          CTRL &= 0x1D
 
-          If (LNotEqual(Arg1,One)) {        // Unknown revision
-            Or (CDW1,0x08,CDW1)
+          If (Arg1 != One) {         // Unknown revision
+            CDW1 |= 0x08
           }
 
-          If (LNotEqual(CDW3,CTRL)) {        // Capabilities bits were masked
-            Or (CDW1,0x10,CDW1)
+          If (CDW3 != CTRL) {        // Capabilities bits were masked
+            CDW1 |= 0x10
           }
 
           // Update DWORD3 in the buffer
           Store (CTRL,CDW3)
           Return (Arg3)
         } Else {
-          Or (CDW1,4,CDW1) // Unrecognized UUID
+          CDW1 |= 4 // Unrecognized UUID
           Return (Arg3)
         }
       } // End _OSC

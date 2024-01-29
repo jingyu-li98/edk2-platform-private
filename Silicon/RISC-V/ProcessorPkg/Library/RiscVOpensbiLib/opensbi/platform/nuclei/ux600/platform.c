@@ -8,6 +8,7 @@
  *   hqfang <578567190@qq.com>
  */
 
+#include <libfdt.h>
 #include <sbi/riscv_asm.h>
 #include <sbi/riscv_io.h>
 #include <sbi/riscv_encoding.h>
@@ -15,7 +16,6 @@
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_system.h>
-#include <sbi_utils/fdt/fdt_helper.h>
 #include <sbi_utils/fdt/fdt_fixup.h>
 #include <sbi_utils/ipi/aclint_mswi.h>
 #include <sbi_utils/irqchip/plic.h>
@@ -74,16 +74,11 @@ static struct aclint_mswi_data mswi = {
 };
 
 static struct aclint_mtimer_data mtimer = {
-	.mtime_freq = UX600_TIMER_FREQ,
-	.mtime_addr = UX600_ACLINT_MTIMER_ADDR +
-		      ACLINT_DEFAULT_MTIME_OFFSET,
-	.mtime_size = ACLINT_DEFAULT_MTIME_SIZE,
-	.mtimecmp_addr = UX600_ACLINT_MTIMER_ADDR +
-			 ACLINT_DEFAULT_MTIMECMP_OFFSET,
-	.mtimecmp_size = ACLINT_DEFAULT_MTIMECMP_SIZE,
+	.addr = UX600_ACLINT_MTIMER_ADDR,
+	.size = ACLINT_MTIMER_SIZE,
 	.first_hartid = 0,
 	.hart_count = UX600_HART_COUNT,
-	.has_64bit_mmio = true,
+	.has_64bit_mmio = TRUE,
 };
 
 static u32 measure_cpu_freq(u32 n)
@@ -148,7 +143,7 @@ static int ux600_early_init(bool cold_boot)
 	u32 regval;
 
 	if (cold_boot)
-		sbi_system_reset_add_device(&ux600_reset);
+		sbi_system_reset_set_device(&ux600_reset);
 
 	/* Measure CPU Frequency using Timer */
 	ux600_clk_freq = ux600_get_clk_freq();
@@ -175,7 +170,7 @@ static int ux600_final_init(bool cold_boot)
 	if (!cold_boot)
 		return 0;
 
-	fdt = fdt_get_address();
+	fdt = sbi_scratch_thishart_arg1_ptr();
 	ux600_modify_dt(fdt);
 
 	return 0;

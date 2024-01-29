@@ -200,84 +200,85 @@ BuildSmbiosType44 (
   IN SMBIOS_HANDLE                    Type4Handle
   )
 {
-  // EFI_HOB_GUID_TYPE                   *GuidHob;
-  // RISC_V_PROCESSOR_SPECIFIC_HOB_DATA  *ProcessorSpecificData;
-  // SMBIOS_HANDLE                       RiscVType44;
-  // SMBIOS_TABLE_TYPE44                 *Type44Ptr;
-  // EFI_STATUS                          Status;
+  EFI_HOB_GUID_TYPE                   *GuidHob;
+  RISC_V_PROCESSOR_SPECIFIC_HOB_DATA  *ProcessorSpecificData;
+  SMBIOS_HANDLE                       RiscVType44;
+  SMBIOS_TABLE_TYPE44                 *Type44Ptr;
+  EFI_STATUS                          Status;
 
   DEBUG ((DEBUG_INFO, "Building Type 44 for...\n"));
   DEBUG ((DEBUG_VERBOSE, "     Processor GUID: %g\n", &Type4HobData->ProcessorGuid));
   DEBUG ((DEBUG_VERBOSE, "     Processor UUID: %d\n", Type4HobData->ProcessorUid));
 
-  // GuidHob = (EFI_HOB_GUID_TYPE *)GetFirstGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid));
-  // if (GuidHob == NULL) {
-  //   DEBUG ((DEBUG_ERROR, "No RISC_V_PROCESSOR_SPECIFIC_HOB_DATA found.\n"));
-  //   return EFI_NOT_FOUND;
-  // }
+  GuidHob = (EFI_HOB_GUID_TYPE *)GetFirstGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid));
+  if (GuidHob == NULL) {
+    DEBUG ((DEBUG_ERROR, "No RISC_V_PROCESSOR_SPECIFIC_HOB_DATA found.\n"));
+    return EFI_NOT_FOUND;
+  }
 
-  // //
-  // // Go through each RISC_V_PROCESSOR_SPECIFIC_HOB_DATA for multiple cores.
-  // //
-  // do {
-  //   ProcessorSpecificData = (RISC_V_PROCESSOR_SPECIFIC_HOB_DATA *)GET_GUID_HOB_DATA (GuidHob);
-  //   if (!CompareGuid (&ProcessorSpecificData->ParentProcessorGuid, &Type4HobData->ProcessorGuid) ||
-  //       (ProcessorSpecificData->ParentProcessorUid != Type4HobData->ProcessorUid))
-  //   {
-  //     GuidHob = GetNextGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid), GET_NEXT_HOB (GuidHob));
-  //     if (GuidHob == NULL) {
-  //       break;
-  //     }
+  //
+  // Go through each RISC_V_PROCESSOR_SPECIFIC_HOB_DATA for multiple cores.
+  //
+  do {
+    ProcessorSpecificData = (RISC_V_PROCESSOR_SPECIFIC_HOB_DATA *)GET_GUID_HOB_DATA (GuidHob);
+    if (!CompareGuid (&ProcessorSpecificData->ParentProcessorGuid, &Type4HobData->ProcessorGuid) ||
+        (ProcessorSpecificData->ParentProcessorUid != Type4HobData->ProcessorUid))
+    {
+      GuidHob = GetNextGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid), GET_NEXT_HOB (GuidHob));
+      if (GuidHob == NULL) {
+        break;
+      }
 
-  //     continue;
-  //   }
+      continue;
+    }
 
-  //   DEBUG ((DEBUG_VERBOSE, "================================\n"));
-  //   DEBUG ((DEBUG_VERBOSE, "Core GUID: %g\n", &ProcessorSpecificData->CoreGuid));
+    DEBUG ((DEBUG_VERBOSE, "================================\n"));
+    DEBUG ((DEBUG_VERBOSE, "Core GUID: %g\n", &ProcessorSpecificData->CoreGuid));
 
-  //   Type44Ptr = AllocateZeroPool (sizeof (SMBIOS_TABLE_TYPE44) + sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA) + 2); // Two ending zero.
-  //   if (Type44Ptr == NULL) {
-  //     return EFI_NOT_FOUND;
-  //   }
+    Type44Ptr = AllocateZeroPool (sizeof (SMBIOS_TABLE_TYPE44) + sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA) + 2); // Two ending zero.
+    if (Type44Ptr == NULL) {
+      return EFI_NOT_FOUND;
+    }
 
-  //   Type44Ptr->Hdr.Type                                 = SMBIOS_TYPE_PROCESSOR_ADDITIONAL_INFORMATION;
-  //   Type44Ptr->Hdr.Handle                               = 0;
-  //   Type44Ptr->Hdr.Length                               = sizeof (SMBIOS_TABLE_TYPE44) + sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA);
-  //   Type44Ptr->RefHandle                                = Type4Handle;
-  //   Type44Ptr->ProcessorSpecificBlock.Length            = sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA);
-  //   Type44Ptr->ProcessorSpecificBlock.ProcessorArchType = Type4HobData->SmbiosType4Processor.ProcessorFamily2 -
-  //                                                         ProcessorFamilyRiscvRV32 + ProcessorSpecificBlockArchTypeRiscVRV32;
-  //   CopyMem ((VOID *)(Type44Ptr + 1), (VOID *)&ProcessorSpecificData->ProcessorSpecificData, sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA));
+    Type44Ptr->Hdr.Type                                 = SMBIOS_TYPE_PROCESSOR_ADDITIONAL_INFORMATION;
+    Type44Ptr->Hdr.Handle                               = 0;
+    Type44Ptr->Hdr.Length                               = sizeof (SMBIOS_TABLE_TYPE44) + sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA);
+    Type44Ptr->RefHandle                                = Type4Handle;
+    Type44Ptr->ProcessorSpecificBlock.Length            = sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA);
+    Type44Ptr->ProcessorSpecificBlock.ProcessorArchType = Type4HobData->SmbiosType4Processor.ProcessorFamily2 -
+                                                          ProcessorFamilyRiscvRV32 + \
+                                                          ProcessorSpecificBlockArchTypeRiscVRV32;
+    CopyMem ((VOID *)(Type44Ptr + 1), (VOID *)&ProcessorSpecificData->ProcessorSpecificData, sizeof (SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA));
 
-  //   DEBUG ((DEBUG_VERBOSE, "Core type: %d\n", Type44Ptr->ProcessorSpecificBlock.ProcessorArchType));
-  //   DEBUG ((DEBUG_VERBOSE, "     HartId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->HartId.Value64_L));
-  //   DEBUG ((DEBUG_VERBOSE, "     Is Boot Hart? = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->BootHartId));
-  //   DEBUG ((DEBUG_VERBOSE, "     PrivilegeModeSupported = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->PrivilegeModeSupported));
-  //   DEBUG ((DEBUG_VERBOSE, "     MModeExcepDelegation = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MModeExcepDelegation.Value64_L));
-  //   DEBUG ((DEBUG_VERBOSE, "     MModeInterruptDelegation = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MModeInterruptDelegation.Value64_L));
-  //   DEBUG ((DEBUG_VERBOSE, "     HartXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->HartXlen));
-  //   DEBUG ((DEBUG_VERBOSE, "     MachineModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineModeXlen));
-  //   DEBUG ((DEBUG_VERBOSE, "     SupervisorModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->SupervisorModeXlen));
-  //   DEBUG ((DEBUG_VERBOSE, "     UserModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->UserModeXlen));
-  //   DEBUG ((DEBUG_VERBOSE, "     InstSetSupported = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->InstSetSupported));
-  //   DEBUG ((DEBUG_VERBOSE, "     MachineVendorId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineVendorId.Value64_L));
-  //   DEBUG ((DEBUG_VERBOSE, "     MachineArchId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineArchId.Value64_L));
-  //   DEBUG ((DEBUG_VERBOSE, "     MachineImplId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineImplId.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "Core type: %d\n", Type44Ptr->ProcessorSpecificBlock.ProcessorArchType));
+    DEBUG ((DEBUG_VERBOSE, "     HartId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->HartId.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "     Is Boot Hart? = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->BootHartId));
+    DEBUG ((DEBUG_VERBOSE, "     PrivilegeModeSupported = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->PrivilegeModeSupported));
+    DEBUG ((DEBUG_VERBOSE, "     MModeExcepDelegation = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MModeExcepDelegation.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "     MModeInterruptDelegation = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MModeInterruptDelegation.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "     HartXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->HartXlen));
+    DEBUG ((DEBUG_VERBOSE, "     MachineModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineModeXlen));
+    DEBUG ((DEBUG_VERBOSE, "     SupervisorModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->SupervisorModeXlen));
+    DEBUG ((DEBUG_VERBOSE, "     UserModeXlen = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->UserModeXlen));
+    DEBUG ((DEBUG_VERBOSE, "     InstSetSupported = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->InstSetSupported));
+    DEBUG ((DEBUG_VERBOSE, "     MachineVendorId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineVendorId.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "     MachineArchId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineArchId.Value64_L));
+    DEBUG ((DEBUG_VERBOSE, "     MachineImplId = 0x%x\n", ((SMBIOS_RISC_V_PROCESSOR_SPECIFIC_DATA *)(Type44Ptr + 1))->MachineImplId.Value64_L));
 
-  //   //
-  //   // Add to SMBIOS table.
-  //   //
-  //   RiscVType44 = SMBIOS_HANDLE_PI_RESERVED;
-  //   Status      = mSmbios->Add (mSmbios, NULL, &RiscVType44, &Type44Ptr->Hdr);
-  //   if (EFI_ERROR (Status)) {
-  //     DEBUG ((DEBUG_ERROR, "Fail to add SMBIOS Type 44\n"));
-  //     return Status;
-  //   }
+    //
+    // Add to SMBIOS table.
+    //
+    RiscVType44 = SMBIOS_HANDLE_PI_RESERVED;
+    Status      = mSmbios->Add (mSmbios, NULL, &RiscVType44, &Type44Ptr->Hdr);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "Fail to add SMBIOS Type 44\n"));
+      return Status;
+    }
 
-  //   DEBUG ((DEBUG_INFO, "SMBIOS Type 44 was added. SMBIOS Handle: 0x%x\n", RiscVType44));
+    DEBUG ((DEBUG_INFO, "SMBIOS Type 44 was added. SMBIOS Handle: 0x%x\n", RiscVType44));
 
-  //   GuidHob = GetNextGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid), GET_NEXT_HOB (GuidHob));
-  // } while (GuidHob != NULL);
+    GuidHob = GetNextGuidHob ((EFI_GUID *)PcdGetPtr (PcdProcessorSpecificDataGuidHobGuid), GET_NEXT_HOB (GuidHob));
+  } while (GuidHob != NULL);
 
   return EFI_SUCCESS;
 }

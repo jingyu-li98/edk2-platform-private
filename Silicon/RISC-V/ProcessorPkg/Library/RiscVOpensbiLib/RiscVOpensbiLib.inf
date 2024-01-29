@@ -26,15 +26,9 @@
   opensbi/lib/sbi/sbi_domain.c
   opensbi/lib/sbi/sbi_ecall.c
   opensbi/lib/sbi/sbi_ecall_base.c
-  opensbi/lib/sbi/sbi_ecall_dbcn.c
   opensbi/lib/sbi/sbi_ecall_hsm.c
-  opensbi/lib/sbi/sbi_ecall_ipi.c
   opensbi/lib/sbi/sbi_ecall_legacy.c
-  opensbi/lib/sbi/sbi_ecall_pmu.c
-  opensbi/lib/sbi/sbi_ecall_rfence.c
-  opensbi/lib/sbi/sbi_ecall_srst.c
-  opensbi/lib/sbi/sbi_ecall_susp.c
-  opensbi/lib/sbi/sbi_ecall_time.c
+  opensbi/lib/sbi/sbi_ecall_replace.c
   opensbi/lib/sbi/sbi_ecall_vendor.c
   opensbi/lib/sbi/sbi_emulate_csr.c
   opensbi/lib/sbi/sbi_fifo.c
@@ -45,10 +39,8 @@
   opensbi/lib/sbi/sbi_illegal_insn.c
   opensbi/lib/sbi/sbi_init.c
   opensbi/lib/sbi/sbi_ipi.c
-  opensbi/lib/sbi/sbi_irqchip.c
   opensbi/lib/sbi/sbi_misaligned_ldst.c
   opensbi/lib/sbi/sbi_platform.c
-  opensbi/lib/sbi/sbi_pmu.c
   opensbi/lib/sbi/sbi_scratch.c
   opensbi/lib/sbi/sbi_string.c
   opensbi/lib/sbi/sbi_system.c
@@ -61,12 +53,6 @@
   opensbi/lib/utils/fdt/fdt_helper.c
   opensbi/lib/utils/fdt/fdt_fixup.c
   opensbi/lib/utils/fdt/fdt_domain.c
-  opensbi/lib/utils/fdt/fdt_pmu.c
-  opensbi/lib/utils/i2c/dw_i2c.c
-  opensbi/lib/utils/i2c/fdt_i2c_dw.c
-  opensbi/lib/utils/i2c/fdt_i2c_sifive.c
-  opensbi/lib/utils/i2c/fdt_i2c.c
-  opensbi/lib/utils/i2c/i2c.c
   opensbi/lib/utils/ipi/fdt_ipi.c
   opensbi/lib/utils/ipi/aclint_mswi.c
   opensbi/lib/utils/ipi/fdt_ipi_mswi.c
@@ -75,9 +61,7 @@
   opensbi/lib/utils/irqchip/plic.c
   opensbi/lib/utils/reset/fdt_reset.c
   opensbi/lib/utils/reset/fdt_reset_htif.c
-  opensbi/lib/utils/reset/fdt_reset_sifive_test.c
-  opensbi/lib/utils/reset/fdt_reset_sophgo_mcu.c
-  opensbi/lib/utils/reset/fdt_reset_sunxi_wdt.c
+  opensbi/lib/utils/reset/fdt_reset_sifive.c
   opensbi/lib/utils/reset/fdt_reset_thead.c
   opensbi/lib/utils/reset/fdt_reset_thead_asm.S
   opensbi/lib/utils/serial/fdt_serial.c

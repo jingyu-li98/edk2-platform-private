@@ -1,0 +1,52 @@
+## @file  Sophgo.dec
+# This Package provides modules and libraries.for SOPHGO platforms.
+#
+# Copyright (c) 2024, SOPHGO Inc. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010001
+  PACKAGE_NAME                   = SophgoPkg
+  PACKAGE_GUID                   = F6238AD6-3969-49E0-818D-5368F5F9F1D5
+  PACKAGE_VERSION                = 1.0
+
+[Includes]
+  Include
+
+[Protocols]
+  gSophgoMmcHostProtocolGuid = { 0x3E591C00, 0x9E4A, 0x11DF, { 0x92, 0x44, 0x00, 0x02, 0xA5, 0xF5, 0xF5, 0x1B } }
+
+[Guids]
+  gSophgoTokenSpaceGuid  = { 0xDA6ECA1D, 0x220A, 0x45D6, { 0xA7, 0x4D, 0x83, 0x64, 0x50, 0x90, 0x82, 0x1C } }
+
+[PcdsFixedAtBuild]
+  gSophgoTokenSpaceGuid.PcdSDIOBase|0x0|UINT64|0x00001001
+  # SMBIOS
+  gSophgoTokenSpaceGuid.PcdFirmwareVendor|L"SOPHGO Inc."|VOID*|0x30000052
+  gSophgoTokenSpaceGuid.PcdSystemProductName|L""|VOID*|0x30000053
+  gSophgoTokenSpaceGuid.PcdSystemVersion|L""|VOID*|0x30000054
+  gSophgoTokenSpaceGuid.PcdBaseBoardProductName|L""|VOID*|0x30000055
+  gSophgoTokenSpaceGuid.PcdBaseBoardVersion|L""|VOID*|0x30000056
+  gSophgoTokenSpaceGuid.PcdCPUInfo|L""|VOID*|0x30000060
+  gSophgoTokenSpaceGuid.PcdBiosVersionString|L""|VOID*|0x00010069
+  gSophgoTokenSpaceGuid.PcdBiosVersionForBmc|L""|VOID*|0x00010070
+
+  gSophgoTokenSpaceGuid.PcdPlatformDefaultPackageType|0x0|UINT32|0x40000001
+
+  gSophgoTokenSpaceGuid.PcdTopOfLowMemory|0x0|UINT32|0x40000002
+  gSophgoTokenSpaceGuid.PcdBottomOfHighMemory|0x0|UINT64|0x40000003
+
+  gSophgoTokenSpaceGuid.PcdSlotPerChannelNum|0x0|UINT32|0x40000004
+
+  gSophgoTokenSpaceGuid.PcdShellFile|{ 0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1 }|VOID*|0x30006554
+
+#Platform description
+  #gMarvellTokenSpaceGuid.PcdFirmwareVendor|"EFI Development Kit II / Semihalf"|VOID*|0x50000104
+  #gMarvellTokenSpaceGuid.PcdFirmwareVersion|"EDK II"|VOID*|0x50000105
+  #gMarvellTokenSpaceGuid.PcdProductManufacturer|"Marvell"|VOID*|0x50000100
+  #gMarvellTokenSpaceGuid.PcdProductPlatformName|"Marvell Development Board"|VOID*|0x50000101
+  #gMarvellTokenSpaceGuid.PcdProductSerial|"Serial Not Set"|VOID*|0x50000103
+  #gMarvellTokenSpaceGuid.PcdProductVersion|"Revision unknown"|VOID*|0x50000102

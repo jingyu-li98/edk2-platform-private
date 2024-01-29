@@ -1,0 +1,5140 @@
+Only in Smbios: AddSmbiosType9
+Only in Smbios: MemorySubClassDxe
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/: OemMiscLibNull
+diff -r Smbios/ProcessorSubClassDxe/ProcessorSubClass.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe/ProcessorSubClass.c
+2,12c2
+< *
+< *  Copyright (c) 2015, Hisilicon Limited. All rights reserved.
+< *  Copyright (c) 2015, Linaro Limited. All rights reserved.
+< *
+< *  SPDX-License-Identifier: BSD-2-Clause-Patent
+< *
+< **/
+< 
+< #include "ProcessorSubClass.h"
+< 
+< EFI_HII_HANDLE                  mHiiHandle;
+---
+>   ProcessorSubClass.c
+14,38c4,8
+< EFI_SMBIOS_PROTOCOL             *mSmbios;
+< 
+< SMBIOS_TABLE_TYPE7   mSmbiosCacheTable[] = {
+<     //L1 Instruction Cache
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_CACHE_INFORMATION,              //Type
+<             sizeof(SMBIOS_TABLE_TYPE7),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //SocketDesignation
+<         0,                                              //CacheConfiguration
+<         0,                                              //MaximumCacheSize
+<         48,                                             //InstalledSize
+<         {                                               //SupportedSRAMType
+<             0
+<         },
+<         {                                               //CurrentSRAMType
+<             0
+<         },
+<         0,                                              //CacheSpeed
+<         CacheErrorParity,                               //ErrorCorrectionType
+<         CacheTypeInstruction,                           //SystemCacheType
+<         CacheAssociativity8Way                          //Associativity
+<     },
+---
+>   Copyright (c) 2022, Ampere Computing LLC. All rights reserved.
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+40,61c10
+<     //L1 Data Cache
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_CACHE_INFORMATION,              //Type
+<             sizeof(SMBIOS_TABLE_TYPE7),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //SocketDesignation
+<         0,                                              //CacheConfiguration
+<         0,                                              //MaximumCacheSize
+<         32,                                              //InstalledSize
+<         {                                               //SupportedSRAMType
+<             0
+<         },
+<         {                                               //CurrentSRAMType
+<             0
+<         },
+<         0,                                              //CacheSpeed
+<         CacheErrorSingleBit,                            //ErrorCorrectionType
+<         CacheTypeData,                                  //SystemCacheType
+<         CacheAssociativity8Way                          //Associativity
+<     },
+---
+> **/
+63,83c12,72
+<     //L2 Cache
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_CACHE_INFORMATION,              //Type
+<             sizeof(SMBIOS_TABLE_TYPE7),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //SocketDesignation
+<         0,                                              //CacheConfiguration
+<         0,                                              //MaximumCacheSize
+<         4096,                                           //InstalledSize
+<         {                                               //SupportedSRAMType
+<             0
+<         },
+<         {                                               //CurrentSRAMType
+<             0
+<         },
+<         0,                                              //CacheSpeed
+<         CacheErrorSingleBit,                            //ErrorCorrectionType
+<         CacheTypeUnified,                               //SystemCacheType
+<         CacheAssociativity8Way                          //Associativity
+---
+> #include <Uefi.h>
+> #include <Protocol/Smbios.h>
+> #include <IndustryStandard/ArmCache.h>
+> #include <IndustryStandard/ArmStdSmc.h>
+> #include <IndustryStandard/SmBios.h>
+> #include <Library/ArmLib.h>
+> #include <Library/ArmSmcLib.h>
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/IoLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PcdLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+> #include <Library/UefiLib.h>
+> 
+> #include "SmbiosProcessor.h"
+> 
+> extern UINT8  ProcessorSubClassStrings[];
+> 
+> #define CACHE_SOCKETED_SHIFT        3
+> #define CACHE_LOCATION_SHIFT        5
+> #define CACHE_ENABLED_SHIFT         7
+> #define CACHE_OPERATION_MODE_SHIFT  8
+> 
+> typedef enum {
+>   CacheModeWriteThrough = 0,  ///< Cache is write-through
+>   CacheModeWriteBack,         ///< Cache is write-back
+>   CacheModeVariesWithAddress, ///< Cache mode varies by address
+>   CacheModeUnknown,           ///< Cache mode is unknown
+>   CacheModeMax
+> } CACHE_OPERATION_MODE;
+> 
+> typedef enum {
+>   CacheLocationInternal = 0, ///< Cache is internal to the processor
+>   CacheLocationExternal,     ///< Cache is external to the processor
+>   CacheLocationReserved,     ///< Reserved
+>   CacheLocationUnknown,      ///< Cache location is unknown
+>   CacheLocationMax
+> } CACHE_LOCATION;
+> 
+> EFI_HII_HANDLE  mHiiHandle;
+> 
+> EFI_SMBIOS_PROTOCOL  *mSmbios;
+> 
+> SMBIOS_TABLE_TYPE4  mSmbiosProcessorTableTemplate = {
+>   {                                        // Hdr
+>     EFI_SMBIOS_TYPE_PROCESSOR_INFORMATION, // Type
+>     sizeof (SMBIOS_TABLE_TYPE4),           // Length
+>     0                                      // Handle
+>   },
+>   1,                               // Socket
+>   CentralProcessor,                // ProcessorType
+>   ProcessorFamilyIndicatorFamily2, // ProcessorFamily
+>   2,                               // ProcessorManufacture
+>   {                           // ProcessorId
+>     {                         // Signature
+>       0
+85,106c74,75
+< 
+<     //L3 Cache
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_CACHE_INFORMATION,              //Type
+<             sizeof(SMBIOS_TABLE_TYPE7),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //SocketDesignation
+<         0,                                              //CacheConfiguration
+<         0,                                              //MaximumCacheSize
+<         16384,                                          //InstalledSize
+<         {                                               //SupportedSRAMType
+<             0
+<         },
+<         {                                               //CurrentSRAMType
+<             0
+<         },
+<         0,                                              //CacheSpeed
+<         CacheErrorSingleBit,                            //ErrorCorrectionType
+<         CacheTypeUnified,                               //SystemCacheType
+<         CacheAssociativity16Way                         //Associativity
+---
+>     {                         // FeatureFlags
+>       0
+107a77,100
+>   },
+>   3,                          // ProcessorVersion
+>   {                           // Voltage
+>     0
+>   },
+>   0,                          // ExternalClock
+>   0,                          // MaxSpeed
+>   0,                          // CurrentSpeed
+>   0,                          // Status
+>   ProcessorUpgradeUnknown,    // ProcessorUpgrade
+>   0xFFFF,                     // L1CacheHandle
+>   0xFFFF,                     // L2CacheHandle
+>   0xFFFF,                     // L3CacheHandle
+>   4,                          // SerialNumber
+>   5,                          // AssetTag
+>   6,                          // PartNumber
+>   0,                          // CoreCount
+>   0,                          // EnabledCoreCount
+>   0,                          // ThreadCount
+>   0,                          // ProcessorCharacteristics
+>   ProcessorFamilyARM,         // ProcessorFamily2
+>   0,                          // CoreCount2
+>   0,                          // EnabledCoreCount2
+>   0                           // ThreadCount2
+110,156c103
+< SMBIOS_TABLE_TYPE4   mSmbiosProcessorTable[] = {
+<     //CPU0
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_PROCESSOR_INFORMATION,          //Type
+<             sizeof(SMBIOS_TABLE_TYPE4),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //Socket
+<         CentralProcessor,                               //ProcessorType
+<         ProcessorFamilyIndicatorFamily2,                //ProcessorFamily
+<         2,                                              //ProcessorManufacture
+<         {                                               //ProcessorId
+<             {                                               //Signature
+<                 0
+<             },
+<             {                                               //FeatureFlags
+<                 0
+<             }
+<         },
+<         3,                                              //ProcessorVersion
+<         {                                               //Voltage
+<             0
+<         },
+<         EXTERNAL_CLOCK,                                 //ExternalClock
+<         CPU_MAX_SPEED,                                  //MaxSpeed
+<         0,                                              //CurrentSpeed
+<         0,                                              //Status
+<         ProcessorUpgradeUnknown,                        //ProcessorUpgrade
+<         0xFFFF,                                         //L1CacheHandle
+<         0xFFFF,                                         //L2CacheHandle
+<         0xFFFF,                                         //L3CacheHandle
+<         4,                                              //SerialNumber
+<         5,                                              //AssetTag
+<         6,                                              //PartNumber
+< 
+<         0,                                              //CoreCount
+<         0,                                              //EnabledCoreCount
+<         0,                                              //ThreadCount
+<         0,                                              //ProcessorCharacteristics
+< 
+<         ProcessorFamilyARM,                             //ProcessorFamily2
+< 
+<         0,                                              //CoreCount2
+<         0,                                              //EnabledCoreCount2
+<         0                                               //ThreadCount2
+<     },
+---
+> /** Sets the HII variable `StringId` is `Pcd` isn't empty.
+158,204c105,117
+<     //CPU1
+<     {
+<         {                                               //Header
+<             EFI_SMBIOS_TYPE_PROCESSOR_INFORMATION,          //Type
+<             sizeof(SMBIOS_TABLE_TYPE4),                     //Length
+<             0                                               //Handle
+<         },
+<         1,                                              //Socket
+<         CentralProcessor,                               //ProcessorType
+<         ProcessorFamilyIndicatorFamily2,                //ProcessorFamily
+<         2,                                              //ProcessorManufacture
+<         {                                               //ProcessorId
+<             {                                               //Signature
+<                 0
+<             },
+<             {                                               //FeatureFlags
+<                 0
+<             }
+<         },
+<         3,                                              //ProcessorVersion
+<         {                                               //Voltage
+<             0
+<         },
+<         EXTERNAL_CLOCK,                                 //ExternalClock
+<         CPU_MAX_SPEED,                                  //MaxSpeed
+<         0,                                              //CurrentSpeed
+<         0,                                              //Status
+<         ProcessorUpgradeUnknown,                        //ProcessorUpgrade
+<         0xFFFF,                                         //L1CacheHandle
+<         0xFFFF,                                         //L2CacheHandle
+<         0xFFFF,                                         //L3CacheHandle
+<         4,                                              //SerialNumber
+<         5,                                              //AssetTag
+<         6,                                              //PartNumber
+< 
+<         0,                                              //CoreCount
+<         0,                                              //EnabledCoreCount
+<         0,                                              //ThreadCount
+<         0,                                              //ProcessorCharacteristics
+< 
+<         ProcessorFamilyARM,                             //ProcessorFamily2
+< 
+<         0,                                              //CoreCount2
+<         0,                                              //EnabledCoreCount2
+<         0                                               //ThreadCount2
+<     }
+< };
+---
+>     @param Pcd       The FixedAtBuild PCD that contains the string to fetch.
+>     @param StringId  The string identifier to set.
+> **/
+> #define SET_HII_STRING_IF_PCD_NOT_EMPTY(Pcd, StringId) \
+>   do { \
+>     CHAR16 *Str; \
+>     Str = (CHAR16*)PcdGetPtr (Pcd); \
+>     if (StrLen (Str) > 0) { \
+>       HiiSetString (mHiiHandle, StringId, Str, NULL); \
+>     } \
+>   } while (0)
+> 
+> /** Fetches the specified processor's frequency in Hz.
+205a119
+>   @param ProcessorNumber The processor number
+206a121,123
+>   @return The clock frequency in MHz
+> 
+> **/
+209,210c126,127
+<   IN  UINT8 ProcessorNumber
+< )
+---
+>   IN  UINT8  ProcessorNumber
+>   )
+212c129
+<     return (UINT16)(PlatformGetCpuFreq(ProcessorNumber)/1000/1000);
+---
+>   return (UINT16)(OemGetCpuFreq (ProcessorNumber) / 1000 / 1000);
+214a132,141
+> /** Gets a description of the specified cache.
+> 
+>   @param[in] CacheLevel       Zero-based cache level (e.g. L1 cache is 0).
+>   @param[in] DataCache        Cache is a data cache.
+>   @param[in] UnifiedCache     Cache is a unified cache.
+>   @param[out] CacheSocketStr  The description of the specified cache
+> 
+>   @return The number of Unicode characters in CacheSocketStr not including the
+>           terminating NUL.
+> **/
+217,218c144,147
+<   IN  UINT8     CacheLevel,
+<   OUT CHAR16    *CacheSocketStr
+---
+>   IN  UINT8    CacheLevel,
+>   IN  BOOLEAN  DataCache,
+>   IN  BOOLEAN  UnifiedCache,
+>   OUT CHAR16   *CacheSocketStr
+221c150
+<     UINTN CacheSocketStrLen;
+---
+>   UINTN  CacheSocketStrLen;
+223,234c152,173
+<     if(CacheLevel == CPU_CACHE_L1_Instruction)
+<     {
+<         CacheSocketStrLen = UnicodeSPrint (CacheSocketStr, SMBIOS_STRING_MAX_LENGTH - 1, L"L%x Instruction Cache", CacheLevel + 1);
+<     }
+<     else if(CacheLevel == CPU_CACHE_L1_Data)
+<     {
+<         CacheSocketStrLen = UnicodeSPrint (CacheSocketStr, SMBIOS_STRING_MAX_LENGTH - 1, L"L%x Data Cache", CacheLevel);
+<     }
+<     else
+<     {
+<         CacheSocketStrLen = UnicodeSPrint (CacheSocketStr, SMBIOS_STRING_MAX_LENGTH - 1, L"L%x Cache", CacheLevel);
+<     }
+---
+>   if ((CacheLevel == CpuCacheL1) && !DataCache && !UnifiedCache) {
+>     CacheSocketStrLen = UnicodeSPrint (
+>                           CacheSocketStr,
+>                           SMBIOS_STRING_MAX_LENGTH - 1,
+>                           L"L%x Instruction Cache",
+>                           CacheLevel
+>                           );
+>   } else if ((CacheLevel == CpuCacheL1) && DataCache) {
+>     CacheSocketStrLen = UnicodeSPrint (
+>                           CacheSocketStr,
+>                           SMBIOS_STRING_MAX_LENGTH - 1,
+>                           L"L%x Data Cache",
+>                           CacheLevel
+>                           );
+>   } else {
+>     CacheSocketStrLen = UnicodeSPrint (
+>                           CacheSocketStr,
+>                           SMBIOS_STRING_MAX_LENGTH - 1,
+>                           L"L%x Cache",
+>                           CacheLevel
+>                           );
+>   }
+236c175
+<     return CacheSocketStrLen;
+---
+>   return CacheSocketStrLen;
+238a178,186
+> /** Fills in the Type 7 record with the cache architecture information
+>     read from the CPU registers.
+> 
+>   @param[in]  CacheLevel       Cache level (e.g. L1, L2).
+>   @param[in]  DataCache        Cache is a data cache.
+>   @param[in]  UnifiedCache     Cache is a unified cache.
+>   @param[out] Type7Record      The Type 7 record to fill in.
+> 
+> **/
+240,241c188,192
+< UpdateSmbiosCacheTable (
+<   IN UINT8  CacheLevel
+---
+> ConfigureCacheArchitectureInformation (
+>   IN     UINT8               CacheLevel,
+>   IN     BOOLEAN             DataCache,
+>   IN     BOOLEAN             UnifiedCache,
+>   OUT    SMBIOS_TABLE_TYPE7  *Type7Record
+244,273c195,287
+<     UINT16                      CoreCount;
+<     UINT32                      TotalSize;
+<     UINT32                      CacheSize;
+<     UINT16                      MaximumCacheSize;
+<     UINT16                      InstalledSize;
+<     CACHE_CONFIGURATION         CacheConfig;
+<     CACHE_SRAM_TYPE_DATA        CacheSramType = {0};
+< 
+<     CoreCount = 16;     // Default value is 16 Core
+< 
+<     //
+<     // Set Cache Configuration
+<     //
+<     CacheConfig.Bits.Socketed                = 0;    // Not Socketed
+<     CacheConfig.Bits.Reserved1               = 0;    //
+<     CacheConfig.Bits.Location                = 0;    // Internal
+<     CacheConfig.Bits.Enable                  = 1;    // Enabled
+<     CacheConfig.Bits.Reserved2               = 0;
+<     if(CacheLevel == CPU_CACHE_L1_Instruction || CacheLevel == CPU_CACHE_L1_Data)
+<     {
+<         CacheConfig.Bits.Level               = 0;
+<         CacheConfig.Bits.OperationalMode     = 1;        // Write Back
+<     }
+<     else
+<     {
+<         CacheConfig.Bits.Level               = CacheLevel - 1;
+<         CacheConfig.Bits.OperationalMode     = 2;        // Varies with Memory Address
+<     }
+< 
+<     mSmbiosCacheTable[CacheLevel].CacheConfiguration = CacheConfig.Data;
+---
+>   UINT8   Associativity;
+>   UINT32  CacheSize32;
+>   UINT16  CacheSize16;
+>   UINT64  CacheSize64;
+> 
+>   if (!DataCache && !UnifiedCache) {
+>     Type7Record->SystemCacheType = CacheTypeInstruction;
+>   } else if (DataCache) {
+>     Type7Record->SystemCacheType = CacheTypeData;
+>   } else if (UnifiedCache) {
+>     Type7Record->SystemCacheType = CacheTypeUnified;
+>   } else {
+>     ASSERT (FALSE);
+>   }
+> 
+>   CacheSize64 = SmbiosProcessorGetCacheSize (
+>                   CacheLevel,
+>                   DataCache,
+>                   UnifiedCache
+>                   );
+> 
+>   Associativity = SmbiosProcessorGetCacheAssociativity (
+>                     CacheLevel,
+>                     DataCache,
+>                     UnifiedCache
+>                     );
+> 
+>   CacheSize64 /= 1024; // Minimum granularity is 1K
+> 
+>   // Encode the cache size into the format SMBIOS wants
+>   if (CacheSize64 < MAX_INT16) {
+>     CacheSize16 = CacheSize64;
+>     CacheSize32 = CacheSize16;
+>   } else if ((CacheSize64 / 64) < MAX_INT16) {
+>     CacheSize16 = (1 << 15) | (CacheSize64 / 64);
+>     CacheSize32 = (1 << 31) | (CacheSize64 / 64);
+>   } else {
+>     if ((CacheSize64 / 1024) <= 2047) {
+>       CacheSize32 = CacheSize64;
+>     } else {
+>       CacheSize32 = (1 << 31) | (CacheSize64 / 64);
+>     }
+> 
+>     CacheSize16 = -1;
+>   }
+> 
+>   Type7Record->MaximumCacheSize  = CacheSize16;
+>   Type7Record->InstalledSize     = CacheSize16;
+>   Type7Record->MaximumCacheSize2 = CacheSize32;
+>   Type7Record->InstalledSize2    = CacheSize32;
+> 
+>   switch (Associativity) {
+>     case 2:
+>       Type7Record->Associativity = CacheAssociativity2Way;
+>       break;
+>     case 4:
+>       Type7Record->Associativity = CacheAssociativity4Way;
+>       break;
+>     case 8:
+>       Type7Record->Associativity = CacheAssociativity8Way;
+>       break;
+>     case 12:
+>       Type7Record->Associativity = CacheAssociativity12Way;
+>       break;
+>     case 16:
+>       Type7Record->Associativity = CacheAssociativity16Way;
+>       break;
+>     case 20:
+>       Type7Record->Associativity = CacheAssociativity20Way;
+>       break;
+>     case 24:
+>       Type7Record->Associativity = CacheAssociativity24Way;
+>       break;
+>     case 32:
+>       Type7Record->Associativity = CacheAssociativity32Way;
+>       break;
+>     case 48:
+>       Type7Record->Associativity = CacheAssociativity48Way;
+>       break;
+>     case 64:
+>       Type7Record->Associativity = CacheAssociativity64Way;
+>       break;
+>     default:
+>       Type7Record->Associativity = CacheAssociativityOther;
+>       break;
+>   }
+> 
+>   Type7Record->CacheConfiguration = (CacheModeUnknown << CACHE_OPERATION_MODE_SHIFT) |
+>                                     (1 << CACHE_ENABLED_SHIFT) |
+>                                     (CacheLocationUnknown << CACHE_LOCATION_SHIFT) |
+>                                     (0 << CACHE_SOCKETED_SHIFT) |
+>                                     (CacheLevel - 1);
+> }
+275,287c289
+<     //
+<     // Set Cache Size
+<     //
+<     CacheSize = mSmbiosCacheTable[CacheLevel].InstalledSize;
+<     if (PACKAGE_16CORE != PlatformGetPackageType())  // 32 Core
+<     {
+<         CoreCount = CoreCount * 2;
+< 
+<         if (CacheLevel > 1)
+<         {
+<             CacheSize = CacheSize * 2;
+<         }
+<     }
+---
+> /** Allocates and initializes an SMBIOS_TABLE_TYPE7 structure.
+289,296c291,293
+<     if(CacheLevel <= 1)
+<     {
+<         TotalSize = CacheSize * CoreCount;
+<     }
+<     else
+<     {
+<         TotalSize = CacheSize;
+<     }
+---
+>   @param[in]  CacheLevel       The cache level (L1-L7).
+>   @param[in]  DataCache        Cache is a data cache.
+>   @param[in]  UnifiedCache     Cache is a unified cache.
+298,314c295,345
+<     if((TotalSize >> 15) == 0)  // 1K granularity
+<     {
+<         MaximumCacheSize   = (UINT16)TotalSize;
+<         InstalledSize      = (UINT16)TotalSize;
+<     }
+<     else    // 64K granularity
+<     {
+<         MaximumCacheSize   = (UINT16)(TotalSize >> 6);
+<         InstalledSize      = (UINT16)(TotalSize >> 6);
+< 
+<         // Set BIT15 to 1
+<         MaximumCacheSize   |= BIT15;
+<         InstalledSize      |= BIT15;
+<     }
+< 
+<     mSmbiosCacheTable[CacheLevel].MaximumCacheSize = MaximumCacheSize;
+<     mSmbiosCacheTable[CacheLevel].InstalledSize = InstalledSize;
+---
+>   @return A pointer to the Type 7 structure. Returns NULL on failure.
+> **/
+> SMBIOS_TABLE_TYPE7 *
+> AllocateAndInitCacheInformation (
+>   IN UINT8    CacheLevel,
+>   IN BOOLEAN  DataCache,
+>   IN BOOLEAN  UnifiedCache
+>   )
+> {
+>   SMBIOS_TABLE_TYPE7  *Type7Record;
+>   EFI_STRING          CacheSocketStr;
+>   UINTN               CacheSocketStrLen;
+>   UINTN               StringBufferSize;
+>   CHAR8               *OptionalStrStart;
+>   UINTN               TableSize;
+> 
+>   // Allocate and fetch the cache description
+>   StringBufferSize = sizeof (CHAR16) * SMBIOS_STRING_MAX_LENGTH;
+>   CacheSocketStr   = AllocateZeroPool (StringBufferSize);
+>   if (CacheSocketStr == NULL) {
+>     return NULL;
+>   }
+> 
+>   CacheSocketStrLen = GetCacheSocketStr (
+>                         CacheLevel,
+>                         DataCache,
+>                         UnifiedCache,
+>                         CacheSocketStr
+>                         );
+> 
+>   TableSize   = sizeof (SMBIOS_TABLE_TYPE7) + CacheSocketStrLen + 1 + 1;
+>   Type7Record = AllocateZeroPool (TableSize);
+>   if (Type7Record == NULL) {
+>     FreePool (CacheSocketStr);
+>     return NULL;
+>   }
+> 
+>   Type7Record->Hdr.Type   = EFI_SMBIOS_TYPE_CACHE_INFORMATION;
+>   Type7Record->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE7);
+>   Type7Record->Hdr.Handle = SMBIOS_HANDLE_PI_RESERVED;
+> 
+>   Type7Record->SocketDesignation = 1;
+> 
+>   Type7Record->SupportedSRAMType.Unknown = 1;
+>   Type7Record->CurrentSRAMType.Unknown   = 1;
+>   Type7Record->CacheSpeed                = 0;
+>   Type7Record->ErrorCorrectionType       = CacheErrorUnknown;
+> 
+>   OptionalStrStart = (CHAR8 *)(Type7Record + 1);
+>   UnicodeStrToAsciiStrS (CacheSocketStr, OptionalStrStart, CacheSocketStrLen + 1);
+>   FreePool (CacheSocketStr);
+316,321c347
+<     //
+<     // Set SRAM Type
+<     //
+<     CacheSramType.Synchronous = 1;
+<     (VOID)CopyMem(&mSmbiosCacheTable[CacheLevel].SupportedSRAMType, &CacheSramType, sizeof(CACHE_SRAM_TYPE_DATA));
+<     (VOID)CopyMem(&mSmbiosCacheTable[CacheLevel].CurrentSRAMType, &CacheSramType, sizeof(CACHE_SRAM_TYPE_DATA));
+---
+>   return Type7Record;
+327c353
+<   @param[in]    ProcessorNumber     Processor number of specified processor.
+---
+>   @param[in]    ProcessorIndex      Processor number of specified processor.
+333c359
+< EFI_STATUS
+---
+> VOID
+335,338c361,364
+<   IN UINTN                  ProcessorNumber,
+<   OUT EFI_SMBIOS_HANDLE     *L1CacheHandle,
+<   OUT EFI_SMBIOS_HANDLE     *L2CacheHandle,
+<   OUT EFI_SMBIOS_HANDLE     *L3CacheHandle
+---
+>   IN UINTN               ProcessorIndex,
+>   OUT EFI_SMBIOS_HANDLE  *L1CacheHandle,
+>   OUT EFI_SMBIOS_HANDLE  *L2CacheHandle,
+>   OUT EFI_SMBIOS_HANDLE  *L3CacheHandle
+341,429c367,454
+<     EFI_STATUS                  Status;
+<     SMBIOS_TABLE_TYPE7          *Type7Record;
+<     EFI_SMBIOS_HANDLE           SmbiosHandle;
+<     UINTN                       TableSize;
+<     UINT8                       CacheLevel;
+<     CHAR8                       *OptionalStrStart;
+<     EFI_STRING                  CacheSocketStr;
+<     UINTN                       CacheSocketStrLen;
+<     UINTN                       StringBufferSize;
+< 
+<     Status = EFI_SUCCESS;
+< 
+<     //
+<     // Get Cache information
+<     //
+<     for(CacheLevel = 0; CacheLevel < MAX_CACHE_LEVEL; CacheLevel++)
+<     {
+<         Type7Record = NULL;
+< 
+<         if(mSmbiosCacheTable[CacheLevel].InstalledSize == 0)
+<         {
+<             continue;
+<         }
+< 
+<         //
+<         // Update Cache information
+<         //
+<         if (mSmbiosCacheTable[CacheLevel].MaximumCacheSize == 0)
+<         {
+<             UpdateSmbiosCacheTable (CacheLevel);
+<         }
+< 
+<         StringBufferSize = sizeof(CHAR16) * SMBIOS_STRING_MAX_LENGTH;
+<         CacheSocketStr = AllocateZeroPool(StringBufferSize);
+<         if (CacheSocketStr == NULL)
+<         {
+<             Status = EFI_OUT_OF_RESOURCES;
+<             goto Exit;
+<         }
+< 
+<         CacheSocketStrLen = GetCacheSocketStr (CacheLevel, CacheSocketStr);
+< 
+<         TableSize = sizeof(SMBIOS_TABLE_TYPE7) + CacheSocketStrLen + 1 + 1;
+<         Type7Record = AllocateZeroPool (TableSize);
+<         if (Type7Record == NULL)
+<         {
+<             Status = EFI_OUT_OF_RESOURCES;
+<             goto Exit;
+<         }
+< 
+<         (VOID)CopyMem(Type7Record, &mSmbiosCacheTable[CacheLevel], sizeof (SMBIOS_TABLE_TYPE7));
+< 
+<         OptionalStrStart = (CHAR8 *) (Type7Record + 1);
+<         Status = UnicodeStrToAsciiStrS (CacheSocketStr, OptionalStrStart, CacheSocketStrLen + 1);
+<         ASSERT_EFI_ERROR (Status);
+< 
+<         SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+<         Status = mSmbios->Add (mSmbios, NULL, &SmbiosHandle, (EFI_SMBIOS_TABLE_HEADER *)Type7Record);
+<         if (EFI_ERROR (Status))
+<         {
+<             goto Exit;
+<         }
+< 
+<         // Config L1/L2/L3 Cache Handle
+<         switch(CacheLevel)
+<         {
+<             case CPU_CACHE_L1_Instruction:
+<             case CPU_CACHE_L1_Data:
+<                 *L1CacheHandle = SmbiosHandle;
+<                 break;
+<             case CPU_CACHE_L2:
+<                 *L2CacheHandle = SmbiosHandle;
+<                 break;
+<             case CPU_CACHE_L3:
+<                 *L3CacheHandle = SmbiosHandle;
+<                 break;
+<             default :
+<                 break;
+<         }
+< Exit:
+<         if(Type7Record != NULL)
+<         {
+<             FreePool (Type7Record);
+<         }
+<         if(CacheSocketStr != NULL)
+<         {
+<             FreePool (CacheSocketStr);
+<             CacheSocketStr = NULL;
+<         }
+---
+>   EFI_STATUS          Status;
+>   SMBIOS_TABLE_TYPE7  *Type7Record;
+>   EFI_SMBIOS_HANDLE   SmbiosHandle;
+>   UINT8               CacheLevel;
+>   UINT8               MaxCacheLevel;
+>   BOOLEAN             DataCacheType;
+>   BOOLEAN             SeparateCaches;
+> 
+>   Status = EFI_SUCCESS;
+> 
+>   MaxCacheLevel = 0;
+> 
+>   // See if there's an L1 cache present.
+>   MaxCacheLevel = SmbiosProcessorGetMaxCacheLevel ();
+> 
+>   if (MaxCacheLevel < 1) {
+>     return;
+>   }
+> 
+>   for (CacheLevel = 1; CacheLevel <= MaxCacheLevel; CacheLevel++) {
+>     Type7Record = NULL;
+> 
+>     SeparateCaches = SmbiosProcessorHasSeparateCaches (CacheLevel);
+> 
+>     // At each level of cache, we can have a single type (unified, instruction or data),
+>     // or two types - separate data and instruction caches. If we have separate
+>     // instruction and data caches, then on the first iteration (CacheSubLevel = 0)
+>     // process the instruction cache.
+>     for (DataCacheType = 0; DataCacheType <= 1; DataCacheType++) {
+>       // If there's no separate data/instruction cache, skip the second iteration
+>       if ((DataCacheType == 1) && !SeparateCaches) {
+>         continue;
+>       }
+> 
+>       Type7Record = AllocateAndInitCacheInformation (
+>                       CacheLevel,
+>                       DataCacheType,
+>                       !SeparateCaches
+>                       );
+>       if (Type7Record == NULL) {
+>         continue;
+>       }
+> 
+>       ConfigureCacheArchitectureInformation (
+>         CacheLevel,
+>         DataCacheType,
+>         !SeparateCaches,
+>         Type7Record
+>         );
+> 
+>       // Allow the platform to fill in other information such as speed, SRAM type etc.
+>       if (!OemGetCacheInformation (
+>              ProcessorIndex,
+>              CacheLevel,
+>              DataCacheType,
+>              !SeparateCaches,
+>              Type7Record
+>              ))
+>       {
+>         continue;
+>       }
+> 
+>       SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+>       // Finally, install the table
+>       Status = mSmbios->Add (
+>                           mSmbios,
+>                           NULL,
+>                           &SmbiosHandle,
+>                           (EFI_SMBIOS_TABLE_HEADER *)Type7Record
+>                           );
+>       if (EFI_ERROR (Status)) {
+>         continue;
+>       }
+> 
+>       // Config L1/L2/L3 Cache Handle
+>       switch (CacheLevel) {
+>         case CpuCacheL1:
+>           *L1CacheHandle = SmbiosHandle;
+>           break;
+>         case CpuCacheL2:
+>           *L2CacheHandle = SmbiosHandle;
+>           break;
+>         case CpuCacheL3:
+>           *L3CacheHandle = SmbiosHandle;
+>           break;
+>         default:
+>           break;
+>       }
+430a456,457
+>   }
+> }
+432c459,636
+<     return Status;
+---
+> /** Allocates a Type 4 Processor Information structure and sets the
+>     strings following the data fields.
+> 
+>   @param[out] Type4Record    The Type 4 structure to allocate and initialize
+>   @param[in]  ProcessorIndex The index of the processor
+>   @param[in]  Populated      Whether the specified processor is
+>                              populated.
+> 
+>   @retval EFI_SUCCESS          The Type 4 structure was successfully
+>                                allocated and the strings initialized.
+>   @retval EFI_OUT_OF_RESOURCES Could not allocate memory needed.
+> **/
+> EFI_STATUS
+> AllocateType4AndSetProcessorInformationStrings (
+>   SMBIOS_TABLE_TYPE4  **Type4Record,
+>   UINT8               ProcessorIndex,
+>   BOOLEAN             Populated
+>   )
+> {
+>   EFI_STATUS     Status;
+>   EFI_STRING_ID  ProcessorManu;
+>   EFI_STRING_ID  ProcessorVersion;
+>   EFI_STRING_ID  SerialNumber;
+>   EFI_STRING_ID  AssetTag;
+>   EFI_STRING_ID  PartNumber;
+>   EFI_STRING     ProcessorStr;
+>   EFI_STRING     ProcessorManuStr;
+>   EFI_STRING     ProcessorVersionStr;
+>   EFI_STRING     SerialNumberStr;
+>   EFI_STRING     AssetTagStr;
+>   EFI_STRING     PartNumberStr;
+>   CHAR8          *OptionalStrStart;
+>   CHAR8          *StrStart;
+>   UINTN          ProcessorStrLen;
+>   UINTN          ProcessorManuStrLen;
+>   UINTN          ProcessorVersionStrLen;
+>   UINTN          SerialNumberStrLen;
+>   UINTN          AssetTagStrLen;
+>   UINTN          PartNumberStrLen;
+>   UINTN          TotalSize;
+>   UINTN          StringBufferSize;
+> 
+>   Status = EFI_SUCCESS;
+> 
+>   ProcessorManuStr    = NULL;
+>   ProcessorVersionStr = NULL;
+>   SerialNumberStr     = NULL;
+>   AssetTagStr         = NULL;
+>   PartNumberStr       = NULL;
+> 
+>   ProcessorManu    = STRING_TOKEN (STR_PROCESSOR_MANUFACTURE);
+>   ProcessorVersion = STRING_TOKEN (STR_PROCESSOR_VERSION);
+>   SerialNumber     = STRING_TOKEN (STR_PROCESSOR_SERIAL_NUMBER);
+>   AssetTag         = STRING_TOKEN (STR_PROCESSOR_ASSET_TAG);
+>   PartNumber       = STRING_TOKEN (STR_PROCESSOR_PART_NUMBER);
+> 
+>   SET_HII_STRING_IF_PCD_NOT_EMPTY (PcdProcessorManufacturer, ProcessorManu);
+>   SET_HII_STRING_IF_PCD_NOT_EMPTY (PcdProcessorAssetTag, AssetTag);
+> 
+>   if (StrLen ((CHAR16 *)FixedPcdGetPtr (PcdProcessorSerialNumber)) > 0) {
+>     HiiSetString (mHiiHandle, SerialNumber, (CHAR16 *)FixedPcdGetPtr (PcdProcessorSerialNumber), NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (mHiiHandle, SerialNumber, ProcessorSerialNumType04);
+>   }
+> 
+>   if (StrLen ((CHAR16 *)FixedPcdGetPtr (PcdProcessorPartNumber)) > 0) {
+>     HiiSetString (mHiiHandle, PartNumber, (CHAR16 *)FixedPcdGetPtr (PcdProcessorPartNumber), NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (mHiiHandle, PartNumber, ProcessorPartNumType04);
+>   }
+> 
+>   if (StrLen ((CHAR16 *)FixedPcdGetPtr (PcdProcessorVersion)) > 0) {
+>     HiiSetString (mHiiHandle, ProcessorVersion, (CHAR16 *)FixedPcdGetPtr (PcdProcessorVersion), NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (mHiiHandle, ProcessorVersion, ProcessorVersionType04);
+>   }
+> 
+>   // Processor Designation
+>   StringBufferSize = sizeof (CHAR16) * SMBIOS_STRING_MAX_LENGTH;
+>   ProcessorStr     = AllocateZeroPool (StringBufferSize);
+>   if (ProcessorStr == NULL) {
+>     return EFI_OUT_OF_RESOURCES;
+>   }
+> 
+>   ProcessorStrLen = UnicodeSPrint (
+>                       ProcessorStr,
+>                       StringBufferSize,
+>                       L"CPU%02d",
+>                       ProcessorIndex + 1
+>                       );
+> 
+>   // Processor Manufacture
+>   ProcessorManuStr    = HiiGetPackageString (&gEfiCallerIdGuid, ProcessorManu, NULL);
+>   ProcessorManuStrLen = StrLen (ProcessorManuStr);
+> 
+>   // Processor Version
+>   ProcessorVersionStr    = HiiGetPackageString (&gEfiCallerIdGuid, ProcessorVersion, NULL);
+>   ProcessorVersionStrLen = StrLen (ProcessorVersionStr);
+> 
+>   // Serial Number
+>   SerialNumberStr    = HiiGetPackageString (&gEfiCallerIdGuid, SerialNumber, NULL);
+>   SerialNumberStrLen = StrLen (SerialNumberStr);
+> 
+>   // Asset Tag
+>   AssetTagStr    = HiiGetPackageString (&gEfiCallerIdGuid, AssetTag, NULL);
+>   AssetTagStrLen = StrLen (AssetTagStr);
+> 
+>   // Part Number
+>   PartNumberStr    = HiiGetPackageString (&gEfiCallerIdGuid, PartNumber, NULL);
+>   PartNumberStrLen = StrLen (PartNumberStr);
+> 
+>   TotalSize = sizeof (SMBIOS_TABLE_TYPE4) +
+>               ProcessorStrLen        + 1 +
+>               ProcessorManuStrLen    + 1 +
+>               ProcessorVersionStrLen + 1 +
+>               SerialNumberStrLen     + 1 +
+>               AssetTagStrLen         + 1 +
+>               PartNumberStrLen       + 1 + 1;
+> 
+>   *Type4Record = AllocateZeroPool (TotalSize);
+>   if (*Type4Record == NULL) {
+>     Status = EFI_OUT_OF_RESOURCES;
+>     goto Exit;
+>   }
+> 
+>   CopyMem (*Type4Record, &mSmbiosProcessorTableTemplate, sizeof (SMBIOS_TABLE_TYPE4));
+> 
+>   OptionalStrStart = (CHAR8 *)(*Type4Record + 1);
+>   UnicodeStrToAsciiStrS (
+>     ProcessorStr,
+>     OptionalStrStart,
+>     ProcessorStrLen + 1
+>     );
+> 
+>   StrStart = OptionalStrStart + ProcessorStrLen + 1;
+>   UnicodeStrToAsciiStrS (
+>     ProcessorManuStr,
+>     StrStart,
+>     ProcessorManuStrLen + 1
+>     );
+> 
+>   StrStart += ProcessorManuStrLen + 1;
+>   UnicodeStrToAsciiStrS (
+>     ProcessorVersionStr,
+>     StrStart,
+>     ProcessorVersionStrLen + 1
+>     );
+> 
+>   StrStart += ProcessorVersionStrLen + 1;
+>   UnicodeStrToAsciiStrS (
+>     SerialNumberStr,
+>     StrStart,
+>     SerialNumberStrLen + 1
+>     );
+> 
+>   StrStart += SerialNumberStrLen + 1;
+>   UnicodeStrToAsciiStrS (
+>     AssetTagStr,
+>     StrStart,
+>     AssetTagStrLen + 1
+>     );
+> 
+>   StrStart += AssetTagStrLen + 1;
+>   UnicodeStrToAsciiStrS (
+>     PartNumberStr,
+>     StrStart,
+>     PartNumberStrLen + 1
+>     );
+> 
+> Exit:
+>   FreePool (ProcessorStr);
+>   FreePool (ProcessorManuStr);
+>   FreePool (ProcessorVersionStr);
+>   FreePool (SerialNumberStr);
+>   FreePool (AssetTagStr);
+>   FreePool (PartNumberStr);
+> 
+>   return Status;
+438c642
+<   @param[in]    ProcessorNumber     Processor number of specified processor.
+---
+>   @param[in]    ProcessorIndex     Processor index of specified processor.
+443c647
+<   IN UINTN                  ProcessorNumber
+---
+>   IN UINTN  ProcessorIndex
+446,596c650,684
+<     EFI_STATUS                  Status;
+<     SMBIOS_TABLE_TYPE4          *Type4Record;
+<     EFI_SMBIOS_HANDLE           SmbiosHandle;
+<     EFI_SMBIOS_HANDLE           L1CacheHandle;
+<     EFI_SMBIOS_HANDLE           L2CacheHandle;
+<     EFI_SMBIOS_HANDLE           L3CacheHandle;
+< 
+<     CHAR8                       *OptionalStrStart;
+<     EFI_STRING_ID               ProcessorManu;
+<     EFI_STRING_ID               ProcessorVersion;
+<     EFI_STRING_ID               SerialNumber;
+<     EFI_STRING_ID               AssetTag;
+<     EFI_STRING_ID               PartNumber;
+<     EFI_STRING                  ProcessorSocketStr;
+<     EFI_STRING                  ProcessorManuStr;
+<     EFI_STRING                  ProcessorVersionStr;
+<     EFI_STRING                  SerialNumberStr;
+<     EFI_STRING                  AssetTagStr;
+<     EFI_STRING                  PartNumberStr;
+<     UINTN                       ProcessorSocketStrLen;
+<     UINTN                       ProcessorManuStrLen;
+<     UINTN                       ProcessorVersionStrLen;
+<     UINTN                       SerialNumberStrLen;
+<     UINTN                       AssetTagStrLen;
+<     UINTN                       PartNumberStrLen;
+<     UINTN                       StringBufferSize;
+<     UINTN                       TotalSize;
+< 
+<     UINT8                       Voltage;
+<     UINT16                      CoreCount;
+<     UINT16                      CoreEnabled;
+<     UINT16                      ThreadCount;
+<     UINT16                      CurrentSpeed;
+<     PROCESSOR_STATUS_DATA       ProcessorStatus = {{0}};
+<     PROCESSOR_CHARACTERISTICS_DATA  ProcessorCharacteristics = {{0}};
+< 
+<     CHAR16                      *CpuVersion;
+<     EFI_STRING_ID               TokenToUpdate;
+< 
+<     UINT64                      *ProcessorId;
+<     Type4Record         = NULL;
+<     ProcessorManuStr    = NULL;
+<     ProcessorVersionStr = NULL;
+<     SerialNumberStr     = NULL;
+<     AssetTagStr         = NULL;
+<     PartNumberStr       = NULL;
+< 
+<     if(OemIsSocketPresent(ProcessorNumber))  //CPU is present
+<     {
+<         Voltage         = BIT7 | 9;          // 0.9V
+< 
+<         Status = AddSmbiosCacheTypeTable (ProcessorNumber, &L1CacheHandle, &L2CacheHandle, &L3CacheHandle);
+<         if(EFI_ERROR(Status))
+<         {
+<             return Status;
+<         }
+< 
+<         CurrentSpeed        = GetCpuFrequency(ProcessorNumber);
+< 
+<         CoreCount       = PlatformGetCoreCount();
+<         CoreEnabled     = CoreCount;
+<         ThreadCount     = CoreCount;
+< 
+<         CpuVersion = (CHAR16 *) PcdGetPtr (PcdCPUInfo);
+<         if (StrLen(CpuVersion) > 0)
+<         {
+<             TokenToUpdate = STRING_TOKEN (STR_PROCESSOR_VERSION);
+<             HiiSetString (mHiiHandle, TokenToUpdate, CpuVersion, NULL);
+<         }
+< 
+<         ProcessorManu       = STRING_TOKEN (STR_PROCESSOR_MANUFACTURE);
+<         ProcessorVersion    = STRING_TOKEN (STR_PROCESSOR_VERSION);
+<         SerialNumber        = STRING_TOKEN (STR_PROCESSOR_SERIAL_NUMBER);
+<         AssetTag            = STRING_TOKEN (STR_PROCESSOR_ASSET_TAG);
+<         PartNumber          = STRING_TOKEN (STR_PROCESSOR_PART_NUMBER);
+< 
+<         // Processor Status
+<         ProcessorStatus.Bits.CpuStatus           = 1;        // CPU Enabled
+<         ProcessorStatus.Bits.Reserved1           = 0;
+<         ProcessorStatus.Bits.SocketPopulated     = 1;        // CPU Socket Populated
+<         ProcessorStatus.Bits.Reserved2           = 0;
+< 
+<         // Processor Characteristics
+<         ProcessorCharacteristics.Bits.Reserved       = 0;
+<         ProcessorCharacteristics.Bits.Capable64Bit   = 1;        // 64-bit Capable
+<         ProcessorCharacteristics.Bits.Unknown        = 0;
+<         ProcessorCharacteristics.Bits.EnhancedVirtualization     = 1;
+<         ProcessorCharacteristics.Bits.HardwareThread = 0;
+<         ProcessorCharacteristics.Bits.MultiCore      = 1;
+<         ProcessorCharacteristics.Bits.ExecuteProtection          = 1;
+<         ProcessorCharacteristics.Bits.PowerPerformanceControl    = 1;
+<         ProcessorCharacteristics.Bits.Reserved2      = 0;
+<     }
+<     else
+<     {
+<         Voltage             = 0;
+<         CurrentSpeed        = 0;
+<         CoreCount           = 0;
+<         CoreEnabled         = 0;
+<         ThreadCount         = 0;
+<         L1CacheHandle       = 0xFFFF;
+<         L2CacheHandle       = 0xFFFF;
+<         L3CacheHandle       = 0xFFFF;
+< 
+<         ProcessorManu       = STRING_TOKEN (STR_PROCESSOR_UNKNOWN);
+<         ProcessorVersion    = STRING_TOKEN (STR_PROCESSOR_UNKNOWN);
+<         SerialNumber        = STRING_TOKEN (STR_PROCESSOR_UNKNOWN);
+<         AssetTag            = STRING_TOKEN (STR_PROCESSOR_UNKNOWN);
+<         PartNumber          = STRING_TOKEN (STR_PROCESSOR_UNKNOWN);
+<     }
+< 
+<     // Processor Socket Designation
+<     StringBufferSize = sizeof(CHAR16) * SMBIOS_STRING_MAX_LENGTH;
+<     ProcessorSocketStr = AllocateZeroPool(StringBufferSize);
+<     if (ProcessorSocketStr == NULL)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+< 
+<     ProcessorSocketStrLen = UnicodeSPrint (ProcessorSocketStr, StringBufferSize, L"CPU%02d", ProcessorNumber + 1);
+< 
+<     // Processor Manufacture
+<     ProcessorManuStr = HiiGetPackageString (&gEfiCallerIdGuid, ProcessorManu, NULL);
+<     ProcessorManuStrLen = StrLen (ProcessorManuStr);
+< 
+<     // Processor Version
+<     ProcessorVersionStr = HiiGetPackageString (&gEfiCallerIdGuid, ProcessorVersion, NULL);
+<     ProcessorVersionStrLen = StrLen (ProcessorVersionStr);
+< 
+<     // Serial Number
+<     SerialNumberStr = HiiGetPackageString (&gEfiCallerIdGuid, SerialNumber, NULL);
+<     SerialNumberStrLen = StrLen (SerialNumberStr);
+< 
+<     // Asset Tag
+<     AssetTagStr = HiiGetPackageString (&gEfiCallerIdGuid, AssetTag, NULL);
+<     AssetTagStrLen = StrLen (AssetTagStr);
+< 
+<     // Part Number
+<     PartNumberStr = HiiGetPackageString (&gEfiCallerIdGuid, PartNumber, NULL);
+<     PartNumberStrLen = StrLen (PartNumberStr);
+< 
+<     TotalSize = sizeof (SMBIOS_TABLE_TYPE4) + ProcessorSocketStrLen + 1 + ProcessorManuStrLen + 1 + ProcessorVersionStrLen + 1 + SerialNumberStrLen + 1 + AssetTagStrLen + 1 + PartNumberStrLen + 1 + 1;
+<     Type4Record = AllocateZeroPool (TotalSize);
+<     if (Type4Record == NULL)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+< 
+<     (VOID)CopyMem(Type4Record, &mSmbiosProcessorTable[ProcessorNumber], sizeof (SMBIOS_TABLE_TYPE4));
+---
+>   EFI_STATUS                      Status;
+>   SMBIOS_TABLE_TYPE4              *Type4Record;
+>   EFI_SMBIOS_HANDLE               SmbiosHandle;
+>   EFI_SMBIOS_HANDLE               L1CacheHandle;
+>   EFI_SMBIOS_HANDLE               L2CacheHandle;
+>   EFI_SMBIOS_HANDLE               L3CacheHandle;
+>   UINT8                           *LegacyVoltage;
+>   PROCESSOR_STATUS_DATA           ProcessorStatus;
+>   UINT64                          *ProcessorId;
+>   PROCESSOR_CHARACTERISTIC_FLAGS  ProcessorCharacteristics;
+>   OEM_MISC_PROCESSOR_DATA         MiscProcessorData;
+>   BOOLEAN                         ProcessorPopulated;
+> 
+>   Type4Record = NULL;
+> 
+>   MiscProcessorData.Voltage      = 0;
+>   MiscProcessorData.CurrentSpeed = 0;
+>   MiscProcessorData.CoreCount    = 0;
+>   MiscProcessorData.CoresEnabled = 0;
+>   MiscProcessorData.ThreadCount  = 0;
+>   MiscProcessorData.MaxSpeed     = 0;
+>   L1CacheHandle                  = 0xFFFF;
+>   L2CacheHandle                  = 0xFFFF;
+>   L3CacheHandle                  = 0xFFFF;
+> 
+>   ProcessorPopulated = OemIsProcessorPresent (ProcessorIndex);
+> 
+>   Status = AllocateType4AndSetProcessorInformationStrings (
+>              &Type4Record,
+>              ProcessorIndex,
+>              ProcessorPopulated
+>              );
+>   if (EFI_ERROR (Status)) {
+>     return Status;
+>   }
+598,633c686,748
+<     *(UINT8 *) &Type4Record->Voltage        = Voltage;
+<     Type4Record->CurrentSpeed               = CurrentSpeed;
+<     Type4Record->Status                     = ProcessorStatus.Data;
+<     Type4Record->L1CacheHandle              = L1CacheHandle;
+<     Type4Record->L2CacheHandle              = L2CacheHandle;
+<     Type4Record->L3CacheHandle              = L3CacheHandle;
+<     Type4Record->CoreCount                  = CoreCount;
+<     Type4Record->EnabledCoreCount           = CoreEnabled;
+<     Type4Record->ThreadCount                = ThreadCount;
+<     Type4Record->ProcessorCharacteristics   = ProcessorCharacteristics.Data;
+< 
+<     Type4Record->ExternalClock              = (UINT16)(ArmReadCntFrq() / 1000 / 1000);
+<     ProcessorId = (UINT64 *)&(Type4Record->ProcessorId);
+<     *ProcessorId = ArmReadMidr();
+< 
+<     OptionalStrStart = (CHAR8 *) (Type4Record + 1);
+<     Status = UnicodeStrToAsciiStrS (ProcessorSocketStr, OptionalStrStart, ProcessorSocketStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ProcessorManuStr, OptionalStrStart + ProcessorSocketStrLen + 1, ProcessorManuStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ProcessorVersionStr, OptionalStrStart + ProcessorSocketStrLen + 1 + ProcessorManuStrLen + 1, ProcessorVersionStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (SerialNumberStr, OptionalStrStart + ProcessorSocketStrLen + 1 + ProcessorManuStrLen + 1 + ProcessorVersionStrLen + 1, SerialNumberStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (AssetTagStr, OptionalStrStart + ProcessorSocketStrLen + 1 + ProcessorManuStrLen + 1 + ProcessorVersionStrLen + 1 + SerialNumberStrLen + 1, AssetTagStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (PartNumberStr, OptionalStrStart + ProcessorSocketStrLen + 1 + ProcessorManuStrLen + 1 + ProcessorVersionStrLen + 1 + SerialNumberStrLen + 1 + AssetTagStrLen + 1, PartNumberStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+< 
+<     SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+<     Status = mSmbios->Add (mSmbios, NULL, &SmbiosHandle, (EFI_SMBIOS_TABLE_HEADER *)Type4Record);
+<     if (EFI_ERROR (Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type04 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+<     FreePool (Type4Record);
+---
+>   OemGetProcessorInformation (
+>     ProcessorIndex,
+>     &ProcessorStatus,
+>     (PROCESSOR_CHARACTERISTIC_FLAGS *)
+>     &Type4Record->ProcessorCharacteristics,
+>     &MiscProcessorData
+>     );
+> 
+>   if (ProcessorPopulated) {
+>     AddSmbiosCacheTypeTable (
+>       ProcessorIndex,
+>       &L1CacheHandle,
+>       &L2CacheHandle,
+>       &L3CacheHandle
+>       );
+>   }
+> 
+>   LegacyVoltage = (UINT8 *)&Type4Record->Voltage;
+> 
+>   *LegacyVoltage                 = MiscProcessorData.Voltage;
+>   Type4Record->CurrentSpeed      = MiscProcessorData.CurrentSpeed;
+>   Type4Record->MaxSpeed          = MiscProcessorData.MaxSpeed;
+>   Type4Record->Status            = ProcessorStatus.Data;
+>   Type4Record->L1CacheHandle     = L1CacheHandle;
+>   Type4Record->L2CacheHandle     = L2CacheHandle;
+>   Type4Record->L3CacheHandle     = L3CacheHandle;
+>   Type4Record->CoreCount         = MiscProcessorData.CoreCount;
+>   Type4Record->CoreCount2        = MiscProcessorData.CoreCount;
+>   Type4Record->EnabledCoreCount  = MiscProcessorData.CoresEnabled;
+>   Type4Record->EnabledCoreCount2 = MiscProcessorData.CoresEnabled;
+>   Type4Record->ThreadCount       = MiscProcessorData.ThreadCount;
+>   Type4Record->ThreadCount2      = MiscProcessorData.ThreadCount;
+> 
+>   Type4Record->CurrentSpeed  = GetCpuFrequency (ProcessorIndex);
+>   Type4Record->ExternalClock =
+>     (UINT16)(SmbiosGetExternalClockFrequency () / 1000 / 1000);
+> 
+>   ProcessorId  = (UINT64 *)&Type4Record->ProcessorId;
+>   *ProcessorId = SmbiosGetProcessorId ();
+> 
+>   ProcessorCharacteristics               = SmbiosGetProcessorCharacteristics ();
+>   Type4Record->ProcessorCharacteristics |= *((UINT64 *)&ProcessorCharacteristics);
+> 
+>   Type4Record->ProcessorFamily  = SmbiosGetProcessorFamily ();
+>   Type4Record->ProcessorFamily2 = SmbiosGetProcessorFamily2 ();
+> 
+>   SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+>   Status       = mSmbios->Add (
+>                             mSmbios,
+>                             NULL,
+>                             &SmbiosHandle,
+>                             (EFI_SMBIOS_TABLE_HEADER *)Type4Record
+>                             );
+> 
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type04 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+635,659c750
+< Exit:
+<     if(ProcessorSocketStr != NULL)
+<     {
+<         FreePool (ProcessorSocketStr);
+<     }
+<     if(ProcessorManuStr != NULL)
+<     {
+<         FreePool (ProcessorManuStr);
+<     }
+<     if(ProcessorVersionStr != NULL)
+<     {
+<         FreePool (ProcessorVersionStr);
+<     }
+<     if(SerialNumberStr != NULL)
+<     {
+<         FreePool (SerialNumberStr);
+<     }
+<     if(AssetTagStr != NULL)
+<     {
+<         FreePool (AssetTagStr);
+<     }
+<     if(PartNumberStr != NULL)
+<     {
+<         FreePool (PartNumberStr);
+<     }
+---
+>   FreePool (Type4Record);
+661c752
+<     return Status;
+---
+>   return Status;
+665,666c756
+<   Standard EFI driver point.  This driver locates the ProcessorConfigurationData Variable,
+<   if it exists, add the related SMBIOS tables by PI SMBIOS protocol.
+---
+>    Standard EFI driver point.
+676,678c766,768
+< ProcessorSubClassEntryPoint(
+<   IN EFI_HANDLE         ImageHandle,
+<   IN EFI_SYSTEM_TABLE   *SystemTable
+---
+> ProcessorSubClassEntryPoint (
+>   IN EFI_HANDLE        ImageHandle,
+>   IN EFI_SYSTEM_TABLE  *SystemTable
+681,682c771,772
+<     EFI_STATUS                      Status;
+<     UINT32                          SocketIndex;
+---
+>   EFI_STATUS  Status;
+>   UINT32      ProcessorIndex;
+684,707c774,781
+<     //
+<     // Locate dependent protocols
+<     //
+<     Status = gBS->LocateProtocol(&gEfiSmbiosProtocolGuid, NULL, (VOID**)&mSmbios);
+<     if (EFI_ERROR(Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "Could not locate SMBIOS protocol.  %r\n", Status));
+<         return Status;
+<     }
+< 
+<     //
+<     // Add our default strings to the HII database. They will be modified later.
+<     //
+<     mHiiHandle = HiiAddPackages (
+<                 &gEfiCallerIdGuid,
+<                 NULL,
+<                 ProcessorSubClassStrings,
+<                 NULL,
+<                 NULL
+<                 );
+<     if (mHiiHandle == NULL)
+<     {
+<         return EFI_OUT_OF_RESOURCES;
+<     }
+---
+>   //
+>   // Locate dependent protocols
+>   //
+>   Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&mSmbios);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((DEBUG_ERROR, "Could not locate SMBIOS protocol.  %r\n", Status));
+>     return Status;
+>   }
+709,723c783,804
+<     //
+<     // Add SMBIOS tables for populated sockets.
+<     //
+<     for (SocketIndex = 0; SocketIndex < MAX_SOCKET; SocketIndex++)
+<     {
+<         if((SocketIndex == 1) && !OemIsMpBoot())
+<         {
+<             break;
+<         }
+<         Status = AddSmbiosProcessorTypeTable (SocketIndex);
+<         if(EFI_ERROR(Status))
+<         {
+<             DEBUG((EFI_D_ERROR, "Add Processor Type Table Failed!  %r.\n", Status));
+<             return Status;
+<         }
+---
+>   //
+>   // Add our default strings to the HII database. They will be modified later.
+>   //
+>   mHiiHandle = HiiAddPackages (
+>                  &gEfiCallerIdGuid,
+>                  NULL,
+>                  ProcessorSubClassStrings,
+>                  NULL,
+>                  NULL
+>                  );
+>   if (mHiiHandle == NULL) {
+>     return EFI_OUT_OF_RESOURCES;
+>   }
+> 
+>   //
+>   // Add SMBIOS tables for populated sockets.
+>   //
+>   for (ProcessorIndex = 0; ProcessorIndex < OemGetMaxProcessors (); ProcessorIndex++) {
+>     Status = AddSmbiosProcessorTypeTable (ProcessorIndex);
+>     if (EFI_ERROR (Status)) {
+>       DEBUG ((DEBUG_ERROR, "Add Processor Type Table Failed!  %r.\n", Status));
+>       return Status;
+724a806
+>   }
+726c808
+<     return Status;
+---
+>   return Status;
+diff -r Smbios/ProcessorSubClassDxe/ProcessorSubClassDxe.inf /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe/ProcessorSubClassDxe.inf
+1a2
+> #    ProcessorSubClassDxe.inf
+2a4
+> #    Copyright (c) 2021, NUVIA Inc. All rights reserved.
+12c14
+<   INF_VERSION                    = 0x00010005
+---
+>   INF_VERSION                    = 1.29
+14c16
+<   FILE_GUID                      = 9B25B1EA-0FD4-455D-A450-AD640C8A9C1B
+---
+>   FILE_GUID                      = f3fe0e33-ea38-4069-9fb5-be23407207c7
+20c22
+<   ProcessorSubClassStrings.uni
+---
+>   SmbiosProcessorArmCommon.c
+21a24,31
+>   ProcessorSubClassStrings.uni
+>   SmbiosProcessor.h
+> 
+> [Sources.AARCH64]
+>   SmbiosProcessorAArch64.c
+> 
+> [Sources.ARM]
+>   SmbiosProcessorArm.c
+25d34
+<   MdePkg/MdePkg.dec
+27,29c36
+< 
+<   Silicon/Hisilicon/HisiliconNonOsi.dec
+<   Silicon/Hisilicon/HisiPkg.dec
+---
+>   MdePkg/MdePkg.dec
+32,36c39,40
+<   UefiDriverEntryPoint
+<   IoLib
+<   HiiLib
+<   MemoryAllocationLib
+<   BaseMemoryLib
+---
+>   ArmLib
+>   ArmSmcLib
+37a42
+>   BaseMemoryLib
+39c44,47
+<   PrintLib
+---
+>   HiiLib
+>   IoLib
+>   MemoryAllocationLib
+>   OemMiscLib
+41,43c49,50
+< 
+<   PlatformSysCtrlLib
+<   HisiOemMiscLib
+---
+>   PrintLib
+>   UefiDriverEntryPoint
+49,50c56,60
+<   gHisiTokenSpaceGuid.PcdCPUInfo
+<   gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz
+---
+>   gArmTokenSpaceGuid.PcdProcessorManufacturer
+>   gArmTokenSpaceGuid.PcdProcessorVersion
+>   gArmTokenSpaceGuid.PcdProcessorSerialNumber
+>   gArmTokenSpaceGuid.PcdProcessorAssetTag
+>   gArmTokenSpaceGuid.PcdProcessorPartNumber
+57,58d66
+< 
+< 
+Only in Smbios/ProcessorSubClassDxe: ProcessorSubClass.h
+diff -r Smbios/ProcessorSubClassDxe/ProcessorSubClassStrings.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe/ProcessorSubClassStrings.uni
+1,8c1,9
+< ﻿///// @file
+< //
+< //  Copyright (c) 2015, Hisilicon Limited. All rights reserved.
+< //  Copyright (c) 2015, Linaro Limited. All rights reserved.
+< //
+< //  SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< /////
+---
+> /** @file
+>   SMBIOS Type 4 strings
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+17,22c18,23
+< #string STR_PROCESSOR_SOCKET_DESIGNATION    #language en-US  "Hisilicon PhosphorV660 Processor"
+< #string STR_PROCESSOR_MANUFACTURE           #language en-US  "Hisilicon"
+< #string STR_PROCESSOR_VERSION               #language en-US  "Hi1610ES"
+< #string STR_PROCESSOR_SERIAL_NUMBER         #language en-US  "To be filled by O.E.M."
+< #string STR_PROCESSOR_ASSET_TAG             #language en-US  "To be filled by O.E.M."
+< #string STR_PROCESSOR_PART_NUMBER           #language en-US  "To be filled by O.E.M."
+---
+> #string STR_PROCESSOR_SOCKET_DESIGNATION    #language en-US  "Not Specified"
+> #string STR_PROCESSOR_MANUFACTURE           #language en-US  "Not Specified"
+> #string STR_PROCESSOR_VERSION               #language en-US  "Not Specified"
+> #string STR_PROCESSOR_SERIAL_NUMBER         #language en-US  "Not Specified"
+> #string STR_PROCESSOR_ASSET_TAG             #language en-US  "Not Specified"
+> #string STR_PROCESSOR_PART_NUMBER           #language en-US  "Not Specified"
+24,26d24
+< 
+< 
+< 
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe: SmbiosProcessorAArch64.c
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe: SmbiosProcessorArm.c
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe: SmbiosProcessorArmCommon.c
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/ProcessorSubClassDxe: SmbiosProcessor.h
+diff -r Smbios/SmbiosMiscDxe/SmbiosMiscDataTable.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMiscDataTable.c
+1c1,2
+< /**@file
+---
+> /** @file
+>   This file provides SMBIOS Misc Type.
+3,6c4
+< Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+8c6,10
+< Module Name:
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent\
+10,16d11
+<   SmbiosMiscDataTable.c
+< 
+< Abstract:
+< 
+<   This file provide OEM to config SMBIOS Misc Type.
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+21,27c16,45
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE0,  MiscBiosVendor, MiscBiosVendor)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE1,  MiscSystemManufacturer, MiscSystemManufacturer)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE3,  MiscChassisManufacturer, MiscChassisManufacturer)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE2,  MiscBaseBoardManufacturer, MiscBaseBoardManufacturer)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE13, MiscNumberOfInstallableLanguages, MiscNumberOfInstallableLanguages)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE32, MiscBootInformation, MiscBootInformation)
+<   MISC_SMBIOS_TABLE_EXTERNS(SMBIOS_TABLE_TYPE38, MiscIpmiDeviceInformation, MiscIpmiDeviceInformation)
+---
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE0,
+>   MiscBiosVendor,
+>   MiscBiosVendor
+>   )
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE1,
+>   MiscSystemManufacturer,
+>   MiscSystemManufacturer
+>   )
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE3,
+>   MiscChassisManufacturer,
+>   MiscChassisManufacturer
+>   )
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE2,
+>   MiscBaseBoardManufacturer,
+>   MiscBaseBoardManufacturer
+>   )
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE13,
+>   MiscNumberOfInstallableLanguages,
+>   MiscNumberOfInstallableLanguages
+>   )
+> SMBIOS_MISC_TABLE_EXTERNS (
+>   SMBIOS_TABLE_TYPE32,
+>   MiscBootInformation,
+>   MiscBootInformation
+>   )
+29,30c47
+< 
+< EFI_MISC_SMBIOS_DATA_TABLE mSmbiosMiscDataTable[] = {
+---
+> SMBIOS_MISC_DATA_TABLE mSmbiosMiscDataTable[] = {
+32c49,52
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscBiosVendor, MiscBiosVendor),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscBiosVendor,
+>     MiscBiosVendor
+>     ),
+34c54,57
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscSystemManufacturer, MiscSystemManufacturer),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscSystemManufacturer,
+>     MiscSystemManufacturer
+>     ),
+36c59,62
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscChassisManufacturer, MiscChassisManufacturer),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscChassisManufacturer,
+>     MiscChassisManufacturer
+>     ),
+38c64,67
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscBaseBoardManufacturer, MiscBaseBoardManufacturer),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscBaseBoardManufacturer,
+>     MiscBaseBoardManufacturer
+>     ),
+40c69,72
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscNumberOfInstallableLanguages, MiscNumberOfInstallableLanguages),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscNumberOfInstallableLanguages,
+>     MiscNumberOfInstallableLanguages
+>     ),
+42,44c74,77
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscBootInformation, MiscBootInformation),
+<   // Type38
+<   MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(MiscIpmiDeviceInformation, MiscIpmiDeviceInformation),
+---
+>   SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION (
+>     MiscBootInformation,
+>     MiscBootInformation
+>     ),
+47d79
+< 
+51,52c83,84
+< UINTN mSmbiosMiscDataTableEntries =
+<   (sizeof mSmbiosMiscDataTable) / sizeof(EFI_MISC_SMBIOS_DATA_TABLE);
+---
+> UINTN  mSmbiosMiscDataTableEntries =
+>   (sizeof (mSmbiosMiscDataTable)) / sizeof (SMBIOS_MISC_DATA_TABLE);
+diff -r Smbios/SmbiosMiscDxe/SmbiosMiscDxe.inf /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMiscDxe.inf
+1c1
+< ## @file
+---
+> #/** @file
+7a8,9
+> #
+> # Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+16c18
+< ##
+---
+> #**/
+20c22
+<   INF_VERSION                    = 0x00010005
+---
+>   INF_VERSION                    = 1.29
+22c24
+<   FILE_GUID                      = EF0C99B6-B1D3-4025-9405-BF6A560FE0E0
+---
+>   FILE_GUID                      = 7e5e26d4-0be9-401f-b5e1-1c2bda7ca777
+31,48c33,45
+<   SmbiosMiscLibString.uni
+<   ./Type00/MiscBiosVendorData.c
+<   ./Type00/MiscBiosVendorFunction.c
+<   ./Type01/MiscSystemManufacturerData.c
+<   ./Type01/MiscSystemManufacturerFunction.c
+<   ./Type02/MiscBaseBoardManufacturerData.c
+<   ./Type02/MiscBaseBoardManufacturerFunction.c
+<   ./Type03/MiscChassisManufacturerData.c
+<   ./Type03/MiscChassisManufacturerFunction.c
+<   ./Type13/MiscNumberOfInstallableLanguagesData.c
+<   ./Type13/MiscNumberOfInstallableLanguagesFunction.c
+<   ./Type32/MiscBootInformationData.c
+<   ./Type32/MiscBootInformationFunction.c
+<   ./Type38/MiscIpmiDeviceInformationData.c
+<   ./Type38/MiscIpmiDeviceInformationFunction.c
+< 
+<   ./Type09/MiscSystemSlotDesignationData.c
+<   ./Type09/MiscSystemSlotDesignationFunction.c
+---
+>   SmbiosMiscDxeStrings.uni
+>   Type00/MiscBiosVendorData.c
+>   Type00/MiscBiosVendorFunction.c
+>   Type01/MiscSystemManufacturerData.c
+>   Type01/MiscSystemManufacturerFunction.c
+>   Type02/MiscBaseBoardManufacturerData.c
+>   Type02/MiscBaseBoardManufacturerFunction.c
+>   Type03/MiscChassisManufacturerData.c
+>   Type03/MiscChassisManufacturerFunction.c
+>   Type13/MiscNumberOfInstallableLanguagesData.c
+>   Type13/MiscNumberOfInstallableLanguagesFunction.c
+>   Type32/MiscBootInformationData.c
+>   Type32/MiscBootInformationFunction.c
+52d48
+<   MdePkg/MdePkg.dec
+54,55c50
+<   Silicon/Hisilicon/HisiliconNonOsi.dec
+<   Silicon/Hisilicon/HisiPkg.dec
+---
+>   MdePkg/MdePkg.dec
+57a53,56
+>   BaseLib
+>   BaseMemoryLib
+>   DebugLib
+>   DevicePathLib
+59a59
+>   HobLib
+61,65c61
+<   DevicePathLib
+<   BaseMemoryLib
+<   BaseLib
+<   DebugLib
+<   HisiOemMiscLib
+---
+>   OemMiscLib
+67d62
+<   UefiRuntimeServicesTableLib
+70,73c65
+<   HobLib
+< 
+<   IpmiCmdLib
+< 
+---
+>   UefiRuntimeServicesTableLib
+80,87c72,80
+<   gHisiTokenSpaceGuid.PcdFirmwareVendor
+<   gHisiTokenSpaceGuid.PcdBiosVersionString
+<   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareReleaseDateString
+< 
+<   gHisiTokenSpaceGuid.PcdSystemProductName
+<   gHisiTokenSpaceGuid.PcdSystemVersion
+<   gHisiTokenSpaceGuid.PcdBaseBoardProductName
+<   gHisiTokenSpaceGuid.PcdBaseBoardVersion
+---
+>   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor
+>   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
+>   gArmTokenSpaceGuid.PcdSystemBiosRelease
+>   gArmTokenSpaceGuid.PcdEmbeddedControllerFirmwareRelease
+>   gArmTokenSpaceGuid.PcdSystemProductName
+>   gArmTokenSpaceGuid.PcdSystemVersion
+>   gArmTokenSpaceGuid.PcdBaseBoardManufacturer
+>   gArmTokenSpaceGuid.PcdBaseBoardProductName
+>   gArmTokenSpaceGuid.PcdBaseBoardVersion
+90,93d82
+<   gHisiTokenSpaceGuid.PcdBiosVersionForBmc
+< 
+<   gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultPlatformLang
+< 
+96d84
+<   gVersionInfoHobGuid
+Only in /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe: SmbiosMiscDxeStrings.uni
+diff -r Smbios/SmbiosMiscDxe/SmbiosMiscEntryPoint.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMiscEntryPoint.c
+1,13c1
+< /**@file
+< 
+< Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+< 
+< Module Name:
+< 
+<   SmbiosMiscEntryPoint.c
+< 
+< Abstract:
+< 
+---
+> /** @file
+17,18c5
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< **/
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+20c7,11
+< #include "SmbiosMisc.h"
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+22c13
+< #define MAX_HANDLE_COUNT  0x10
+---
+> **/
+24,35c15,20
+< EFI_HANDLE              mImageHandle;
+< EFI_HII_HANDLE          mHiiHandle;
+< EFI_SMBIOS_PROTOCOL     *mSmbios = NULL;
+< 
+< //
+< // Data Table Array
+< //
+< extern EFI_MISC_SMBIOS_DATA_TABLE   mSmbiosMiscDataTable[];
+< //
+< // Data Table Array Entries
+< //
+< extern UINTN                        mSmbiosMiscDataTableEntries;
+---
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+37c22
+< extern UINT8                        SmbiosMiscDxeStrings[];
+---
+> #include "SmbiosMisc.h"
+38a24,25
+> STATIC EFI_HANDLE           mSmbiosMiscImageHandle;
+> STATIC EFI_SMBIOS_PROTOCOL  *mSmbiosMiscSmbios = NULL;
+39a27
+> EFI_HII_HANDLE  mSmbiosMiscHiiHandle;
+53,55c41,43
+< SmbiosMiscEntryPoint(
+<   IN EFI_HANDLE         ImageHandle,
+<   IN EFI_SYSTEM_TABLE   *SystemTable
+---
+> SmbiosMiscEntryPoint (
+>   IN EFI_HANDLE        ImageHandle,
+>   IN EFI_SYSTEM_TABLE  *SystemTable
+58,69c46,47
+<     UINTN                Index;
+<     EFI_STATUS           EfiStatus;
+<     EFI_SMBIOS_PROTOCOL  *Smbios;
+< 
+<     mImageHandle = ImageHandle;
+< 
+<     EfiStatus = gBS->LocateProtocol(&gEfiSmbiosProtocolGuid, NULL, (VOID**)&Smbios);
+<     if (EFI_ERROR(EfiStatus))
+<     {
+<         DEBUG((EFI_D_ERROR, "Could not locate SMBIOS protocol.  %r\n", EfiStatus));
+<         return EfiStatus;
+<     }
+---
+>   UINTN       Index;
+>   EFI_STATUS  EfiStatus;
+71c49
+<     mSmbios = Smbios;
+---
+>   mSmbiosMiscImageHandle = ImageHandle;
+73,82c51,59
+<     mHiiHandle = HiiAddPackages (
+<                    &gEfiCallerIdGuid,
+<                    mImageHandle,
+<                    SmbiosMiscDxeStrings,
+<                    NULL
+<                    );
+<     if(mHiiHandle == NULL)
+<     {
+<         return EFI_OUT_OF_RESOURCES;
+<     }
+---
+>   EfiStatus = gBS->LocateProtocol (
+>                      &gEfiSmbiosProtocolGuid,
+>                      NULL,
+>                      (VOID **)&mSmbiosMiscSmbios
+>                      );
+>   if (EFI_ERROR (EfiStatus)) {
+>     DEBUG ((DEBUG_ERROR, "Could not locate SMBIOS protocol.  %r\n", EfiStatus));
+>     return EfiStatus;
+>   }
+84,101c61,90
+<     for (Index = 0; Index < mSmbiosMiscDataTableEntries; ++Index)
+<     {
+<         //
+<         // If the entry have a function pointer, just log the data.
+<         //
+<         if (mSmbiosMiscDataTable[Index].Function != NULL)
+<         {
+<             EfiStatus = (*mSmbiosMiscDataTable[Index].Function)(
+<                 mSmbiosMiscDataTable[Index].RecordData,
+<                 Smbios
+<                 );
+< 
+<             if (EFI_ERROR(EfiStatus))
+<             {
+<                 DEBUG((EFI_D_ERROR, "Misc smbios store error.  Index=%d, ReturnStatus=%r\n", Index, EfiStatus));
+<                 return EfiStatus;
+<             }
+<         }
+---
+>   mSmbiosMiscHiiHandle = HiiAddPackages (
+>                            &gEfiCallerIdGuid,
+>                            mSmbiosMiscImageHandle,
+>                            SmbiosMiscDxeStrings,
+>                            NULL
+>                            );
+>   if (mSmbiosMiscHiiHandle == NULL) {
+>     return EFI_OUT_OF_RESOURCES;
+>   }
+> 
+>   for (Index = 0; Index < mSmbiosMiscDataTableEntries; ++Index) {
+>     //
+>     // If the entry have a function pointer, just log the data.
+>     //
+>     if (mSmbiosMiscDataTable[Index].Function != NULL) {
+>       EfiStatus = (*mSmbiosMiscDataTable[Index].Function)(
+>   mSmbiosMiscDataTable[Index].RecordData,
+>   mSmbiosMiscSmbios
+>   );
+> 
+>       if (EFI_ERROR (EfiStatus)) {
+>         DEBUG ((
+>           DEBUG_ERROR,
+>           "Misc smbios store error.  Index=%d,"
+>           "ReturnStatus=%r\n",
+>           Index,
+>           EfiStatus
+>           ));
+>         return EfiStatus;
+>       }
+102a92
+>   }
+104c94
+<     return EfiStatus;
+---
+>   return EfiStatus;
+107d96
+< 
+109c98
+<   Logs SMBIOS record.
+---
+>   Adds an SMBIOS record.
+111,115c100,107
+<   @param  Buffer                The data for the fixed portion of the SMBIOS record. The format of the record is
+<                                 determined by EFI_SMBIOS_TABLE_HEADER.Type. The size of the formatted area is defined
+<                                 by EFI_SMBIOS_TABLE_HEADER.Length and either followed by a double-null (0x0000) or
+<                                 a set of null terminated strings and a null.
+<   @param  SmbiosHandle          A unique handle will be assigned to the SMBIOS record.
+---
+>   @param  Buffer        The data for the SMBIOS record.
+>                         The format of the record is determined by
+>                         EFI_SMBIOS_TABLE_HEADER.Type. The size of the
+>                         formatted area is defined by EFI_SMBIOS_TABLE_HEADER.Length
+>                         and either followed by a double-null (0x0000) or a set
+>                         of null terminated strings and a null.
+>   @param  SmbiosHandle  A unique handle will be assigned to the SMBIOS record
+>                         if not NULL.
+118a111
+>   @retval EFI_ALREADY_STARTED   The SmbiosHandle passed in was already in use.
+122,124c115,117
+< LogSmbiosData (
+<   IN       UINT8                      *Buffer,
+<   IN  OUT  EFI_SMBIOS_HANDLE          *SmbiosHandle
+---
+> SmbiosMiscAddRecord (
+>   IN  UINT8                 *Buffer,
+>   IN OUT EFI_SMBIOS_HANDLE  *SmbiosHandle OPTIONAL
+127c120,121
+<     EFI_STATUS         Status;
+---
+>   EFI_STATUS         Status;
+>   EFI_SMBIOS_HANDLE  Handle;
+129c123
+<     *SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+---
+>   Handle = SMBIOS_HANDLE_PI_RESERVED;
+131,136c125,138
+<     Status = mSmbios->Add (
+<                      mSmbios,
+<                      NULL,
+<                      SmbiosHandle,
+<                      (EFI_SMBIOS_TABLE_HEADER *)Buffer
+<                      );
+---
+>   if (SmbiosHandle != NULL) {
+>     Handle = *SmbiosHandle;
+>   }
+> 
+>   Status = mSmbiosMiscSmbios->Add (
+>                                 mSmbiosMiscSmbios,
+>                                 NULL,
+>                                 &Handle,
+>                                 (EFI_SMBIOS_TABLE_HEADER *)Buffer
+>                                 );
+> 
+>   if (SmbiosHandle != NULL) {
+>     *SmbiosHandle = Handle;
+>   }
+138c140
+<     return Status;
+---
+>   return Status;
+141,146c143,153
+< 
+< VOID
+< GetLinkTypeHandle(
+<   IN  UINT8                 SmbiosType,
+<   OUT UINT16                **HandleArray,
+<   OUT UINTN                 *HandleCount
+---
+> /** Fetches the number of handles of the specified SMBIOS type.
+>  *
+>  *  @param SmbiosType The type of SMBIOS record to look for.
+>  *
+>  *  @return The number of handles
+>  *
+> **/
+> STATIC
+> UINTN
+> GetHandleCount (
+>   IN  UINT8  SmbiosType
+149,162c156,174
+<     EFI_STATUS                       Status;
+<     EFI_SMBIOS_HANDLE                SmbiosHandle;
+<     EFI_SMBIOS_TABLE_HEADER          *LinkTypeData = NULL;
+< 
+<     if(mSmbios == NULL)
+<         return ;
+< 
+<     SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+< 
+<     *HandleArray = AllocateZeroPool(sizeof(UINT16) * MAX_HANDLE_COUNT);
+<     if (*HandleArray == NULL)
+<     {
+<         DEBUG ((EFI_D_INFO, "HandleArray allocate memory resource failed.\n"));
+<         return;
+---
+>   UINTN                    HandleCount;
+>   EFI_STATUS               Status;
+>   EFI_SMBIOS_HANDLE        SmbiosHandle;
+>   EFI_SMBIOS_TABLE_HEADER  *Record;
+> 
+>   HandleCount = 0;
+> 
+>   // Iterate through entries to get the number
+>   do {
+>     Status = mSmbiosMiscSmbios->GetNext (
+>                                   mSmbiosMiscSmbios,
+>                                   &SmbiosHandle,
+>                                   &SmbiosType,
+>                                   &Record,
+>                                   NULL
+>                                   );
+> 
+>     if (Status == EFI_SUCCESS) {
+>       HandleCount++;
+163a176,179
+>   } while (!EFI_ERROR (Status));
+> 
+>   return HandleCount;
+> }
+164a181,209
+> /**
+>   Fetches a list of the specified SMBIOS table types.
+> 
+>   @param[in]  SmbiosType    The type of table to fetch
+>   @param[out] **HandleArray The array of handles
+>   @param[out] *HandleCount  Number of handles in the array
+> **/
+> VOID
+> SmbiosMiscGetLinkTypeHandle (
+>   IN  UINT8          SmbiosType,
+>   OUT SMBIOS_HANDLE  **HandleArray,
+>   OUT UINTN          *HandleCount
+>   )
+> {
+>   UINTN                    Index;
+>   EFI_STATUS               Status;
+>   EFI_SMBIOS_HANDLE        SmbiosHandle;
+>   EFI_SMBIOS_TABLE_HEADER  *Record;
+> 
+>   if (mSmbiosMiscSmbios == NULL) {
+>     return;
+>   }
+> 
+>   SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+>   *HandleCount = GetHandleCount (SmbiosType);
+> 
+>   *HandleArray = AllocateZeroPool (sizeof (SMBIOS_HANDLE) * (*HandleCount));
+>   if (*HandleArray == NULL) {
+>     DEBUG ((DEBUG_ERROR, "HandleArray allocate memory resource failed.\n"));
+165a211,212
+>     return;
+>   }
+167,185c214,228
+<     while(1)
+<     {
+<         Status = mSmbios->GetNext(
+<                             mSmbios,
+<                             &SmbiosHandle,
+<                             &SmbiosType,
+<                             &LinkTypeData,
+<                             NULL
+<                             );
+< 
+<         if(!EFI_ERROR(Status))
+<         {
+<             (*HandleArray)[*HandleCount] = LinkTypeData->Handle;
+<             (*HandleCount)++;
+<         }
+<         else
+<         {
+<             break;
+<         }
+---
+>   SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
+> 
+>   for (Index = 0; Index < (*HandleCount); Index++) {
+>     Status = mSmbiosMiscSmbios->GetNext (
+>                                   mSmbiosMiscSmbios,
+>                                   &SmbiosHandle,
+>                                   &SmbiosType,
+>                                   &Record,
+>                                   NULL
+>                                   );
+> 
+>     if (!EFI_ERROR (Status)) {
+>       (*HandleArray)[Index] = Record->Handle;
+>     } else {
+>       break;
+186a230
+>   }
+188d231
+< 
+diff -r Smbios/SmbiosMiscDxe/SmbiosMisc.h /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMisc.h
+1,10c1,2
+< /**@file
+< 
+< Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+< 
+< Module Name:
+< 
+<   SmbiosMisc.h
+---
+> /** @file
+>   Header file for the SmbiosMisc Driver.
+12c4
+< Abstract:
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+14c6,10
+<   Header file for the SmbiosMisc Driver.
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+16d11
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+19,20c14,15
+< #ifndef _SMBIOS_MISC_DRIVER_H
+< #define _SMBIOS_MISC_DRIVER_H
+---
+> #ifndef SMBIOS_MISC_H_
+> #define SMBIOS_MISC_H_
+24,35d18
+< #include <Library/HiiLib.h>
+< #include <Library/PcdLib.h>
+< #include <Library/DebugLib.h>
+< #include <Library/MemoryAllocationLib.h>
+< #include <Library/BaseMemoryLib.h>
+< #include <Library/UefiBootServicesTableLib.h>
+< #include <Library/BaseLib.h>
+< #include <Library/UefiLib.h>
+< #include <Library/UefiRuntimeServicesTableLib.h>
+< #include <Guid/DebugMask.h>
+< 
+< #include <Library/PrintLib.h>
+40c23
+< typedef EFI_STATUS (EFIAPI EFI_MISC_SMBIOS_DATA_FUNCTION) (
+---
+> typedef EFI_STATUS (EFIAPI SMBIOS_MISC_DATA_FUNCTION)(
+45d27
+< 
+51c33
+<   // intermediat input data for SMBIOS record
+---
+>   // intermediate input data for SMBIOS record
+53,56c35,37
+<   VOID                              *RecordData;
+<   EFI_MISC_SMBIOS_DATA_FUNCTION     *Function;
+< } EFI_MISC_SMBIOS_DATA_TABLE;
+< 
+---
+>   VOID                         *RecordData;
+>   SMBIOS_MISC_DATA_FUNCTION    *Function;
+> } SMBIOS_MISC_DATA_TABLE;
+59c40
+< // Data Table extern definitions.
+---
+> // SMBIOS table extern definitions
+61c42
+< #define MISC_SMBIOS_TABLE_EXTERNS(NAME1, NAME2, NAME3) \
+---
+> #define SMBIOS_MISC_TABLE_EXTERNS(NAME1, NAME2, NAME3) \
+63,64c44
+< extern EFI_MISC_SMBIOS_DATA_FUNCTION NAME3 ## Function;
+< 
+---
+> extern SMBIOS_MISC_DATA_FUNCTION NAME3 ## Function;
+67c47
+< // Data Table entries
+---
+> // SMBIOS data table entries
+69,70c49,52
+< 
+< #define MISC_SMBIOS_TABLE_ENTRY_DATA_AND_FUNCTION(NAME1, NAME2) \
+---
+> // This is used to define a pair of table structure pointer and functions
+> // in order to iterate through the list of tables, populate them and add
+> // them into the system.
+> #define SMBIOS_MISC_TABLE_ENTRY_DATA_AND_FUNCTION(NAME1, NAME2) \
+76d57
+< 
+80c61
+< #define MISC_SMBIOS_TABLE_DATA(NAME1, NAME2) \
+---
+> #define SMBIOS_MISC_TABLE_DATA(NAME1, NAME2) \
+83c64
+< #define MISC_SMBIOS_TABLE_FUNCTION(NAME2) \
+---
+> #define SMBIOS_MISC_TABLE_FUNCTION(NAME2) \
+92,170c73
+< extern EFI_HII_HANDLE               mHiiHandle;
+< 
+< typedef struct _EFI_TYPE11_OEM_STRING{
+<   UINT8                               Offset;
+<   EFI_STRING_ID                       RefOemDefineString;
+< } EFI_TYPE11_OEM_STRING;
+< 
+< typedef struct _EFI_TYPE12_SYSTEM_CONFIGURATION_OPTIONS_STRING{
+<   UINT8                               Offset;
+<   EFI_STRING_ID                       RefType12SystemConfigurationOptionsString;
+< } EFI_TYPE12_SYSTEM_CONFIGURATION_OPTIONS_STRING;
+< 
+< typedef struct _EFI_TYPE13_BIOS_LANGUAGE_INFORMATION_STRING{
+<   UINT8                               *LanguageSignature;
+<   EFI_STRING_ID                       InstallableLanguageLongString;
+<   EFI_STRING_ID                       InstallableLanguageAbbreviateString;
+< } EFI_TYPE13_BIOS_LANGUAGE_INFORMATION_STRING;
+< 
+< typedef struct _EFI_TYPE40_ADDITIONAL_INFORMATION_ENTRY{
+<   UINT8           RefType;
+<   UINT8           RefOffset;
+<   EFI_STRING_ID   RefString;
+<   UINT8           Value;
+< } EFI_TYPE40_ADDITIONAL_INFORMATION_ENTRY;
+< 
+< typedef enum {
+<   STRING,
+<   DATA,
+< } OEM_DEFINE_TYPE;
+< 
+< typedef struct {
+<   OEM_DEFINE_TYPE                Type;
+<   UINTN                          Token;
+<   UINTN                          DataSize;
+< } OEM_DEFINE_INFO_STRING;
+< 
+< typedef struct {
+<   OEM_DEFINE_TYPE                Type;
+<   UINTN                          DataAddress;
+<   UINTN                          DataSize;
+< } OEM_DEFINE_INFO_DATA;
+< 
+< typedef union {
+<   OEM_DEFINE_INFO_STRING         DefineString;
+<   OEM_DEFINE_INFO_DATA           DefineData;
+< } EFI_OEM_DEFINE_ARRAY;
+< 
+< typedef struct _DMI_STRING_STRUCTURE {
+<   UINT8                                 Type;
+<   UINT8                                 Offset;
+<   UINT8                                 Valid;
+<   UINT16                                Length;
+<   UINT8                                 String[1]; // Variable length field
+< } DMI_STRING_STRUCTURE;
+< 
+< typedef struct {
+<   UINT8                                 Type;           // The SMBIOS structure type
+<   UINT8                                 FixedOffset;    // The offset of the string reference
+<                                                         // within the structure's fixed data.
+< } DMI_UPDATABLE_STRING;
+< 
+< EFI_STATUS
+< FindString (
+<   IN UINT8                              Type,
+<   IN UINT8                              Offset,
+<   IN EFI_STRING_ID                      TokenToUpdate
+< );
+< 
+< EFI_STATUS
+< FindUuid (
+<   EFI_GUID                    *Uuid
+< );
+< 
+< EFI_STATUS
+< StringToBiosVeriosn (
+<   IN  EFI_STRING_ID                     BiosVersionToken,
+<   OUT UINT8                             *MajorVersion,
+<   OUT UINT8                             *MinorVersion
+< );
+---
+> extern EFI_HII_HANDLE  mSmbiosMiscHiiHandle;
+171a75,79
+> typedef struct _SMBIOS_TYPE13_BIOS_LANGUAGE_INFORMATION_STRING {
+>   UINT8            *LanguageSignature;
+>   EFI_STRING_ID    InstallableLanguageLongString;
+>   EFI_STRING_ID    InstallableLanguageAbbreviateString;
+> } SMBIOS_TYPE13_BIOS_LANGUAGE_INFORMATION_STRING;
+174c82
+<  Logs SMBIOS record.
+---
+>   Adds an SMBIOS record.
+176,177c84,95
+<  @param [in]   Buffer         Pointer to the data buffer.
+<  @param [in]   SmbiosHandle   Pointer for retrieve handle.
+---
+>   @param  Buffer        The data for the SMBIOS record.
+>                         The format of the record is determined by
+>                         EFI_SMBIOS_TABLE_HEADER.Type. The size of the
+>                         formatted area is defined by EFI_SMBIOS_TABLE_HEADER.Length
+>                         and either followed by a double-null (0x0000) or a set
+>                         of null terminated strings and a null.
+>   @param  SmbiosHandle  A unique handle will be assigned to the SMBIOS record
+>                         if not NULL.
+> 
+>   @retval EFI_SUCCESS           Record was added.
+>   @retval EFI_OUT_OF_RESOURCES  Record was not added due to lack of system resources.
+>   @retval EFI_ALREADY_STARTED   The SmbiosHandle passed in was already in use.
+181,183c99,101
+< LogSmbiosData (
+<   IN       UINT8                      *Buffer,
+<   IN  OUT  EFI_SMBIOS_HANDLE          *SmbiosHandle
+---
+> SmbiosMiscAddRecord (
+>   IN       UINT8              *Buffer,
+>   IN  OUT  EFI_SMBIOS_HANDLE  *SmbiosHandle OPTIONAL
+190,191c108,109
+<  @param [out]  HandleArray    Pointer to Hadndler array with has been free by caller
+<  @param [out]  HandleCount    Pointer to Hadndler Counter
+---
+>  @param [out]  HandleArray    Pointer to handle array which will be freed by caller
+>  @param [out]  HandleCount    Pointer to handle count
+195,198c113,116
+< GetLinkTypeHandle(
+<   IN  UINT8                 SmbiosType,
+<   OUT UINT16                **HandleArray,
+<   OUT UINTN                 *HandleCount
+---
+> SmbiosMiscGetLinkTypeHandle (
+>   IN  UINT8   SmbiosType,
+>   OUT UINT16  **HandleArray,
+>   OUT UINTN   *HandleCount
+201,219c119,130
+< typedef enum {
+<     ProductNameType01,
+<     SerialNumType01,
+<     UuidType01,
+<     SystemManufacturerType01,
+<     AssertTagType02,
+<     SrNumType02,
+<     BoardManufacturerType02,
+<     AssetTagType03,
+<     SrNumType03,
+<     VersionType03,
+<     ChassisTypeType03 ,
+<     ManufacturerType03,
+< } GET_INFO_BMC_OFFSET;
+< 
+< VOID UpdateSmbiosInfo (IN EFI_HII_HANDLE mHiiHandle, IN EFI_STRING_ID TokenToUpdate, IN UINT8 Offset);
+< EFI_STATUS GetUuidType1 (IN OUT EFI_GUID *Uuid);
+< EFI_STATUS IpmiGetChassisType (IN OUT UINT8 *Type);
+< #endif
+---
+> //
+> // Data Table Array
+> //
+> extern SMBIOS_MISC_DATA_TABLE  mSmbiosMiscDataTable[];
+> 
+> //
+> // Data Table Array Entries
+> //
+> extern UINTN  mSmbiosMiscDataTableEntries;
+> extern UINT8  mSmbiosMiscDxeStrings[];
+> 
+> #endif // SMBIOS_MISC_H_
+Only in Smbios/SmbiosMiscDxe: SmbiosMiscLibString.uni
+diff -r Smbios/SmbiosMiscDxe/Type00/MiscBiosVendorData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type00/MiscBiosVendorData.c
+1c1,2
+< /*++
+---
+> /** @file
+>   This file provides Smbios Type0 Data
+3,6c4
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on the files under Nt32Pkg/MiscSubClassPlatformDxe/
+8,16c6,10
+< Module Name:
+< 
+<   MiscBiosVendorData.c
+< 
+< Abstract:
+< 
+<   This file provide OEM to define Smbios Type0 Data
+< 
+< Based on the files under Nt32Pkg/MiscSubClassPlatformDxe/
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+20d13
+< 
+23d15
+< 
+27,98c19,90
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE0, MiscBiosVendor) = {
+<     {                                          //Hdr
+<         EFI_SMBIOS_TYPE_BIOS_INFORMATION,          // Type,
+<         0,                                         // Length,
+<         0                                          // Handle
+<     },
+<     1,                                         //Vendor
+<     2,                                         //BiosVersion
+<     0xE000,                                    //BiosSegment
+<     3,                                         //BiosReleaseDate
+<     0,                                         //BiosSize
+<     {                                          //BiosCharacteristics
+<         0,                                         // Reserved                          :2
+<         0,                                         // Unknown                           :1
+<         0,                                         // BiosCharacteristicsNotSupported   :1
+<         0,                                         // IsaIsSupported                    :1
+<         0,                                         // McaIsSupported                    :1
+<         0,                                         // EisaIsSupported                   :1
+<         1,                                         // PciIsSupported                    :1
+<         0,                                         // PcmciaIsSupported                 :1
+<         0,                                         // PlugAndPlayIsSupported            :1
+<         0,                                         // ApmIsSupported                    :1
+<         1,                                         // BiosIsUpgradable                  :1
+<         1,                                         // BiosShadowingAllowed              :1
+<         0,                                         // VlVesaIsSupported                 :1
+<         0,                                         // EscdSupportIsAvailable            :1
+<         1,                                         // BootFromCdIsSupported             :1
+<         1,                                         // SelectableBootIsSupported         :1
+<         0,                                         // RomBiosIsSocketed                 :1
+<         0,                                         // BootFromPcmciaIsSupported         :1
+<         1,                                         // EDDSpecificationIsSupported       :1
+<         1,                                         // JapaneseNecFloppyIsSupported      :1
+<         1,                                         // JapaneseToshibaFloppyIsSupported  :1
+<         1,                                         // Floppy525_360IsSupported          :1
+<         1,                                         // Floppy525_12IsSupported           :1
+<         1,                                         // Floppy35_720IsSupported           :1
+<         1,                                         // Floppy35_288IsSupported           :1
+<         0,                                         // PrintScreenIsSupported            :1
+<         1,                                         // Keyboard8042IsSupported           :1
+<         0,                                         // SerialIsSupported                 :1
+<         0,                                         // PrinterIsSupported                :1
+<         1,                                         // CgaMonoIsSupported                :1
+<         0,                                         // NecPc98                           :1
+<         0                                          // ReservedForVendor                 :32
+<     },
+< 
+<     {
+<         0x03,                                        //BIOSCharacteristicsExtensionBytes[0]
+<         //  {                                          //BiosReserved
+<         //    1,                                         // AcpiIsSupported                   :1
+<         //    1,                                         // UsbLegacyIsSupported              :1
+<         //    0,                                         // AgpIsSupported                    :1
+<         //    0,                                         // I20BootIsSupported                :1
+<         //    0,                                         // Ls120BootIsSupported              :1
+<         //    0,                                         // AtapiZipDriveBootIsSupported      :1
+<         //    0,                                         // Boot1394IsSupported               :1
+<         //    0                                          // SmartBatteryIsSupported           :1
+<         //  },
+<         0x0D                                         //BIOSCharacteristicsExtensionBytes[1]
+<         //  {                                          //SystemReserved
+<         //    1,                                         //BiosBootSpecIsSupported            :1
+<         //    0,                                         //FunctionKeyNetworkBootIsSupported  :1
+<         //    1,                                         //TargetContentDistributionEnabled   :1
+<         //    1,                                         //UefiSpecificationSupported         :1
+<         //    0,                                         //VirtualMachineSupported            :1
+<         //    0                                          //ExtensionByte2Reserved             :3
+<         //  },
+<     },
+<     0,                                        //SystemBiosMajorRelease;
+<     0,                                        //SystemBiosMinorRelease;
+<     0xFF,                                     //EmbeddedControllerFirmwareMajorRelease;
+<     0xFF                                      //EmbeddedControllerFirmwareMinorRelease;
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE0, MiscBiosVendor) = {
+>   {                                          // Hdr
+>     EFI_SMBIOS_TYPE_BIOS_INFORMATION,        // Type,
+>     0,                                       // Length,
+>     0                                        // Handle
+>   },
+>   1,                                         // Vendor
+>   2,                                         // BiosVersion
+>   0xE000,                                    // BiosSegment
+>   3,                                         // BiosReleaseDate
+>   0,                                         // BiosSize
+>   {                                          // BiosCharacteristics
+>     0,                                       // Reserved                          :2
+>     0,                                       // Unknown                           :1
+>     0,                                       // BiosCharacteristicsNotSupported   :1
+>     0,                                       // IsaIsSupported                    :1
+>     0,                                       // McaIsSupported                    :1
+>     0,                                       // EisaIsSupported                   :1
+>     1,                                       // PciIsSupported                    :1
+>     0,                                       // PcmciaIsSupported                 :1
+>     1,                                       // PlugAndPlayIsSupported            :1
+>     0,                                       // ApmIsSupported                    :1
+>     1,                                       // BiosIsUpgradable                  :1
+>     1,                                       // BiosShadowingAllowed              :1
+>     0,                                       // VlVesaIsSupported                 :1
+>     0,                                       // EscdSupportIsAvailable            :1
+>     1,                                       // BootFromCdIsSupported             :1
+>     1,                                       // SelectableBootIsSupported         :1
+>     0,                                       // RomBiosIsSocketed                 :1
+>     0,                                       // BootFromPcmciaIsSupported         :1
+>     0,                                       // EDDSpecificationIsSupported       :1
+>     0,                                       // JapaneseNecFloppyIsSupported      :1
+>     0,                                       // JapaneseToshibaFloppyIsSupported  :1
+>     0,                                       // Floppy525_360IsSupported          :1
+>     0,                                       // Floppy525_12IsSupported           :1
+>     0,                                       // Floppy35_720IsSupported           :1
+>     0,                                       // Floppy35_288IsSupported           :1
+>     0,                                       // PrintScreenIsSupported            :1
+>     0,                                       // Keyboard8042IsSupported           :1
+>     0,                                       // SerialIsSupported                 :1
+>     0,                                       // PrinterIsSupported                :1
+>     0,                                       // CgaMonoIsSupported                :1
+>     0,                                       // NecPc98                           :1
+>     0                                        // ReservedForVendor                 :32
+>   },
+> 
+>   {
+>     0x01,                                        // BIOSCharacteristicsExtensionBytes[0]
+>     //  {                                          // BiosReserved
+>     //    1,                                         // AcpiIsSupported                   :1
+>     //    0,                                         // UsbLegacyIsSupported              :1
+>     //    0,                                         // AgpIsSupported                    :1
+>     //    0,                                         // I20BootIsSupported                :1
+>     //    0,                                         // Ls120BootIsSupported              :1
+>     //    0,                                         // AtapiZipDriveBootIsSupported      :1
+>     //    0,                                         // Boot1394IsSupported               :1
+>     //    0                                          // SmartBatteryIsSupported           :1
+>     //  },
+>     0x0C                                         // BIOSCharacteristicsExtensionBytes[1]
+>     //  {                                          //SystemReserved
+>     //    0,                                         //BiosBootSpecIsSupported            :1
+>     //    0,                                         //FunctionKeyNetworkBootIsSupported  :1
+>     //    1,                                         //TargetContentDistributionEnabled   :1
+>     //    1,                                         //UefiSpecificationSupported         :1
+>     //    0,                                         //VirtualMachineSupported            :1
+>     //    0                                          //ExtensionByte2Reserved             :3
+>     //  },
+>   },
+>   0xFF,                                     // SystemBiosMajorRelease;
+>   0xFF,                                     // SystemBiosMinorRelease;
+>   0xFF,                                     // EmbeddedControllerFirmwareMajorRelease;
+>   0xFF                                      // EmbeddedControllerFirmwareMinorRelease;
+diff -r Smbios/SmbiosMiscDxe/Type00/MiscBiosVendorFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type00/MiscBiosVendorFunction.c
+2a3,4
+>   Copyright (c) 2022 - 2023, Ampere Computing LLC. All rights reserved.<BR>
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+7a10
+> **/
+9,20c12,19
+< Module Name:
+< 
+<   MiscBiosVendorData.c
+< 
+< Abstract:
+< 
+<   This driver parses the mMiscSubclassDataTable structure and reports
+<   any generated data to the DataHub.
+< 
+< Based on the files under Nt32Pkg/MiscSubClassPlatformDxe/
+< 
+< --*/
+---
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+22d20
+< //
+24,25d21
+< #include <Library/HobLib.h>
+< #include <Guid/VersionInfoHobGuid.h>
+26a23,43
+> typedef struct {
+>   CONST CHAR8    *MonthStr;
+>   UINT32         MonthInt;
+> } MONTH_DESCRIPTION;
+> 
+> STATIC CONST
+> MONTH_DESCRIPTION  mMonthDescription[] = {
+>   { "Jan", 1  },
+>   { "Feb", 2  },
+>   { "Mar", 3  },
+>   { "Apr", 4  },
+>   { "May", 5  },
+>   { "Jun", 6  },
+>   { "Jul", 7  },
+>   { "Aug", 8  },
+>   { "Sep", 9  },
+>   { "Oct", 10 },
+>   { "Nov", 11 },
+>   { "Dec", 12 },
+>   { "???", 1  }, // Use 1 as default month
+> };
+42c59
+<     UINT8 Size;
+---
+>   UINT8  Size;
+44c61
+<     Size = Value / SIZE_64KB + (Value % SIZE_64KB + SIZE_64KB - 1) / SIZE_64KB;
+---
+>   Size = ((Value + (SIZE_64KB - 1)) >> 16);
+46c63
+<     return Size;
+---
+>   return Size;
+48a66,92
+> /**
+>   Returns the date and time this file (and firmware) was built.
+> 
+>   @param[out] *Time Pointer to the EFI_TIME structure to fill in.
+> **/
+> VOID
+> GetReleaseTime (
+>   OUT EFI_TIME  *Time
+>   )
+> {
+>   CONST CHAR8  *ReleaseDate = __DATE__;
+>   CONST CHAR8  *ReleaseTime = __TIME__;
+>   UINTN        i;
+> 
+>   for (i = 0; i < 12; i++) {
+>     if (AsciiStrnCmp (ReleaseDate, mMonthDescription[i].MonthStr, 3) == 0) {
+>       break;
+>     }
+>   }
+> 
+>   Time->Month  = mMonthDescription[i].MonthInt;
+>   Time->Day    = AsciiStrDecimalToUintn (ReleaseDate + 4);
+>   Time->Year   = AsciiStrDecimalToUintn (ReleaseDate + 7);
+>   Time->Hour   = AsciiStrDecimalToUintn (ReleaseTime);
+>   Time->Minute = AsciiStrDecimalToUintn (ReleaseTime + 3);
+>   Time->Second = AsciiStrDecimalToUintn (ReleaseTime + 6);
+> }
+50a95,96
+>   Fetches the firmware ('BIOS') release date from the
+>   FirmwareVersionInfo HOB.
+51a98
+>   @return The release date as a UTF-16 string
+53c100
+< VOID *
+---
+> CHAR16 *
+54a102
+>   VOID
+57,65c105,106
+<     CHAR16                  *ReleaseDate = NULL;
+<     VERSION_INFO            *Version;
+<     VOID                    *Hob;
+< 
+<     ReleaseDate = AllocateZeroPool ((sizeof (CHAR16)) * SMBIOS_STRING_MAX_LENGTH);
+<     if(NULL == ReleaseDate)
+<     {
+<         return NULL;
+<     }
+---
+>   CHAR16    *ReleaseDate;
+>   EFI_TIME  BuildTime;
+67,71c108,122
+<     Hob = GetFirstGuidHob (&gVersionInfoHobGuid);
+<     if (Hob == NULL) {
+<       DEBUG ((EFI_D_ERROR, "[%a:%d] Version info HOB not found!\n", __FUNCTION__, __LINE__));
+<       return NULL;
+<     }
+---
+>   ReleaseDate = AllocateZeroPool ((sizeof (CHAR16)) * SMBIOS_STRING_MAX_LENGTH);
+>   if (ReleaseDate == NULL) {
+>     return NULL;
+>   }
+> 
+>   GetReleaseTime (&BuildTime);
+> 
+>   (VOID)UnicodeSPrintAsciiFormat (
+>           ReleaseDate,
+>           (sizeof (CHAR16)) * SMBIOS_STRING_MAX_LENGTH,
+>           "%02d/%02d/%4d",
+>           BuildTime.Month,
+>           BuildTime.Day,
+>           BuildTime.Year
+>           );
+73,82c124
+<     Version = GET_GUID_HOB_DATA (Hob);
+<     (VOID)UnicodeSPrintAsciiFormat( ReleaseDate,
+<                           (sizeof (CHAR16)) * SMBIOS_STRING_MAX_LENGTH,
+<                           "%02d/%02d/%4d",
+<                           Version->BuildTime.Month,
+<                           Version->BuildTime.Day,
+<                           Version->BuildTime.Year
+<                           );
+< 
+<     return ReleaseDate;
+---
+>   return ReleaseDate;
+85,86c127,136
+< VOID *
+< GetBiosVersion (
+---
+> /**  Fetches the Firmware version string for SMBIOS type 0
+> 
+>   This function first acquires the firmware version string from OemMiscLib;
+>   if it is invalid, PcdFirmwareVersionString is used as a fallback,
+>   and then sets it in SMBIOS type 0.
+> 
+> **/
+> VOID
+> SetBiosVersion (
+>   VOID
+89,95c139,165
+<     VERSION_INFO            *Version;
+<     VOID                    *Hob;
+< 
+<     Hob = GetFirstGuidHob (&gVersionInfoHobGuid);
+<     if (Hob == NULL) {
+<       DEBUG ((EFI_D_ERROR, "[%a:%d] Version info HOB not found!\n", __FUNCTION__, __LINE__));
+<       return NULL;
+---
+>   CHAR16         *DefaultVersionString;
+>   CHAR16         *Version;
+>   EFI_STRING_ID  TokenToUpdate;
+> 
+>   DefaultVersionString = HiiGetString (
+>                            mSmbiosMiscHiiHandle,
+>                            STRING_TOKEN (STR_MISC_BIOS_VERSION),
+>                            NULL
+>                            );
+> 
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_BIOS_VERSION),
+>     BiosVersionType00
+>     );
+> 
+>   Version = HiiGetString (
+>               mSmbiosMiscHiiHandle,
+>               STRING_TOKEN (STR_MISC_BIOS_VERSION),
+>               NULL
+>               );
+> 
+>   if (((StrCmp (Version, DefaultVersionString) == 0) || (StrLen (Version) == 0))) {
+>     Version = (CHAR16 *)FixedPcdGetPtr (PcdFirmwareVersionString);
+>     if (StrLen (Version) > 0) {
+>       TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+>       HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, Version, NULL);
+97,98c167
+<     Version = GET_GUID_HOB_DATA (Hob);
+<     return Version->String;
+---
+>   }
+101d169
+< 
+104c172
+<   MiscBiosVendor (Type 0).
+---
+>   MiscBiosVendor (Type 0) record.
+106c174,175
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+108,109c177
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+110a179
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+113,207c182,294
+< MISC_SMBIOS_TABLE_FUNCTION(MiscBiosVendor)
+< {
+<     CHAR8                 *OptionalStrStart;
+<     UINTN                 VendorStrLen;
+<     UINTN                 VerStrLen;
+<     UINTN                 DateStrLen;
+<     UINTN                 BiosPhysicalSizeHexValue;
+<     CHAR16                *Vendor;
+<     CHAR16                *Version;
+<     CHAR16                *ReleaseDate;
+<     CHAR16                *Char16String;
+<     EFI_STATUS            Status;
+<     EFI_STRING_ID         TokenToUpdate;
+<     EFI_STRING_ID         TokenToGet;
+<     SMBIOS_TABLE_TYPE0    *SmbiosRecord;
+<     EFI_SMBIOS_HANDLE     SmbiosHandle;
+<     SMBIOS_TABLE_TYPE0    *InputData;
+< 
+<     //
+<     // First check for invalid parameters.
+<     //
+<     if (RecordData == NULL)
+<     {
+<         return EFI_INVALID_PARAMETER;
+<     }
+< 
+<     InputData = (SMBIOS_TABLE_TYPE0 *)RecordData;
+< 
+<     Vendor = (CHAR16 *) PcdGetPtr (PcdFirmwareVendor);
+<     if (StrLen(Vendor) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VENDOR);
+<         HiiSetString (mHiiHandle, TokenToUpdate, Vendor, NULL);
+<     }
+< 
+<     Version = GetBiosVersion();
+<     if (StrLen (Version) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+<         HiiSetString (mHiiHandle, TokenToUpdate, Version, NULL);
+<     }
+<     else
+<     {
+<         Version = (CHAR16 *) PcdGetPtr (PcdBiosVersionForBmc);
+<         if (StrLen (Version) > 0)
+<         {
+<             TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+<             HiiSetString (mHiiHandle, TokenToUpdate, Version, NULL);
+<         }
+<         else
+<         {
+<             Version = (CHAR16 *) PcdGetPtr (PcdBiosVersionString);
+<             if (StrLen (Version) > 0)
+<             {
+<                 TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+<                 HiiSetString (mHiiHandle, TokenToUpdate, Version, NULL);
+<             }
+<         }
+<     }
+< 
+<     Char16String = GetBiosReleaseDate ();
+<     if (StrLen(Char16String) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_RELEASE_DATE);
+<         HiiSetString (mHiiHandle, TokenToUpdate, Char16String, NULL);
+<     }
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BIOS_VENDOR);
+<     Vendor = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     VendorStrLen = StrLen(Vendor);
+< 
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+<     Version = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     VerStrLen = StrLen(Version);
+< 
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BIOS_RELEASE_DATE);
+<     ReleaseDate = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     DateStrLen = StrLen(ReleaseDate);
+< 
+<     //
+<     // Now update the BiosPhysicalSize
+<     //
+<     BiosPhysicalSizeHexValue = FixedPcdGet32 (PcdFdSize);
+< 
+<     //
+<     // Two zeros following the last string.
+<     //
+<     SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE0) + VendorStrLen + 1 + VerStrLen + 1 + DateStrLen + 1 + 1);
+<     if(NULL == SmbiosRecord)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+---
+> SMBIOS_MISC_TABLE_FUNCTION (MiscBiosVendor) {
+>   CHAR8               *OptionalStrStart;
+>   CHAR8               *StrStart;
+>   UINTN               VendorStrLen;
+>   UINTN               VerStrLen;
+>   UINTN               DateStrLen;
+>   UINT64              BiosPhysicalSize;
+>   CHAR16              *Vendor;
+>   CHAR16              *Version;
+>   CHAR16              *ReleaseDate;
+>   CHAR16              *Char16String;
+>   EFI_STATUS          Status;
+>   EFI_STRING_ID       TokenToUpdate;
+>   EFI_STRING_ID       TokenToGet;
+>   SMBIOS_TABLE_TYPE0  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE0  *InputData;
+> 
+>   //
+>   // First check for invalid parameters.
+>   //
+>   if (RecordData == NULL) {
+>     return EFI_INVALID_PARAMETER;
+>   }
+> 
+>   InputData = (SMBIOS_TABLE_TYPE0 *)RecordData;
+> 
+>   Vendor = (CHAR16 *)PcdGetPtr (PcdFirmwareVendor);
+> 
+>   if (StrLen (Vendor) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_VENDOR);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, Vendor, NULL);
+>   }
+> 
+>   SetBiosVersion ();
+> 
+>   Char16String = GetBiosReleaseDate ();
+>   if (StrLen (Char16String) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_BIOS_RELEASE_DATE);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, Char16String, NULL);
+>   }
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_BIOS_VENDOR);
+>   Vendor       = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   VendorStrLen = StrLen (Vendor);
+> 
+>   TokenToGet = STRING_TOKEN (STR_MISC_BIOS_VERSION);
+>   Version    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   VerStrLen  = StrLen (Version);
+> 
+>   TokenToGet  = STRING_TOKEN (STR_MISC_BIOS_RELEASE_DATE);
+>   ReleaseDate = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   DateStrLen  = StrLen (ReleaseDate);
+> 
+>   //
+>   // Now update the BiosPhysicalSize
+>   //
+>   BiosPhysicalSize = FixedPcdGet32 (PcdFdSize);
+> 
+>   //
+>   // Two zeros following the last string.
+>   //
+>   SmbiosRecord = AllocateZeroPool (
+>                    sizeof (SMBIOS_TABLE_TYPE0) + VendorStrLen + 1 +
+>                    VerStrLen + 1 +
+>                    DateStrLen + 1 + 1
+>                    );
+>   if (SmbiosRecord == NULL) {
+>     Status = EFI_OUT_OF_RESOURCES;
+>     goto Exit;
+>   }
+> 
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE0));
+> 
+>   SmbiosRecord->Hdr.Length  = sizeof (SMBIOS_TABLE_TYPE0);
+>   SmbiosRecord->BiosSegment = (UINT16)(FixedPcdGet32 (PcdFdBaseAddress) / SIZE_64KB);
+>   if (BiosPhysicalSize < SIZE_16MB) {
+>     SmbiosRecord->BiosSize = Base2ToByteWith64KUnit (BiosPhysicalSize) - 1;
+>   } else {
+>     SmbiosRecord->BiosSize = 0xFF;
+>     if (BiosPhysicalSize < SIZE_16GB) {
+>       SmbiosRecord->ExtendedBiosSize.Size = BiosPhysicalSize / SIZE_1MB;
+>       SmbiosRecord->ExtendedBiosSize.Unit = 0; // Size is in MB
+>     } else {
+>       SmbiosRecord->ExtendedBiosSize.Size = BiosPhysicalSize / SIZE_1GB;
+>       SmbiosRecord->ExtendedBiosSize.Unit = 1; // Size is in GB
+>     }
+>   }
+> 
+>   SmbiosRecord->SystemBiosMajorRelease = (UINT8)(OemGetBiosRelease () >> 8);
+>   SmbiosRecord->SystemBiosMinorRelease = (UINT8)(OemGetBiosRelease () & 0xFF);
+> 
+>   SmbiosRecord->EmbeddedControllerFirmwareMajorRelease = (UINT16)(OemGetEmbeddedControllerFirmwareRelease () >> 8);
+>   SmbiosRecord->EmbeddedControllerFirmwareMinorRelease = (UINT16)(OemGetEmbeddedControllerFirmwareRelease () & 0xFF);
+> 
+>   OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+>   UnicodeStrToAsciiStrS (Vendor, OptionalStrStart, VendorStrLen + 1);
+>   StrStart = OptionalStrStart + VendorStrLen + 1;
+>   UnicodeStrToAsciiStrS (Version, StrStart, VerStrLen + 1);
+>   StrStart += VerStrLen + 1;
+>   UnicodeStrToAsciiStrS (ReleaseDate, StrStart, DateStrLen + 1);
+>   //
+>   // Now we have got the full smbios record, call smbios protocol to add this record.
+>   //
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type00 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+209,231c296
+<     (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE0));
+< 
+<     SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE0);
+<     SmbiosRecord->BiosSegment = (UINT16)(FixedPcdGet32 (PcdFdBaseAddress) / 0x10000);
+<     SmbiosRecord->BiosSize = Base2ToByteWith64KUnit(BiosPhysicalSizeHexValue) - 1;
+< 
+<     OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+<     Status = UnicodeStrToAsciiStrS (Vendor, OptionalStrStart, VendorStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (Version, OptionalStrStart + VendorStrLen + 1, VerStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ReleaseDate, OptionalStrStart + VendorStrLen + 1 + VerStrLen + 1, DateStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     //
+<     // Now we have got the full smbios record, call smbios protocol to add this record.
+<     //
+<     Status = LogSmbiosData( (UINT8*)SmbiosRecord, &SmbiosHandle);
+<     if(EFI_ERROR(Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type00 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+< 
+<     FreePool(SmbiosRecord);
+---
+>   FreePool (SmbiosRecord);
+234,252c299,313
+<     if(Vendor != NULL)
+<     {
+<         FreePool(Vendor);
+<     }
+< 
+<     if(Version != NULL)
+<     {
+<         FreePool(Version);
+<     }
+< 
+<     if(ReleaseDate != NULL)
+<     {
+<         FreePool(ReleaseDate);
+<     }
+< 
+<     if(Char16String != NULL)
+<     {
+<         FreePool(Char16String);
+<     }
+---
+>   if (Vendor != NULL) {
+>     FreePool (Vendor);
+>   }
+> 
+>   if (Version != NULL) {
+>     FreePool (Version);
+>   }
+> 
+>   if (ReleaseDate != NULL) {
+>     FreePool (ReleaseDate);
+>   }
+> 
+>   if (Char16String != NULL) {
+>     FreePool (Char16String);
+>   }
+254c315
+<     return Status;
+---
+>   return Status;
+diff -r Smbios/SmbiosMiscDxe/Type00/MiscBiosVendor.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type00/MiscBiosVendor.uni
+1,10c1,2
+< ﻿// *++
+< //
+< // Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+< // Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< // Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< //
+< // SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< // Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< // --*/
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+12c4,10
+< /=#
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+14,16c12
+< //#string STR_MISC_BIOS_VENDOR           #language en-US  "Bios Vendor"
+< #string STR_MISC_BIOS_VERSION          #language en-US  "Bios Version"
+< //#string STR_MISC_BIOS_RELEASE_DATE     #language en-US  "Bios Release Date"
+---
+> /=#
+18,19c14,18
+< #string STR_MISC_BIOS_VENDOR           #language en-US  "Huawei Technologies Co., Ltd."
+< #string STR_MISC_BIOS_RELEASE_DATE     #language en-US  "01/01/1900"
+---
+> #string STR_MISC_BIOS_VENDOR           #language en-US  "Not Specified"
+> #string STR_MISC_BIOS_VERSION          #language en-US  "Not Specified"
+> #string STR_MISC_BIOS_RELEASE_DATE     #language en-US  "Not Specified"
+> #string STR_MISC_BIOS_VENDOR           #language en-US  "Not Specified"
+> #string STR_MISC_BIOS_RELEASE_DATE     #language en-US  "12/02/2020"
+diff -r Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturerData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturerData.c
+1c1,2
+< /*++
+---
+> /** @file
+>   This file provides Smbios Type1 Data
+3,6c4
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+8,16c6,10
+< Module Name:
+< 
+<   MiscSystemManufacturerData.c
+< 
+< Abstract:
+< 
+<   This file provide OEM to define Smbios Type1 Data
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+20,23d13
+< /* Modify list
+< DATA        AUTHOR            REASON
+< */
+< 
+26d15
+< 
+30,45c19,34
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE1, MiscSystemManufacturer) = {
+<     {                                               // Hdr
+<         EFI_SMBIOS_TYPE_SYSTEM_INFORMATION,             // Type,
+<         0,                                              // Length,
+<         0                                               // Handle
+<     },
+<     1,                                              // Manufacturer
+<     2,                                              // ProductName
+<     3,                                              // Version
+<     4,                                              // SerialNumber
+<     {                                               // Uuid
+<         0x12345678, 0x1234, 0x5678, {0x90, 0xab, 0xcd, 0xde, 0xef, 0xaa, 0xbb, 0xcc}
+<     },
+<     SystemWakeupTypePowerSwitch,                    // SystemWakeupType
+<     5,                                              // SKUNumber,
+<     6                                               // Family
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE1, MiscSystemManufacturer) = {
+>   {                                               // Hdr
+>     EFI_SMBIOS_TYPE_SYSTEM_INFORMATION,           // Type,
+>     0,                                            // Length,
+>     0                                             // Handle
+>   },
+>   1,                                              // Manufacturer
+>   2,                                              // ProductName
+>   3,                                              // Version
+>   4,                                              // SerialNumber
+>   {                                               // Uuid
+>     0x00000000, 0x0000, 0x0000, { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+>   },
+>   SystemWakeupTypePowerSwitch,                    // SystemWakeupType
+>   5,                                              // SKUNumber,
+>   6                                               // Family
+diff -r Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturerFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturerFunction.c
+1,13c1
+< /*++
+< 
+< Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+< 
+< Module Name:
+< 
+<   MiscSystemManufacturerFunction.c
+< 
+< Abstract:
+< 
+---
+> /** @file
+17c5,12
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2022, Ampere Computing LLC. All rights reserved.<BR>
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+20a16,24
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+> 
+25c29
+<   MiscSystemManufacturer (Type 1).
+---
+>   MiscSystemManufacturer (Type 1) record.
+27c31,32
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+29,30c34
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+31a36
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+34,158c39,191
+< MISC_SMBIOS_TABLE_FUNCTION(MiscSystemManufacturer)
+< {
+<     CHAR8                           *OptionalStrStart;
+<     UINTN                           ManuStrLen;
+<     UINTN                           VerStrLen;
+<     UINTN                           PdNameStrLen;
+<     UINTN                           SerialNumStrLen;
+<     UINTN                           SKUNumStrLen;
+<     UINTN                           FamilyStrLen;
+<     EFI_STRING                      Manufacturer;
+<     EFI_STRING                      ProductName;
+<     EFI_STRING                      Version;
+<     EFI_STRING                      SerialNumber;
+<     EFI_STRING                      SKUNumber;
+<     EFI_STRING                      Family;
+<     EFI_STRING_ID                   TokenToGet;
+<     EFI_SMBIOS_HANDLE               SmbiosHandle;
+<     SMBIOS_TABLE_TYPE1              *SmbiosRecord;
+<     SMBIOS_TABLE_TYPE1              *InputData;
+<     EFI_STATUS                      Status;
+<     EFI_STRING_ID                   TokenToUpdate;
+<     CHAR16                          *Product;
+<     CHAR16                          *pVersion;
+< 
+<     EFI_GUID                        Uuid;
+< 
+<     //
+<     // First check for invalid parameters.
+<     //
+<     if (RecordData == NULL)
+<     {
+<         return EFI_INVALID_PARAMETER;
+<     }
+< 
+<     InputData = (SMBIOS_TABLE_TYPE1 *)RecordData;
+< 
+<     Product = (CHAR16 *) PcdGetPtr (PcdSystemProductName);
+<     if (StrLen(Product) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_SYSTEM_PRODUCT_NAME);
+<         HiiSetString (mHiiHandle, TokenToUpdate, Product, NULL);
+<     }
+< 
+<     pVersion = (CHAR16 *) PcdGetPtr (PcdSystemVersion);
+<     if (StrLen(pVersion) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_SYSTEM_VERSION);
+<         HiiSetString (mHiiHandle, TokenToUpdate, pVersion, NULL);
+<     }
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_SYSTEM_SERIAL_NUMBER), SerialNumType01);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_SYSTEM_MANUFACTURER), SystemManufacturerType01);
+< 
+<     TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_MANUFACTURER);
+<     Manufacturer = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ManuStrLen   = StrLen(Manufacturer);
+< 
+<     TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_PRODUCT_NAME);
+<     ProductName  = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     PdNameStrLen = StrLen(ProductName);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_SYSTEM_VERSION);
+<     Version    = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     VerStrLen  = StrLen(Version);
+< 
+<     TokenToGet      = STRING_TOKEN (STR_MISC_SYSTEM_SERIAL_NUMBER);
+<     SerialNumber    = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     SerialNumStrLen = StrLen(SerialNumber);
+< 
+<     TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_SKU_NUMBER);
+<     SKUNumber    = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     SKUNumStrLen = StrLen(SKUNumber);
+< 
+<     TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_FAMILY);
+<     Family       = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     FamilyStrLen = StrLen(Family);
+< 
+<     //
+<     // Two zeros following the last string.
+<     //
+<     SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE1) + ManuStrLen      + 1
+<                                                                 + PdNameStrLen    + 1
+<                                                                 + VerStrLen       + 1
+<                                                                 + SerialNumStrLen + 1
+<                                                                 + SKUNumStrLen    + 1
+<                                                                 + FamilyStrLen    + 1 + 1);
+< 
+<     if (NULL == SmbiosRecord)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+< 
+<     (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE1));
+< 
+<     SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE1);
+< 
+<     SmbiosRecord->Uuid = InputData->Uuid;
+<     Status = GetUuidType1 (&Uuid);
+<     if (!EFI_ERROR (Status))
+<     {
+<         SmbiosRecord->Uuid = Uuid;
+<     }
+< 
+<     OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+<     Status = UnicodeStrToAsciiStrS (Manufacturer, OptionalStrStart, ManuStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ProductName,  OptionalStrStart + ManuStrLen + 1, PdNameStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (Version,      OptionalStrStart + ManuStrLen + 1 + PdNameStrLen + 1, VerStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (SerialNumber, OptionalStrStart + ManuStrLen + 1 + PdNameStrLen + 1 + VerStrLen + 1, SerialNumStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (SKUNumber,    OptionalStrStart + ManuStrLen + 1 + PdNameStrLen + 1 + VerStrLen + 1 + SerialNumStrLen + 1, SKUNumStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (Family,       OptionalStrStart + ManuStrLen + 1 + PdNameStrLen + 1 + VerStrLen + 1 + SerialNumStrLen + 1 + SKUNumStrLen + 1, FamilyStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+< 
+<     //
+<     // Now we have got the full smbios record, call smbios protocol to add this record.
+<     //
+<     Status = LogSmbiosData( (UINT8*)SmbiosRecord, &SmbiosHandle);
+<     if(EFI_ERROR(Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type01 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+---
+> SMBIOS_MISC_TABLE_FUNCTION (MiscSystemManufacturer) {
+>   CHAR8               *OptionalStrStart;
+>   CHAR8               *StrStart;
+>   UINTN               ManuStrLen;
+>   UINTN               VerStrLen;
+>   UINTN               PdNameStrLen;
+>   UINTN               SerialNumStrLen;
+>   UINTN               SKUNumStrLen;
+>   UINTN               FamilyStrLen;
+>   UINTN               RecordLength;
+>   EFI_STRING          Manufacturer;
+>   EFI_STRING          ProductName;
+>   EFI_STRING          Version;
+>   EFI_STRING          SerialNumber;
+>   EFI_STRING          SKUNumber;
+>   EFI_STRING          Family;
+>   EFI_STRING_ID       TokenToGet;
+>   SMBIOS_TABLE_TYPE1  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE1  *InputData;
+>   EFI_STATUS          Status;
+>   EFI_STRING_ID       TokenToUpdate;
+>   CHAR16              *Product;
+>   CHAR16              *pVersion;
+> 
+>   Status = EFI_SUCCESS;
+> 
+>   //
+>   // First check for invalid parameters.
+>   //
+>   if (RecordData == NULL) {
+>     return EFI_INVALID_PARAMETER;
+>   }
+> 
+>   InputData = (SMBIOS_TABLE_TYPE1 *)RecordData;
+> 
+>   Product = (CHAR16 *)PcdGetPtr (PcdSystemProductName);
+>   if (StrLen (Product) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_SYSTEM_PRODUCT_NAME);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, Product, NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (
+>       mSmbiosMiscHiiHandle,
+>       STRING_TOKEN (STR_MISC_SYSTEM_PRODUCT_NAME),
+>       ProductNameType01
+>       );
+>   }
+> 
+>   pVersion = (CHAR16 *)PcdGetPtr (PcdSystemVersion);
+>   if (StrLen (pVersion) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_SYSTEM_VERSION);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, pVersion, NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (
+>       mSmbiosMiscHiiHandle,
+>       STRING_TOKEN (STR_MISC_SYSTEM_VERSION),
+>       VersionType01
+>       );
+>   }
+> 
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_SYSTEM_SERIAL_NUMBER),
+>     SerialNumType01
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_SYSTEM_MANUFACTURER),
+>     SystemManufacturerType01
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_SYSTEM_SKU_NUMBER),
+>     SkuNumberType01
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_SYSTEM_FAMILY),
+>     FamilyType01
+>     );
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_MANUFACTURER);
+>   Manufacturer = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ManuStrLen   = StrLen (Manufacturer);
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_PRODUCT_NAME);
+>   ProductName  = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   PdNameStrLen = StrLen (ProductName);
+> 
+>   TokenToGet = STRING_TOKEN (STR_MISC_SYSTEM_VERSION);
+>   Version    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   VerStrLen  = StrLen (Version);
+> 
+>   TokenToGet      = STRING_TOKEN (STR_MISC_SYSTEM_SERIAL_NUMBER);
+>   SerialNumber    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   SerialNumStrLen = StrLen (SerialNumber);
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_SKU_NUMBER);
+>   SKUNumber    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   SKUNumStrLen = StrLen (SKUNumber);
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_SYSTEM_FAMILY);
+>   Family       = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   FamilyStrLen = StrLen (Family);
+> 
+>   //
+>   // Two zeros following the last string.
+>   //
+>   RecordLength = sizeof (SMBIOS_TABLE_TYPE1) +
+>                  ManuStrLen      + 1 +
+>                  PdNameStrLen    + 1 +
+>                  VerStrLen       + 1 +
+>                  SerialNumStrLen + 1 +
+>                  SKUNumStrLen    + 1 +
+>                  FamilyStrLen    + 1 + 1;
+>   SmbiosRecord = AllocateZeroPool (RecordLength);
+> 
+>   if (SmbiosRecord == NULL) {
+>     Status = EFI_OUT_OF_RESOURCES;
+>     goto Exit;
+>   }
+> 
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE1));
+> 
+>   SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE1);
+> 
+>   OemGetSystemUuid (&SmbiosRecord->Uuid);
+> 
+>   OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+>   UnicodeStrToAsciiStrS (Manufacturer, OptionalStrStart, ManuStrLen + 1);
+>   StrStart = OptionalStrStart + ManuStrLen + 1;
+>   UnicodeStrToAsciiStrS (ProductName, StrStart, PdNameStrLen + 1);
+>   StrStart += PdNameStrLen + 1;
+>   UnicodeStrToAsciiStrS (Version, StrStart, VerStrLen + 1);
+>   StrStart += VerStrLen + 1;
+>   UnicodeStrToAsciiStrS (SerialNumber, StrStart, SerialNumStrLen + 1);
+>   StrStart += SerialNumStrLen + 1;
+>   UnicodeStrToAsciiStrS (SKUNumber, StrStart, SKUNumStrLen + 1);
+>   StrStart += SKUNumStrLen + 1;
+>   UnicodeStrToAsciiStrS (Family, StrStart, FamilyStrLen + 1);
+> 
+>   //
+>   // Now we have got the full smbios record, call smbios protocol to add this record.
+>   //
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type01 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+160c193
+<     FreePool(SmbiosRecord);
+---
+>   FreePool (SmbiosRecord);
+163,191c196,218
+<     if(Manufacturer != NULL)
+<     {
+<         FreePool(Manufacturer);
+<     }
+< 
+<     if(ProductName != NULL)
+<     {
+<         FreePool(ProductName);
+<     }
+< 
+<     if(Version != NULL)
+<     {
+<         FreePool(Version);
+<     }
+< 
+<     if(SerialNumber != NULL)
+<     {
+<         FreePool(SerialNumber);
+<     }
+< 
+<     if(SKUNumber != NULL)
+<     {
+<         FreePool(SKUNumber);
+<     }
+< 
+<     if(Family != NULL)
+<     {
+<         FreePool(Family);
+<     }
+---
+>   if (Manufacturer != NULL) {
+>     FreePool (Manufacturer);
+>   }
+> 
+>   if (ProductName != NULL) {
+>     FreePool (ProductName);
+>   }
+> 
+>   if (Version != NULL) {
+>     FreePool (Version);
+>   }
+> 
+>   if (SerialNumber != NULL) {
+>     FreePool (SerialNumber);
+>   }
+> 
+>   if (SKUNumber != NULL) {
+>     FreePool (SKUNumber);
+>   }
+> 
+>   if (Family != NULL) {
+>     FreePool (Family);
+>   }
+193c220
+<     return Status;
+---
+>   return Status;
+diff -r Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturer.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type01/MiscSystemManufacturer.uni
+1,10c1,10
+< ﻿// *++
+< //
+< // Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+< // Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< // Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< //
+< // SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< // Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< // --*/
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+14,21c14,19
+< #string STR_MISC_SYSTEM_MANUFACTURER   #language en-US  "Huawei Technologies Co., Ltd."
+< //#string STR_MISC_SYSTEM_PRODUCT_NAME   #language en-US  "To be filled by O.E.M."
+< #string STR_MISC_SYSTEM_PRODUCT_NAME   #language en-US  "PANGEA"
+< //#string STR_MISC_SYSTEM_VERSION        #language en-US  "To be filled by O.E.M."
+< #string STR_MISC_SYSTEM_VERSION        #language en-US  "V200R002"
+< #string STR_MISC_SYSTEM_SERIAL_NUMBER  #language en-US  "To be filled by O.E.M."
+< #string STR_MISC_SYSTEM_SKU_NUMBER     #language en-US  "To be filled by O.E.M."
+< #string STR_MISC_SYSTEM_FAMILY         #language en-US  "To be filled by O.E.M."
+---
+> #string STR_MISC_SYSTEM_MANUFACTURER   #language en-US  "Not Specified"
+> #string STR_MISC_SYSTEM_PRODUCT_NAME   #language en-US  "Not Specified"
+> #string STR_MISC_SYSTEM_VERSION        #language en-US  "Not Specified"
+> #string STR_MISC_SYSTEM_SERIAL_NUMBER  #language en-US  "Not Specified"
+> #string STR_MISC_SYSTEM_SKU_NUMBER     #language en-US  "Not Specified"
+> #string STR_MISC_SYSTEM_FAMILY         #language en-US  "Not Specified"
+diff -r Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturerData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturerData.c
+1c1
+< /*++
+---
+> /** @file
+3,10c3
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+< 
+< Module Name:
+< 
+<   MiscBaseBoardManufacturerData.c
+---
+>   This file provide OEM to define Smbios Type2 Data
+12c5
+< Abstract:
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+14c7,11
+<   This file provide OEM to define Smbios Type2 Data
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+16d12
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+24,49c20,45
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE2, MiscBaseBoardManufacturer) = {
+<     {                                                       // Hdr
+<         EFI_SMBIOS_TYPE_BASEBOARD_INFORMATION,                // Type,
+<         0,                                                    // Length,
+<         0                                                     // Handle
+<     },
+<     1,                                                      // BaseBoardManufacturer
+<     2,                                                      // BaseBoardProductName
+<     3,                                                      // BaseBoardVersion
+<     4,                                                      // BaseBoardSerialNumber
+<     5,                                                      // BaseBoardAssetTag
+<     {                                                       // FeatureFlag
+<         1,                                                    // Motherboard           :1
+<         0,                                                    // RequiresDaughterCard  :1
+<         0,                                                    // Removable             :1
+<         1,                                                    // Replaceable           :1
+<         0,                                                    // HotSwappable          :1
+<         0                                                     // Reserved              :3
+<     },
+<     6,                                                      // BaseBoardChassisLocation
+<     0,                                                      // ChassisHandle;
+<     BaseBoardTypeMotherBoard,                               // BoardType;
+<     0,                                                      // NumberOfContainedObjectHandles;
+<     {
+<         0
+<     }                                                       // ContainedObjectHandles[1];
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE2, MiscBaseBoardManufacturer) = {
+>   {                                                       // Hdr
+>     EFI_SMBIOS_TYPE_BASEBOARD_INFORMATION,                // Type,
+>     0,                                                    // Length,
+>     0                                                     // Handle
+>   },
+>   1,                                                      // BaseBoardManufacturer
+>   2,                                                      // BaseBoardProductName
+>   3,                                                      // BaseBoardVersion
+>   4,                                                      // BaseBoardSerialNumber
+>   5,                                                      // BaseBoardAssetTag
+>   {                                                       // FeatureFlag
+>     1,                                                    // Motherboard           :1
+>     0,                                                    // RequiresDaughterCard  :1
+>     0,                                                    // Removable             :1
+>     1,                                                    // Replaceable           :1
+>     0,                                                    // HotSwappable          :1
+>     0                                                     // Reserved              :3
+>   },
+>   6,                                                      // BaseBoardChassisLocation
+>   0,                                                      // ChassisHandle;
+>   BaseBoardTypeMotherBoard,                               // BoardType;
+>   0,                                                      // NumberOfContainedObjectHandles;
+>   {
+>     0
+>   }                                                       // ContainedObjectHandles[1];
+diff -r Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturerFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturerFunction.c
+1a2,5
+>   This driver parses the mSmbiosMiscDataTable structure and reports
+>   any generated data using SMBIOS protocol.
+> 
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+2a7,8
+>   Copyright (c) 2022, Ampere Computing LLC. All rights reserved.<BR>
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+8,17d13
+< Module Name:
+< 
+<   MiscBaseBoardManufacturerFunction.c
+< 
+< Abstract:
+< 
+<   This driver parses the mSmbiosMiscDataTable structure and reports
+<   any generated data using SMBIOS protocol.
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+20c16,23
+< #include "SmbiosMisc.h"
+---
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+21a25
+> #include "SmbiosMisc.h"
+24,25c28,29
+<   This function makes basic board manufacturer to the contents of the
+<   Misc Base Board Manufacturer (Type 2).
+---
+>   This function makes boot time changes to the contents of the
+>   MiscBaseBoardManufacturer (Type 2) record.
+27c31,32
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+29,30c34
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+31a36
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+34,162c39,221
+< MISC_SMBIOS_TABLE_FUNCTION(MiscBaseBoardManufacturer)
+< {
+<     CHAR8                             *OptionalStrStart;
+<     UINTN                             ManuStrLen;
+<     UINTN                             ProductNameStrLen;
+<     UINTN                             VerStrLen;
+<     UINTN                             SerialNumStrLen;
+<     UINTN                             AssetTagStrLen;
+<     UINTN                             ChassisLocaStrLen;
+<     UINTN                             HandleCount = 0;
+<     UINT16                            *HandleArray = NULL;
+<     CHAR16                            *BaseBoardManufacturer;
+<     CHAR16                            *BaseBoardProductName;
+<     CHAR16                            *Version;
+<     EFI_STRING                        SerialNumber;
+<     EFI_STRING                        AssetTag;
+<     EFI_STRING                        ChassisLocation;
+<     EFI_STRING_ID                     TokenToGet;
+<     EFI_SMBIOS_HANDLE                 SmbiosHandle;
+<     SMBIOS_TABLE_TYPE2                *SmbiosRecord;
+<     SMBIOS_TABLE_TYPE2                *InputData = NULL;
+<     EFI_STATUS                        Status;
+< 
+<     EFI_STRING_ID                     TokenToUpdate;
+<     //CHAR16                            *ProductName;
+<     //CHAR16                            *pVersion;
+<     //uniBIOS_y00216284_018_end 2015-1-13 09:08:22
+< 
+<     //
+<     // First check for invalid parameters.
+<     //
+<     if (RecordData == NULL)
+<     {
+<         return EFI_INVALID_PARAMETER;
+<     }
+< 
+<     InputData = (SMBIOS_TABLE_TYPE2*)RecordData;
+< 
+<     BaseBoardProductName = (CHAR16 *) PcdGetPtr (PcdBaseBoardProductName);
+<     if (StrLen(BaseBoardProductName) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_BASE_BOARD_PRODUCT_NAME);
+<         HiiSetString (mHiiHandle, TokenToUpdate, BaseBoardProductName, NULL);
+<     }
+< 
+<     Version = (CHAR16 *) PcdGetPtr (PcdBaseBoardVersion);
+<     if (StrLen(Version) > 0)
+<     {
+<         TokenToUpdate = STRING_TOKEN (STR_MISC_BASE_BOARD_VERSION);
+<         HiiSetString (mHiiHandle, TokenToUpdate, Version, NULL);
+<     }
+< 
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_BASE_BOARD_ASSET_TAG), AssertTagType02);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_BASE_BOARD_SERIAL_NUMBER), SrNumType02);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_BASE_BOARD_MANUFACTURER), BoardManufacturerType02);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_MANUFACTURER);
+<     BaseBoardManufacturer = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ManuStrLen = StrLen(BaseBoardManufacturer);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_PRODUCT_NAME);
+<     BaseBoardProductName = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ProductNameStrLen = StrLen(BaseBoardProductName);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_VERSION);
+<     Version = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     VerStrLen = StrLen(Version);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_SERIAL_NUMBER);
+<     SerialNumber = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     SerialNumStrLen = StrLen(SerialNumber);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_ASSET_TAG);
+<     AssetTag = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     AssetTagStrLen = StrLen(AssetTag);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_CHASSIS_LOCATION);
+<     ChassisLocation = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ChassisLocaStrLen = StrLen(ChassisLocation);
+< 
+<     //
+<     // Two zeros following the last string.
+<     //
+<     SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE2) + ManuStrLen        + 1
+<                                                                 + ProductNameStrLen + 1
+<                                                                 + VerStrLen         + 1
+<                                                                 + SerialNumStrLen   + 1
+<                                                                 + AssetTagStrLen    + 1
+<                                                                 + ChassisLocaStrLen + 1 + 1);
+<     if (NULL == SmbiosRecord)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+< 
+<     (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE2));
+<     SmbiosRecord->Hdr.Length        = sizeof (SMBIOS_TABLE_TYPE2);
+< 
+<     //
+<     //  Update Contained objects Handle
+<     //
+<     SmbiosRecord->NumberOfContainedObjectHandles = 0;
+<     GetLinkTypeHandle(EFI_SMBIOS_TYPE_SYSTEM_ENCLOSURE, &HandleArray, &HandleCount);
+<     if(HandleCount)
+<     {
+<         SmbiosRecord->ChassisHandle = HandleArray[0];
+<     }
+< 
+<     FreePool(HandleArray);
+< 
+<     OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+<     Status = UnicodeStrToAsciiStrS (BaseBoardManufacturer, OptionalStrStart, ManuStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (BaseBoardProductName,  OptionalStrStart + ManuStrLen + 1, ProductNameStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (Version,               OptionalStrStart + ManuStrLen + 1 + ProductNameStrLen + 1, VerStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (SerialNumber,          OptionalStrStart + ManuStrLen + 1 + ProductNameStrLen + 1 + VerStrLen + 1, SerialNumStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (AssetTag,              OptionalStrStart + ManuStrLen + 1 + ProductNameStrLen + 1 + VerStrLen + 1 + SerialNumStrLen + 1, AssetTagStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ChassisLocation,       OptionalStrStart + ManuStrLen + 1 + ProductNameStrLen + 1 + VerStrLen + 1 + SerialNumStrLen + 1 + AssetTagStrLen + 1, ChassisLocaStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+< 
+<     Status = LogSmbiosData( (UINT8*)SmbiosRecord, &SmbiosHandle);
+<     if(EFI_ERROR(Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type02 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+---
+> SMBIOS_MISC_TABLE_FUNCTION (MiscBaseBoardManufacturer) {
+>   CHAR8               *OptionalStrStart;
+>   CHAR8               *StrStart;
+>   UINTN               RecordLength;
+>   UINTN               ManuStrLen;
+>   UINTN               ProductNameStrLen;
+>   UINTN               VerStrLen;
+>   UINTN               SerialNumStrLen;
+>   UINTN               AssetTagStrLen;
+>   UINTN               ChassisLocaStrLen;
+>   UINTN               HandleCount;
+>   UINT16              *HandleArray;
+>   CHAR16              *BaseBoardManufacturer;
+>   CHAR16              *BaseBoardProductName;
+>   CHAR16              *Version;
+>   EFI_STRING          SerialNumber;
+>   EFI_STRING          AssetTag;
+>   EFI_STRING          ChassisLocation;
+>   EFI_STRING_ID       TokenToGet;
+>   SMBIOS_TABLE_TYPE2  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE2  *InputData;
+>   EFI_STATUS          Status;
+> 
+>   EFI_STRING_ID  TokenToUpdate;
+> 
+>   HandleCount = 0;
+>   HandleArray = NULL;
+>   InputData   = NULL;
+> 
+>   //
+>   // First check for invalid parameters.
+>   //
+>   if (RecordData == NULL) {
+>     return EFI_INVALID_PARAMETER;
+>   }
+> 
+>   InputData = (SMBIOS_TABLE_TYPE2 *)RecordData;
+> 
+>   BaseBoardManufacturer = (CHAR16 *)PcdGetPtr (PcdBaseBoardManufacturer);
+>   if (StrLen (BaseBoardManufacturer) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_BASE_BOARD_MANUFACTURER);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, BaseBoardManufacturer, NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (
+>       mSmbiosMiscHiiHandle,
+>       STRING_TOKEN (STR_MISC_BASE_BOARD_MANUFACTURER),
+>       BoardManufacturerType02
+>       );
+>   }
+> 
+>   BaseBoardProductName = (CHAR16 *)PcdGetPtr (PcdBaseBoardProductName);
+>   if (StrLen (BaseBoardProductName) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_BASE_BOARD_PRODUCT_NAME);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, BaseBoardProductName, NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (
+>       mSmbiosMiscHiiHandle,
+>       STRING_TOKEN (STR_MISC_BASE_BOARD_PRODUCT_NAME),
+>       ProductNameType02
+>       );
+>   }
+> 
+>   Version = (CHAR16 *)PcdGetPtr (PcdBaseBoardVersion);
+>   if (StrLen (Version) > 0) {
+>     TokenToUpdate = STRING_TOKEN (STR_MISC_BASE_BOARD_VERSION);
+>     HiiSetString (mSmbiosMiscHiiHandle, TokenToUpdate, Version, NULL);
+>   } else {
+>     OemUpdateSmbiosInfo (
+>       mSmbiosMiscHiiHandle,
+>       STRING_TOKEN (STR_MISC_BASE_BOARD_VERSION),
+>       VersionType02
+>       );
+>   }
+> 
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_BASE_BOARD_ASSET_TAG),
+>     AssetTagType02
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_BASE_BOARD_SERIAL_NUMBER),
+>     SerialNumberType02
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_BASE_BOARD_SKU_NUMBER),
+>     SerialNumberType02
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_BASE_BOARD_CHASSIS_LOCATION),
+>     ChassisLocationType02
+>     );
+> 
+>   TokenToGet            = STRING_TOKEN (STR_MISC_BASE_BOARD_MANUFACTURER);
+>   BaseBoardManufacturer = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ManuStrLen            = StrLen (BaseBoardManufacturer);
+> 
+>   TokenToGet           = STRING_TOKEN (STR_MISC_BASE_BOARD_PRODUCT_NAME);
+>   BaseBoardProductName = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ProductNameStrLen    = StrLen (BaseBoardProductName);
+> 
+>   TokenToGet = STRING_TOKEN (STR_MISC_BASE_BOARD_VERSION);
+>   Version    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   VerStrLen  = StrLen (Version);
+> 
+>   TokenToGet      = STRING_TOKEN (STR_MISC_BASE_BOARD_SERIAL_NUMBER);
+>   SerialNumber    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   SerialNumStrLen = StrLen (SerialNumber);
+> 
+>   TokenToGet     = STRING_TOKEN (STR_MISC_BASE_BOARD_ASSET_TAG);
+>   AssetTag       = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   AssetTagStrLen = StrLen (AssetTag);
+> 
+>   TokenToGet        = STRING_TOKEN (STR_MISC_BASE_BOARD_CHASSIS_LOCATION);
+>   ChassisLocation   = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ChassisLocaStrLen = StrLen (ChassisLocation);
+> 
+>   //
+>   // Two zeros following the last string.
+>   //
+>   RecordLength = sizeof (SMBIOS_TABLE_TYPE2) +
+>                  ManuStrLen        + 1 +
+>                  ProductNameStrLen + 1 +
+>                  VerStrLen         + 1 +
+>                  SerialNumStrLen   + 1 +
+>                  AssetTagStrLen    + 1 +
+>                  ChassisLocaStrLen + 1 + 1;
+>   SmbiosRecord = AllocateZeroPool (RecordLength);
+>   if (SmbiosRecord == NULL) {
+>     Status = EFI_OUT_OF_RESOURCES;
+>     goto Exit;
+>   }
+> 
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE2));
+>   SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE2);
+> 
+>   //
+>   //  Update Contained objects Handle
+>   //
+>   SmbiosRecord->NumberOfContainedObjectHandles = 0;
+>   SmbiosMiscGetLinkTypeHandle (
+>     EFI_SMBIOS_TYPE_SYSTEM_ENCLOSURE,
+>     &HandleArray,
+>     &HandleCount
+>     );
+>   // It's assumed there's at most a single chassis
+>   ASSERT (HandleCount < 2);
+>   if (HandleCount > 0) {
+>     SmbiosRecord->ChassisHandle = HandleArray[0];
+>   }
+> 
+>   FreePool (HandleArray);
+> 
+>   OptionalStrStart = (CHAR8 *)(SmbiosRecord + 1);
+>   UnicodeStrToAsciiStrS (BaseBoardManufacturer, OptionalStrStart, ManuStrLen + 1);
+> 
+>   StrStart = OptionalStrStart + ManuStrLen + 1;
+>   UnicodeStrToAsciiStrS (BaseBoardProductName, StrStart, ProductNameStrLen + 1);
+> 
+>   StrStart += ProductNameStrLen + 1;
+>   UnicodeStrToAsciiStrS (Version, StrStart, VerStrLen + 1);
+> 
+>   StrStart += VerStrLen + 1;
+>   UnicodeStrToAsciiStrS (SerialNumber, StrStart, SerialNumStrLen + 1);
+> 
+>   StrStart += SerialNumStrLen + 1;
+>   UnicodeStrToAsciiStrS (AssetTag, StrStart, AssetTagStrLen + 1);
+> 
+>   StrStart += AssetTagStrLen + 1;
+>   UnicodeStrToAsciiStrS (ChassisLocation, StrStart, ChassisLocaStrLen + 1);
+> 
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type02 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+164c223
+<     FreePool(SmbiosRecord);
+---
+>   FreePool (SmbiosRecord);
+167,195c226,248
+<     if(BaseBoardManufacturer != NULL)
+<     {
+<         FreePool(BaseBoardManufacturer);
+<     }
+< 
+<     if(BaseBoardProductName != NULL)
+<     {
+<         FreePool(BaseBoardProductName);
+<     }
+< 
+<     if(Version != NULL)
+<     {
+<         FreePool(Version);
+<     }
+< 
+<     if(SerialNumber != NULL)
+<     {
+<         FreePool(SerialNumber);
+<     }
+< 
+<     if(AssetTag != NULL)
+<     {
+<         FreePool(AssetTag);
+<     }
+< 
+<     if(ChassisLocation != NULL)
+<     {
+<         FreePool(ChassisLocation);
+<     }
+---
+>   if (BaseBoardManufacturer != NULL) {
+>     FreePool (BaseBoardManufacturer);
+>   }
+> 
+>   if (BaseBoardProductName != NULL) {
+>     FreePool (BaseBoardProductName);
+>   }
+> 
+>   if (Version != NULL) {
+>     FreePool (Version);
+>   }
+> 
+>   if (SerialNumber != NULL) {
+>     FreePool (SerialNumber);
+>   }
+> 
+>   if (AssetTag != NULL) {
+>     FreePool (AssetTag);
+>   }
+> 
+>   if (ChassisLocation != NULL) {
+>     FreePool (ChassisLocation);
+>   }
+197c250
+<     return Status;
+---
+>   return 0;
+diff -r Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturer.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type02/MiscBaseBoardManufacturer.uni
+1,10c1,10
+< ﻿// *++
+< //
+< // Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+< // Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< // Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< //
+< // SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< // Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< // --*/
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+14,21c14,20
+< #string STR_MISC_BASE_BOARD_MANUFACTURER     #language en-US  "Huawei Technologies Co., Ltd."
+< //#string STR_MISC_BASE_BOARD_PRODUCT_NAME     #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_BASE_BOARD_PRODUCT_NAME     #language en-US  "STL2SPCA"
+< //#string STR_MISC_BASE_BOARD_VERSION          #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_BASE_BOARD_VERSION          #language en-US  "V200R002"
+< #string STR_MISC_BASE_BOARD_SERIAL_NUMBER    #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_BASE_BOARD_ASSET_TAG        #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_BASE_BOARD_CHASSIS_LOCATION #language en-US  "To Be Filled By O.E.M."
+---
+> #string STR_MISC_BASE_BOARD_MANUFACTURER     #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_PRODUCT_NAME     #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_VERSION          #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_SERIAL_NUMBER    #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_ASSET_TAG        #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_CHASSIS_LOCATION #language en-US  "Not Specified"
+> #string STR_MISC_BASE_BOARD_SKU_NUMBER       #language en-US  "Not Specified"
+diff -r Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturerData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturerData.c
+1c1,2
+< /*++
+---
+> /** @file
+>   This file provides Smbios Type3 Data
+3,6c4
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+8c6,10
+< Module Name:
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+10,16d11
+<   MiscChassisManufacturerData.c
+< 
+< Abstract:
+< 
+<   This file provide OEM to define Smbios Type3 Data
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+18,20d12
+< /* Modify list
+< DATA        AUTHOR            REASON
+< */
+24d15
+< 
+28,42c19,44
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE3, MiscChassisManufacturer) = {
+<     {                                                       // Hdr
+<         EFI_SMBIOS_TYPE_SYSTEM_ENCLOSURE  ,                   // Type,
+<         0,                                                    // Length,
+<         0                                                     // Handle
+<     },
+<     1,                                                      // Manufactrurer
+<     MiscChassisTypeMainServerChassis,                       // Type
+<     2,                                                      // Version
+<     3,                                                      // SerialNumber
+<     4,                                                      // AssetTag
+<     ChassisStateSafe,                                       // BootupState
+<     ChassisStateSafe,                                       // PowerSupplyState
+<     ChassisStateSafe,                                       // ThermalState
+<     ChassisSecurityStatusNone,                              // SecurityState
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE3, MiscChassisManufacturer) = {
+>   {                                                       // Hdr
+>     EFI_SMBIOS_TYPE_SYSTEM_ENCLOSURE,                     // Type,
+>     0,                                                    // Length,
+>     0                                                     // Handle
+>   },
+>   1,                                                      // Manufacturer
+>   MiscChassisTypeMainServerChassis,                       // Type
+>   2,                                                      // Version
+>   3,                                                      // SerialNumber
+>   4,                                                      // AssetTag
+>   ChassisStateSafe,                                       // BootupState
+>   ChassisStateSafe,                                       // PowerSupplyState
+>   ChassisStateSafe,                                       // ThermalState
+>   ChassisSecurityStatusNone,                              // SecurityState
+>   {
+>     0,                                                    // OemDefined[0]
+>     0,                                                    // OemDefined[1]
+>     0,                                                    // OemDefined[2]
+>     0                                                     // OemDefined[3]
+>   },
+>   2,                                                      // Height
+>   1,                                                      // NumberofPowerCords
+>   0,                                                      // ContainedElementCount
+>   0,                                                      // ContainedElementRecordLength
+>   {                                                       // ContainedElements[0]
+44,58c46,48
+<         0,                                                    // OemDefined[0]
+<         0,                                                    // OemDefined[1]
+<         0,                                                    // OemDefined[2]
+<         0                                                     // OemDefined[3]
+<     },
+<     2,                                                      // Height
+<     1,                                                      // NumberofPowerCords
+<     0,                                                      // ContainedElementCount
+<     0,                                                      // ContainedElementRecordLength
+<     {                                                       // ContainedElements[0]
+<         {
+<             0,                                                    // ContainedElementType
+<             0,                                                    // ContainedElementMinimum
+<             0                                                     // ContainedElementMaximum
+<         }
+---
+>       0,                                                    // ContainedElementType
+>       0,                                                    // ContainedElementMinimum
+>       0                                                     // ContainedElementMaximum
+59a50
+>   }
+diff -r Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturerFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturerFunction.c
+2,13d1
+< 
+< Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+< 
+< Module Name:
+< 
+<   MiscChassisManufacturerFunction.c
+< 
+< Abstract:
+< 
+17,21c5
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< **/
+< /* Modify list
+< DATA        AUTHOR            REASON
+< */
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+23c7,11
+< #include "SmbiosMisc.h"
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+25,35c13
+< UINT8
+< GetChassisType (
+< )
+< {
+<     EFI_STATUS                      Status;
+<     UINT8                           ChassisType;
+<     Status = IpmiGetChassisType(&ChassisType);
+<     if (EFI_ERROR(Status))
+<     {
+<        return 0;
+<     }
+---
+> **/
+37,38c15,24
+<     return ChassisType;
+< }
+---
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+> 
+> #include "SmbiosMisc.h"
+42c28
+<   MiscChassisManufacturer (Type 3).
+---
+>   MiscChassisManufacturer (Type 3) record.
+44c30,31
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+46,47c33
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+48a35
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+51,167c38,186
+< MISC_SMBIOS_TABLE_FUNCTION(MiscChassisManufacturer)
+< {
+<     CHAR8                           *OptionalStrStart;
+<     UINTN                           ManuStrLen;
+<     UINTN                           VerStrLen;
+<     UINTN                           AssertTagStrLen;
+<     UINTN                           SerialNumStrLen;
+<     UINTN                           ChaNumStrLen;
+<     EFI_STRING                      Manufacturer;
+<     EFI_STRING                      Version;
+<     EFI_STRING                      SerialNumber;
+<     EFI_STRING                      AssertTag;
+<     EFI_STRING                      ChassisSkuNumber;
+<     EFI_STRING_ID                   TokenToGet;
+<     EFI_SMBIOS_HANDLE               SmbiosHandle;
+<     SMBIOS_TABLE_TYPE3              *SmbiosRecord;
+<     SMBIOS_TABLE_TYPE3              *InputData;
+<     EFI_STATUS                      Status;
+< 
+<     UINT8                           ContainedElementCount;
+<     CONTAINED_ELEMENT               ContainedElements = {0};
+<     UINT8                           ExtendLength = 0;
+< 
+<     UINT8                           ChassisType;
+< 
+<     //
+<     // First check for invalid parameters.
+<     //
+<     if (RecordData == NULL)
+<     {
+<         return EFI_INVALID_PARAMETER;
+<     }
+< 
+<     InputData = (SMBIOS_TABLE_TYPE3 *)RecordData;
+< 
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_CHASSIS_ASSET_TAG), AssetTagType03);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_CHASSIS_SERIAL_NUMBER), SrNumType03);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_CHASSIS_VERSION), VersionType03);
+<     UpdateSmbiosInfo(mHiiHandle, STRING_TOKEN (STR_MISC_CHASSIS_MANUFACTURER), ManufacturerType03);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_MANUFACTURER);
+<     Manufacturer = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ManuStrLen = StrLen(Manufacturer);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_VERSION);
+<     Version = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     VerStrLen = StrLen(Version);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_SERIAL_NUMBER);
+<     SerialNumber = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     SerialNumStrLen = StrLen(SerialNumber);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_ASSET_TAG);
+<     AssertTag = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     AssertTagStrLen = StrLen(AssertTag);
+< 
+<     TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_SKU_NUMBER);
+<     ChassisSkuNumber = HiiGetPackageString(&gEfiCallerIdGuid, TokenToGet, NULL);
+<     ChaNumStrLen = StrLen(ChassisSkuNumber);
+< 
+<     ContainedElementCount = InputData->ContainedElementCount;
+< 
+<     if (ContainedElementCount > 1)
+<     {
+<         ExtendLength = (ContainedElementCount - 1) * sizeof (CONTAINED_ELEMENT);
+<     }
+< 
+<     //
+<     // Two zeros following the last string.
+<     //
+<     SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE3) + ExtendLength    + 1
+<                                                                 + ManuStrLen      + 1
+<                                                                 + VerStrLen       + 1
+<                                                                 + SerialNumStrLen + 1
+<                                                                 + AssertTagStrLen + 1
+<                                                                 + ChaNumStrLen    + 1 + 1);
+<     if (NULL == SmbiosRecord)
+<     {
+<         Status = EFI_OUT_OF_RESOURCES;
+<         goto Exit;
+<     }
+< 
+<     (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE3));
+< 
+<     SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE3) + ExtendLength + 1;
+< 
+<     ChassisType = GetChassisType ();
+<     if (ChassisType != 0)
+<     {
+<         SmbiosRecord->Type  = ChassisType;
+<     }
+< 
+<     //ContainedElements
+<     (VOID)CopyMem(SmbiosRecord + 1, &ContainedElements, ExtendLength);
+< 
+<     //ChassisSkuNumber
+<     *((UINT8 *)SmbiosRecord + sizeof (SMBIOS_TABLE_TYPE3) + ExtendLength) = 5;
+< 
+<     OptionalStrStart = (CHAR8 *)((UINT8 *)SmbiosRecord + sizeof (SMBIOS_TABLE_TYPE3) + ExtendLength + 1);
+<     Status = UnicodeStrToAsciiStrS (Manufacturer,     OptionalStrStart, ManuStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (Version,          OptionalStrStart + ManuStrLen + 1, VerStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (SerialNumber,     OptionalStrStart + ManuStrLen + 1 + VerStrLen + 1, SerialNumStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (AssertTag,        OptionalStrStart + ManuStrLen + 1 + VerStrLen + 1 + SerialNumStrLen + 1, AssertTagStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     Status = UnicodeStrToAsciiStrS (ChassisSkuNumber, OptionalStrStart + ManuStrLen + 1 + VerStrLen + 1 + SerialNumStrLen +1 + AssertTagStrLen + 1, ChaNumStrLen + 1);
+<     ASSERT_EFI_ERROR (Status);
+<     //
+<     // Now we have got the full smbios record, call smbios protocol to add this record.
+<     //
+<     Status = LogSmbiosData( (UINT8*)SmbiosRecord, &SmbiosHandle);
+<     if(EFI_ERROR(Status))
+<     {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type03 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+---
+> SMBIOS_MISC_TABLE_FUNCTION (MiscChassisManufacturer) {
+>   CHAR8               *OptionalStrStart;
+>   CHAR8               *StrStart;
+>   UINT8               *SkuNumberField;
+>   UINTN               RecordLength;
+>   UINTN               ManuStrLen;
+>   UINTN               VerStrLen;
+>   UINTN               AssertTagStrLen;
+>   UINTN               SerialNumStrLen;
+>   UINTN               ChaNumStrLen;
+>   EFI_STRING          Manufacturer;
+>   EFI_STRING          Version;
+>   EFI_STRING          SerialNumber;
+>   EFI_STRING          AssertTag;
+>   EFI_STRING          ChassisSkuNumber;
+>   EFI_STRING_ID       TokenToGet;
+>   SMBIOS_TABLE_TYPE3  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE3  *InputData;
+>   EFI_STATUS          Status;
+> 
+>   UINT8              ContainedElementCount;
+>   CONTAINED_ELEMENT  ContainedElements;
+>   UINT8              ExtendLength;
+> 
+>   ExtendLength = 0;
+> 
+>   //
+>   // First check for invalid parameters.
+>   //
+>   if (RecordData == NULL) {
+>     return EFI_INVALID_PARAMETER;
+>   }
+> 
+>   InputData = (SMBIOS_TABLE_TYPE3 *)RecordData;
+> 
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_CHASSIS_ASSET_TAG),
+>     AssetTagType03
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_CHASSIS_SERIAL_NUMBER),
+>     SerialNumberType03
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_CHASSIS_VERSION),
+>     VersionType03
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_CHASSIS_MANUFACTURER),
+>     ManufacturerType03
+>     );
+>   OemUpdateSmbiosInfo (
+>     mSmbiosMiscHiiHandle,
+>     STRING_TOKEN (STR_MISC_CHASSIS_SKU_NUMBER),
+>     SkuNumberType03
+>     );
+> 
+>   TokenToGet   = STRING_TOKEN (STR_MISC_CHASSIS_MANUFACTURER);
+>   Manufacturer = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ManuStrLen   = StrLen (Manufacturer);
+> 
+>   TokenToGet = STRING_TOKEN (STR_MISC_CHASSIS_VERSION);
+>   Version    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   VerStrLen  = StrLen (Version);
+> 
+>   TokenToGet      = STRING_TOKEN (STR_MISC_CHASSIS_SERIAL_NUMBER);
+>   SerialNumber    = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   SerialNumStrLen = StrLen (SerialNumber);
+> 
+>   TokenToGet      = STRING_TOKEN (STR_MISC_CHASSIS_ASSET_TAG);
+>   AssertTag       = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   AssertTagStrLen = StrLen (AssertTag);
+> 
+>   TokenToGet       = STRING_TOKEN (STR_MISC_CHASSIS_SKU_NUMBER);
+>   ChassisSkuNumber = HiiGetPackageString (&gEfiCallerIdGuid, TokenToGet, NULL);
+>   ChaNumStrLen     = StrLen (ChassisSkuNumber);
+> 
+>   ContainedElementCount = InputData->ContainedElementCount;
+>   ExtendLength          = ContainedElementCount * sizeof (CONTAINED_ELEMENT);
+> 
+>   //
+>   // Two zeros following the last string.
+>   //
+>   RecordLength = sizeof (SMBIOS_TABLE_TYPE3) +
+>                  ExtendLength    + 1 +
+>                  ManuStrLen      + 1 +
+>                  VerStrLen       + 1 +
+>                  SerialNumStrLen + 1 +
+>                  AssertTagStrLen + 1 +
+>                  ChaNumStrLen    + 1 + 1;
+>   SmbiosRecord = AllocateZeroPool (RecordLength);
+>   if (SmbiosRecord == NULL) {
+>     Status = EFI_OUT_OF_RESOURCES;
+>     goto Exit;
+>   }
+> 
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE3));
+> 
+>   SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE3) + ExtendLength + 1;
+> 
+>   SmbiosRecord->Type = OemGetChassisType ();
+> 
+>   // ContainedElements
+>   ASSERT (ContainedElementCount < 2);
+>   (VOID)CopyMem (SmbiosRecord + 1, &ContainedElements, ExtendLength);
+> 
+>   // ChassisSkuNumber
+>   SkuNumberField = (UINT8 *)SmbiosRecord +
+>                    sizeof (SMBIOS_TABLE_TYPE3) -
+>                    sizeof (CONTAINED_ELEMENT) + ExtendLength;
+> 
+>   *SkuNumberField = 5;
+> 
+>   OptionalStrStart = (CHAR8 *)((UINT8 *)SmbiosRecord + sizeof (SMBIOS_TABLE_TYPE3) +
+>                                ExtendLength + 1);
+>   UnicodeStrToAsciiStrS (Manufacturer, OptionalStrStart, ManuStrLen + 1);
+>   StrStart = OptionalStrStart + ManuStrLen + 1;
+>   UnicodeStrToAsciiStrS (Version, StrStart, VerStrLen + 1);
+>   StrStart += VerStrLen + 1;
+>   UnicodeStrToAsciiStrS (SerialNumber, StrStart, SerialNumStrLen + 1);
+>   StrStart += SerialNumStrLen + 1;
+>   UnicodeStrToAsciiStrS (AssertTag, StrStart, AssertTagStrLen + 1);
+>   StrStart += AssertTagStrLen + 1;
+>   UnicodeStrToAsciiStrS (ChassisSkuNumber, StrStart, ChaNumStrLen + 1);
+> 
+>   SmbiosRecord->BootupState        = OemGetChassisBootupState ();
+>   SmbiosRecord->PowerSupplyState   = OemGetChassisPowerSupplyState ();
+>   SmbiosRecord->ThermalState       = OemGetChassisThermalState ();
+>   SmbiosRecord->SecurityStatus     = OemGetChassisSecurityStatus ();
+>   SmbiosRecord->Height             = OemGetChassisHeight ();
+>   SmbiosRecord->NumberofPowerCords = OemGetChassisNumPowerCords ();
+> 
+>   //
+>   // Now we have got the full smbios record, call smbios protocol to add this record.
+>   //
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type03 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+169c188
+<     FreePool(SmbiosRecord);
+---
+>   FreePool (SmbiosRecord);
+172,195c191,209
+<     if(Manufacturer != NULL)
+<     {
+<         FreePool(Manufacturer);
+<     }
+< 
+<     if(Version != NULL)
+<     {
+<         FreePool(Version);
+<     }
+< 
+<     if(SerialNumber != NULL)
+<     {
+<         FreePool(SerialNumber);
+<     }
+< 
+<     if(AssertTag != NULL)
+<     {
+<         FreePool(AssertTag);
+<     }
+< 
+<     if(ChassisSkuNumber != NULL)
+<     {
+<         FreePool(ChassisSkuNumber);
+<     }
+---
+>   if (Manufacturer != NULL) {
+>     FreePool (Manufacturer);
+>   }
+> 
+>   if (Version != NULL) {
+>     FreePool (Version);
+>   }
+> 
+>   if (SerialNumber != NULL) {
+>     FreePool (SerialNumber);
+>   }
+> 
+>   if (AssertTag != NULL) {
+>     FreePool (AssertTag);
+>   }
+> 
+>   if (ChassisSkuNumber != NULL) {
+>     FreePool (ChassisSkuNumber);
+>   }
+197c211
+<     return Status;
+---
+>   return 0;
+diff -r Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturer.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type03/MiscChassisManufacturer.uni
+1,10c1,10
+< ﻿// *++
+< //
+< // Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+< // Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< // Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< //
+< // SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< // Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< // --*/
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+14,18c14,18
+< #string STR_MISC_CHASSIS_MANUFACTURER  #language en-US  "Huawei Technologies Co., Ltd."
+< #string STR_MISC_CHASSIS_VERSION       #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_CHASSIS_SERIAL_NUMBER #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_CHASSIS_ASSET_TAG     #language en-US  "To Be Filled By O.E.M."
+< #string STR_MISC_CHASSIS_SKU_NUMBER    #language en-US  "To Be Filled By O.E.M."
+---
+> #string STR_MISC_CHASSIS_MANUFACTURER  #language en-US  "Not Specified"
+> #string STR_MISC_CHASSIS_VERSION       #language en-US  "Not Specified"
+> #string STR_MISC_CHASSIS_SERIAL_NUMBER #language en-US  "Not Specified"
+> #string STR_MISC_CHASSIS_ASSET_TAG     #language en-US  "Not Specified"
+> #string STR_MISC_CHASSIS_SKU_NUMBER    #language en-US  "Not Specified"
+Only in Smbios/SmbiosMiscDxe: Type09
+diff -r Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguagesData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguagesData.c
+1c1,2
+< /**@file
+---
+> /** @file
+>   This file provides Smbios Type13 Data
+3,6c4
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+8c6,10
+< Module Name:
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+10,16d11
+<   MiscNumberOfInstallableLanguagesData.c
+< 
+< Abstract:
+< 
+<   This file provide OEM to define Smbios Type13 Data
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+25c20
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE13, MiscNumberOfInstallableLanguages) =
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE13, MiscNumberOfInstallableLanguages) =
+28,30c23,25
+<     EFI_SMBIOS_TYPE_BIOS_LANGUAGE_INFORMATION,            // Type,
+<     0,                                                    // Length,
+<     0                                                     // Handle
+---
+>     EFI_SMBIOS_TYPE_BIOS_LANGUAGE_INFORMATION,          // Type,
+>     0,                                                  // Length,
+>     0                                                   // Handle
+39,40d33
+< 
+< /* eof - MiscNumberOfInstallableLanguagesData.c */
+diff -r Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguagesFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguagesFunction.c
+1a2
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+3,6c4,8
+< Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+8d9
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+11,13c12,19
+< /* Modify list
+< DATA        AUTHOR            REASON
+< */
+---
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/HiiLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/PrintLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+20,22c26,28
+<   @param  LangCode       Input: point to first language in the list. On
+<                          Otput: point to next language in the list, or
+<                                 NULL if no more language in the list.
+---
+>   @param  LangCode       Input:  point to first language in the list. On
+>                          Output: point to next language in the list, or
+>                                  NULL if no more language in the list.
+29,30c35,36
+<   IN OUT CHAR8      **LangCode,
+<   OUT CHAR8         *Lang
+---
+>   IN OUT CHAR8  **LangCode,
+>   OUT CHAR8     *Lang
+36c42
+<   if(NULL == LangCode || NULL == *LangCode || NULL == Lang) {
+---
+>   if ((LangCode == NULL) || (*LangCode == NULL) || (Lang == NULL)) {
+46c52
+<   (VOID)CopyMem(Lang, StringPtr, Index);
+---
+>   (VOID)CopyMem (Lang, StringPtr, Index);
+51a58
+> 
+66c73
+<   IN EFI_HII_HANDLE    HiiHandle
+---
+>   IN EFI_HII_HANDLE  HiiHandle
+80c87
+<   Lang = AllocatePool (AsciiStrSize (Languages));
+---
+>   Lang       = AllocatePool (AsciiStrSize (Languages));
+86a94
+> 
+88a97
+> 
+93d101
+< 
+96c104
+<   MiscNumberOfInstallableLanguages (Type 13).
+---
+>   MiscNumberOfInstallableLanguages (Type 13) record.
+98c106,107
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+100,101c109
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+102a111
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+105,113c114,122
+< MISC_SMBIOS_TABLE_FUNCTION(MiscNumberOfInstallableLanguages)
+< {
+<   UINTN                                     LangStrLen;
+<   CHAR8                                     CurrentLang[SMBIOS_STRING_MAX_LENGTH + 1];
+<   CHAR8                                     *OptionalStrStart;
+<   EFI_STATUS                                Status;
+<   EFI_SMBIOS_HANDLE                         SmbiosHandle;
+<   SMBIOS_TABLE_TYPE13                       *SmbiosRecord;
+<   SMBIOS_TABLE_TYPE13                       *InputData = NULL;;
+---
+> SMBIOS_MISC_TABLE_FUNCTION (MiscNumberOfInstallableLanguages) {
+>   UINTN                LangStrLen;
+>   CHAR8                CurrentLang[SMBIOS_STRING_MAX_LENGTH + 1];
+>   CHAR8                *OptionalStrStart;
+>   EFI_STATUS           Status;
+>   SMBIOS_TABLE_TYPE13  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE13  *InputData;
+> 
+>   InputData = NULL;
+124c133
+<   InputData->InstallableLanguages = GetSupportedLanguageNumber (mHiiHandle);
+---
+>   InputData->InstallableLanguages = GetSupportedLanguageNumber (mSmbiosMiscHiiHandle);
+129,131c138,140
+<   ZeroMem(CurrentLang, SMBIOS_STRING_MAX_LENGTH - 1);
+<   (VOID)AsciiStrCpyS(CurrentLang, SMBIOS_STRING_MAX_LENGTH - 1, "en|US|iso8859-1");
+<   LangStrLen = AsciiStrLen(CurrentLang);
+---
+>   ZeroMem (CurrentLang, SMBIOS_STRING_MAX_LENGTH - 1);
+>   (VOID)AsciiStrCpyS (CurrentLang, SMBIOS_STRING_MAX_LENGTH - 1, "en|US|iso8859-1");
+>   LangStrLen = AsciiStrLen (CurrentLang);
+136,137c145,146
+<   SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE13) + LangStrLen + 1 + 1);
+<   if(NULL == SmbiosRecord) {
+---
+>   SmbiosRecord = AllocateZeroPool (sizeof (SMBIOS_TABLE_TYPE13) + LangStrLen + 1 + 1);
+>   if (SmbiosRecord == NULL) {
+141c150
+<   (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE13));
+---
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE13));
+146c155
+<   (VOID)AsciiStrCpyS(OptionalStrStart, SMBIOS_STRING_MAX_LENGTH - 1, CurrentLang);
+---
+>   (VOID)AsciiStrCpyS (OptionalStrStart, SMBIOS_STRING_MAX_LENGTH - 1, CurrentLang);
+150,152c159,167
+<   Status = LogSmbiosData((UINT8*)SmbiosRecord, &SmbiosHandle);
+<   if(EFI_ERROR(Status)) {
+<     DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type13 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+---
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type13 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+155c170
+<   FreePool(SmbiosRecord);
+---
+>   FreePool (SmbiosRecord);
+diff -r Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguages.uni /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type13/MiscNumberOfInstallableLanguages.uni
+1,10c1,10
+< ﻿// *++
+< //
+< // Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+< // Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< // Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< //
+< // SPDX-License-Identifier: BSD-2-Clause-Patent
+< //
+< // Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+< // --*/
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+> 
+> **/
+diff -r Smbios/SmbiosMiscDxe/Type32/MiscBootInformationData.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type32/MiscBootInformationData.c
+1c1,2
+< /**@file
+---
+> /** @file
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+3,6c4,8
+< Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+8,17d9
+< Module Name:
+< 
+<   MiscBootInformationData.c
+< 
+< Abstract:
+< 
+<   This driver parses the mMiscSubclassDataTable structure and reports
+<   any generated data to the DataHub.
+< 
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+25c17
+< MISC_SMBIOS_TABLE_DATA(SMBIOS_TABLE_TYPE32, MiscBootInformation) = {
+---
+> SMBIOS_MISC_TABLE_DATA (SMBIOS_TABLE_TYPE32, MiscBootInformation) = {
+27,29c19,21
+<     EFI_SMBIOS_TYPE_SYSTEM_BOOT_INFORMATION,              // Type,
+<     0,                                                    // Length,
+<     0                                                     // Handle
+---
+>     EFI_SMBIOS_TYPE_SYSTEM_BOOT_INFORMATION,            // Type,
+>     0,                                                  // Length,
+>     0                                                   // Handle
+41,42d32
+< 
+< /* eof - MiscBootInformationData.c */
+diff -r Smbios/SmbiosMiscDxe/Type32/MiscBootInformationFunction.c /home/bitmain/mango/sophgo-edk2/edk2/ArmPkg/Universal/Smbios/SmbiosMiscDxe/Type32/MiscBootInformationFunction.c
+5,8c5,11
+< Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+< Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+< Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+< SPDX-License-Identifier: BSD-2-Clause-Patent
+---
+>   Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+> 
+>   Copyright (c) 2021, NUVIA Inc. All rights reserved.<BR>
+>   Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+>   Copyright (c) 2015, Hisilicon Limited. All rights reserved.<BR>
+>   Copyright (c) 2015, Linaro Limited. All rights reserved.<BR>
+>   SPDX-License-Identifier: BSD-2-Clause-Patent
+10d12
+< Based on files under Nt32Pkg/MiscSubClassPlatformDxe/
+12,14c14,20
+< /* Modify list
+< DATA        AUTHOR            REASON
+< */
+---
+> 
+> #include <Library/BaseLib.h>
+> #include <Library/BaseMemoryLib.h>
+> #include <Library/DebugLib.h>
+> #include <Library/MemoryAllocationLib.h>
+> #include <Library/OemMiscLib.h>
+> #include <Library/UefiBootServicesTableLib.h>
+20c26
+<   MiscBootInformation (Type 32).
+---
+>   MiscBootInformation (Type 32) record.
+22c28,29
+<   @param  RecordData                 Pointer to copy of RecordData from the Data Table.
+---
+>   @param  RecordData                 Pointer to SMBIOS table with default values.
+>   @param  Smbios                     SMBIOS protocol.
+24,25c31
+<   @retval EFI_SUCCESS                All parameters were valid.
+<   @retval EFI_UNSUPPORTED            Unexpected RecordType value.
+---
+>   @retval EFI_SUCCESS                The SMBIOS table was successfully added.
+26a33
+>   @retval EFI_OUT_OF_RESOURCES       Failed to allocate required memory.
+28a36,76
+> SMBIOS_MISC_TABLE_FUNCTION (MiscBootInformation) {
+>   EFI_STATUS           Status;
+>   SMBIOS_TABLE_TYPE32  *SmbiosRecord;
+>   SMBIOS_TABLE_TYPE32  *InputData;
+> 
+>   //
+>   // First check for invalid parameters.
+>   //
+>   if (RecordData == NULL) {
+>     return EFI_INVALID_PARAMETER;
+>   }
+> 
+>   InputData = (SMBIOS_TABLE_TYPE32 *)RecordData;
+> 
+>   //
+>   // Two zeros following the last string.
+>   //
+>   SmbiosRecord = AllocateZeroPool (sizeof (SMBIOS_TABLE_TYPE32) + 1 + 1);
+>   if (SmbiosRecord == NULL) {
+>     return EFI_OUT_OF_RESOURCES;
+>   }
+> 
+>   (VOID)CopyMem (SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE32));
+> 
+>   SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE32);
+> 
+>   SmbiosRecord->BootStatus = OemGetBootStatus ();
+> 
+>   //
+>   // Now we have got the full smbios record, call smbios protocol to add this record.
+>   //
+>   Status = SmbiosMiscAddRecord ((UINT8 *)SmbiosRecord, NULL);
+>   if (EFI_ERROR (Status)) {
+>     DEBUG ((
+>       DEBUG_ERROR,
+>       "[%a]:[%dL] Smbios Type32 Table Log Failed! %r \n",
+>       __func__,
+>       DEBUG_LINE_NUMBER,
+>       Status
+>       ));
+>   }
+30,67c78,79
+< MISC_SMBIOS_TABLE_FUNCTION(MiscBootInformation)
+< {
+<     EFI_STATUS                         Status;
+<     EFI_SMBIOS_HANDLE                  SmbiosHandle;
+<     SMBIOS_TABLE_TYPE32                *SmbiosRecord;
+<     SMBIOS_TABLE_TYPE32                *InputData;
+< 
+<     //
+<     // First check for invalid parameters.
+<     //
+<     if (RecordData == NULL) {
+<         return EFI_INVALID_PARAMETER;
+<     }
+< 
+<     InputData = (SMBIOS_TABLE_TYPE32 *)RecordData;
+< 
+<     //
+<     // Two zeros following the last string.
+<     //
+<     SmbiosRecord = AllocateZeroPool(sizeof (SMBIOS_TABLE_TYPE32) + 1 + 1);
+<     if(NULL == SmbiosRecord) {
+<         return EFI_OUT_OF_RESOURCES;
+<     }
+< 
+<     (VOID)CopyMem(SmbiosRecord, InputData, sizeof (SMBIOS_TABLE_TYPE32));
+< 
+<     SmbiosRecord->Hdr.Length = sizeof (SMBIOS_TABLE_TYPE32);
+< 
+<     //
+<     // Now we have got the full smbios record, call smbios protocol to add this record.
+<     //
+<     Status = LogSmbiosData( (UINT8*)SmbiosRecord, &SmbiosHandle);
+<     if(EFI_ERROR(Status)) {
+<         DEBUG((EFI_D_ERROR, "[%a]:[%dL] Smbios Type32 Table Log Failed! %r \n", __FUNCTION__, __LINE__, Status));
+<     }
+< 
+<     FreePool(SmbiosRecord);
+<     return Status;
+---
+>   FreePool (SmbiosRecord);
+>   return Status;
+Only in Smbios/SmbiosMiscDxe: Type38

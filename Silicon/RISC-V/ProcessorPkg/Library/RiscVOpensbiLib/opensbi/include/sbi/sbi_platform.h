@@ -48,7 +48,6 @@
 struct sbi_domain_memregion;
 struct sbi_trap_info;
 struct sbi_trap_regs;
-struct sbi_hart_features;
 
 /** Possible feature flags of a platform */
 enum sbi_platform_features {
@@ -65,12 +64,6 @@ enum sbi_platform_features {
 
 /** Platform functions */
 struct sbi_platform_operations {
-	/* Check if specified HART is allowed to do cold boot */
-	bool (*cold_boot_allowed)(u32 hartid);
-
-	/* Platform nascent initialization */
-	int (*nascent_init)(void);
-
 	/** Platform early initialization */
 	int (*early_init)(bool cold_boot);
 	/** Platform final initialization */
@@ -93,17 +86,8 @@ struct sbi_platform_operations {
 	 */
 	int (*misa_get_xlen)(void);
 
-	/** Initialize (or populate) HART extensions for the platform */
-	int (*extensions_init)(struct sbi_hart_features *hfeatures);
-
 	/** Initialize (or populate) domains for the platform */
 	int (*domains_init)(void);
-
-	/** Initialize hw performance counters */
-	int (*pmu_init)(void);
-
-	/** Get platform specific mhpmevent value */
-	uint64_t (*pmu_xlate_to_mhpmevent)(uint32_t event_idx, uint64_t data);
 
 	/** Initialize the platform console */
 	int (*console_init)(void);
@@ -126,7 +110,7 @@ struct sbi_platform_operations {
 	/** Exit platform timer for current HART */
 	void (*timer_exit)(void);
 
-	/** Check if SBI vendor extension is implemented or not */
+	/** platform specific SBI extension implementation probe function */
 	int (*vendor_ext_check)(long extid);
 	/** platform specific SBI extension implementation provider */
 	int (*vendor_ext_provider)(long extid, long funcid,
@@ -181,56 +165,6 @@ struct sbi_platform {
 	 */
 	const u32 *hart_index2id;
 };
-
-/**
- * Prevent modification of struct sbi_platform from affecting
- * SBI_PLATFORM_xxx_OFFSET
- */
-_Static_assert(
-	offsetof(struct sbi_platform, opensbi_version)
-		== SBI_PLATFORM_OPENSBI_VERSION_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_OPENSBI_VERSION_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, platform_version)
-		== SBI_PLATFORM_VERSION_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_VERSION_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, name)
-		== SBI_PLATFORM_NAME_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_NAME_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, features)
-		== SBI_PLATFORM_FEATURES_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_FEATURES_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, hart_count)
-		== SBI_PLATFORM_HART_COUNT_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_HART_COUNT_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, hart_stack_size)
-		== SBI_PLATFORM_HART_STACK_SIZE_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_HART_STACK_SIZE_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, platform_ops_addr)
-		== SBI_PLATFORM_OPS_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_OPS_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, firmware_context)
-		== SBI_PLATFORM_FIRMWARE_CONTEXT_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_FIRMWARE_CONTEXT_OFFSET");
-_Static_assert(
-	offsetof(struct sbi_platform, hart_index2id)
-		== SBI_PLATFORM_HART_INDEX2ID_OFFSET,
-	"struct sbi_platform definition has changed, please redefine "
-	"SBI_PLATFORM_HART_INDEX2ID_OFFSET");
 
 /** Get pointer to sbi_platform for sbi_scratch pointer */
 #define sbi_platform_ptr(__s) \
@@ -347,57 +281,23 @@ static inline u32 sbi_platform_hart_stack_size(const struct sbi_platform *plat)
  * @param plat pointer to struct sbi_platform
  * @param hartid HART ID
  *
- * @return true if HART is invalid and false otherwise
+ * @return TRUE if HART is invalid and FALSE otherwise
  */
 static inline bool sbi_platform_hart_invalid(const struct sbi_platform *plat,
 					     u32 hartid)
 {
 	if (!plat)
-		return true;
+		return TRUE;
 	if (plat->hart_count <= sbi_platform_hart_index(plat, hartid))
-		return true;
-	return false;
-}
-
-/**
- * Check whether given HART is allowed to do cold boot
- *
- * @param plat pointer to struct sbi_platform
- * @param hartid HART ID
- *
- * @return true if HART is allowed to do cold boot and false otherwise
- */
-static inline bool sbi_platform_cold_boot_allowed(
-					const struct sbi_platform *plat,
-					u32 hartid)
-{
-	if (plat && sbi_platform_ops(plat)->cold_boot_allowed)
-		return sbi_platform_ops(plat)->cold_boot_allowed(hartid);
-	return true;
-}
-
-/**
- * Nascent (very early) initialization for current HART
- *
- * NOTE: This function can be used to do very early initialization of
- * platform specific per-HART CSRs and devices.
- *
- * @param plat pointer to struct sbi_platform
- *
- * @return 0 on success and negative error code on failure
- */
-static inline int sbi_platform_nascent_init(const struct sbi_platform *plat)
-{
-	if (plat && sbi_platform_ops(plat)->nascent_init)
-		return sbi_platform_ops(plat)->nascent_init();
-	return 0;
+		return TRUE;
+	return FALSE;
 }
 
 /**
  * Early initialization for current HART
  *
  * @param plat pointer to struct sbi_platform
- * @param cold_boot whether cold boot (true) or warm_boot (false)
+ * @param cold_boot whether cold boot (TRUE) or warm_boot (FALSE)
  *
  * @return 0 on success and negative error code on failure
  */
@@ -413,7 +313,7 @@ static inline int sbi_platform_early_init(const struct sbi_platform *plat,
  * Final initialization for current HART
  *
  * @param plat pointer to struct sbi_platform
- * @param cold_boot whether cold boot (true) or warm_boot (false)
+ * @param cold_boot whether cold boot (TRUE) or warm_boot (FALSE)
  *
  * @return 0 on success and negative error code on failure
  */
@@ -478,22 +378,6 @@ static inline int sbi_platform_misa_xlen(const struct sbi_platform *plat)
 }
 
 /**
- * Initialize (or populate) HART extensions for the platform
- *
- * @param plat pointer to struct sbi_platform
- *
- * @return 0 on success and negative error code on failure
- */
-static inline int sbi_platform_extensions_init(
-					const struct sbi_platform *plat,
-					struct sbi_hart_features *hfeatures)
-{
-	if (plat && sbi_platform_ops(plat)->extensions_init)
-		return sbi_platform_ops(plat)->extensions_init(hfeatures);
-	return 0;
-}
-
-/**
  * Initialize (or populate) domains for the platform
  *
  * @param plat pointer to struct sbi_platform
@@ -504,39 +388,6 @@ static inline int sbi_platform_domains_init(const struct sbi_platform *plat)
 {
 	if (plat && sbi_platform_ops(plat)->domains_init)
 		return sbi_platform_ops(plat)->domains_init();
-	return 0;
-}
-
-/**
- * Setup hw PMU events for the platform
- *
- * @param plat pointer to struct sbi_platform
- *
- * @return 0 on success and negative error code on failure
- */
-static inline int sbi_platform_pmu_init(const struct sbi_platform *plat)
-{
-	if (plat && sbi_platform_ops(plat)->pmu_init)
-		return sbi_platform_ops(plat)->pmu_init();
-	return 0;
-}
-
-/**
- * Get the value to be written in mhpmeventx for event_idx
- *
- * @param plat pointer to struct sbi_platform
- * @param event_idx ID of the PMU event
- * @param data Additional configuration data passed from supervisor software
- *
- * @return expected value by the platform or 0 if platform doesn't know about
- * the event
- */
-static inline uint64_t sbi_platform_pmu_xlate_to_mhpmevent(const struct sbi_platform *plat,
-						      uint32_t event_idx, uint64_t data)
-{
-	if (plat && sbi_platform_ops(plat)->pmu_xlate_to_mhpmevent)
-		return sbi_platform_ops(plat)->pmu_xlate_to_mhpmevent(event_idx,
-								      data);
 	return 0;
 }
 
@@ -558,7 +409,7 @@ static inline int sbi_platform_console_init(const struct sbi_platform *plat)
  * Initialize the platform interrupt controller for current HART
  *
  * @param plat pointer to struct sbi_platform
- * @param cold_boot whether cold boot (true) or warm_boot (false)
+ * @param cold_boot whether cold boot (TRUE) or warm_boot (FALSE)
  *
  * @return 0 on success and negative error code on failure
  */
@@ -585,7 +436,7 @@ static inline void sbi_platform_irqchip_exit(const struct sbi_platform *plat)
  * Initialize the platform IPI support for current HART
  *
  * @param plat pointer to struct sbi_platform
- * @param cold_boot whether cold boot (true) or warm_boot (false)
+ * @param cold_boot whether cold boot (TRUE) or warm_boot (FALSE)
  *
  * @return 0 on success and negative error code on failure
  */
@@ -612,7 +463,7 @@ static inline void sbi_platform_ipi_exit(const struct sbi_platform *plat)
  * Initialize the platform timer for current HART
  *
  * @param plat pointer to struct sbi_platform
- * @param cold_boot whether cold boot (true) or warm_boot (false)
+ * @param cold_boot whether cold boot (TRUE) or warm_boot (FALSE)
  *
  * @return 0 on success and negative error code on failure
  */
@@ -636,14 +487,15 @@ static inline void sbi_platform_timer_exit(const struct sbi_platform *plat)
 }
 
 /**
- * Check if SBI vendor extension is implemented or not.
+ * Check if a vendor extension is implemented or not.
  *
  * @param plat pointer to struct sbi_platform
+ * @param extid	vendor SBI extension id
  *
- * @return false if not implemented and true if implemented
+ * @return 0 if extid is not implemented and 1 if implemented
  */
-static inline int sbi_platform_vendor_ext_check(
-					const struct sbi_platform *plat, long extid)
+static inline int sbi_platform_vendor_ext_check(const struct sbi_platform *plat,
+						long extid)
 {
 	if (plat && sbi_platform_ops(plat)->vendor_ext_check)
 		return sbi_platform_ops(plat)->vendor_ext_check(extid);
@@ -655,6 +507,7 @@ static inline int sbi_platform_vendor_ext_check(
  * Invoke platform specific vendor SBI extension implementation.
  *
  * @param plat pointer to struct sbi_platform
+ * @param extid	vendor SBI extension id
  * @param funcid SBI function id within the extension id
  * @param regs pointer to trap registers passed by the caller
  * @param out_value output value that can be filled by the callee
@@ -670,8 +523,8 @@ static inline int sbi_platform_vendor_ext_provider(
 					struct sbi_trap_info *out_trap)
 {
 	if (plat && sbi_platform_ops(plat)->vendor_ext_provider) {
-		return sbi_platform_ops(plat)->vendor_ext_provider(extid,funcid,
-								regs,
+		return sbi_platform_ops(plat)->vendor_ext_provider(extid,
+								funcid, regs,
 								out_value,
 								out_trap);
 	}

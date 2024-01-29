@@ -57,7 +57,7 @@ _ModuleEntryPoint (
   FirmwareContext = (EFI_RISCV_OPENSBI_FIRMWARE_CONTEXT *)PpiList;
   SetFirmwareContextPointer (FirmwareContext);
   FirmwareContext->BootHartId = (UINT64)SecCoreData;
-  
+
   ThisSecCoreData = (EFI_SEC_PEI_HAND_OFF *)FirmwareContext->SecPeiHandOffData;
   Status          = GetPlatformPrePeiCorePpiDescriptor (&ThisPpiList);
   if (EFI_ERROR (Status)) {

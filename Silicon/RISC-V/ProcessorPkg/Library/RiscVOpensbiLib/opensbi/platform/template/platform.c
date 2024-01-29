@@ -11,7 +11,7 @@
 
 /*
  * Include these files as needed.
- * See objects.mk PLATFORM_xxx configuration parameters.
+ * See config.mk PLATFORM_xxx configuration parameters.
  */
 #include <sbi_utils/ipi/aclint_mswi.h>
 #include <sbi_utils/irqchip/plic.h>
@@ -22,7 +22,6 @@
 #define PLATFORM_PLIC_NUM_SOURCES	128
 #define PLATFORM_HART_COUNT		4
 #define PLATFORM_CLINT_ADDR		0x2000000
-#define PLATFORM_ACLINT_MTIMER_FREQ	10000000
 #define PLATFORM_ACLINT_MSWI_ADDR	(PLATFORM_CLINT_ADDR + \
 					 CLINT_MSWI_OFFSET)
 #define PLATFORM_ACLINT_MTIMER_ADDR	(PLATFORM_CLINT_ADDR + \
@@ -44,16 +43,11 @@ static struct aclint_mswi_data mswi = {
 };
 
 static struct aclint_mtimer_data mtimer = {
-	.mtime_freq = PLATFORM_ACLINT_MTIMER_FREQ,
-	.mtime_addr = PLATFORM_ACLINT_MTIMER_ADDR +
-		      ACLINT_DEFAULT_MTIME_OFFSET,
-	.mtime_size = ACLINT_DEFAULT_MTIME_SIZE,
-	.mtimecmp_addr = PLATFORM_ACLINT_MTIMER_ADDR +
-			 ACLINT_DEFAULT_MTIMECMP_OFFSET,
-	.mtimecmp_size = ACLINT_DEFAULT_MTIMECMP_SIZE,
+	.addr = PLATFORM_ACLINT_MTIMER_ADDR,
+	.size = ACLINT_MTIMER_SIZE,
 	.first_hartid = 0,
 	.hart_count = PLATFORM_HART_COUNT,
-	.has_64bit_mmio = true,
+	.has_64bit_mmio = TRUE,
 };
 
 /*
@@ -79,7 +73,7 @@ static int platform_console_init(void)
 {
 	/* Example if the generic UART8250 driver is used */
 	return uart8250_init(PLATFORM_UART_ADDR, PLATFORM_UART_INPUT_FREQ,
-			     PLATFORM_UART_BAUDRATE, 0, 1, 0);
+			     PLATFORM_UART_BAUDRATE, 0, 1);
 }
 
 /*

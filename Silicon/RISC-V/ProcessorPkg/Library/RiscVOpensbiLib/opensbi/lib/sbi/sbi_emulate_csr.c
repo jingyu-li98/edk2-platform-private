@@ -24,7 +24,7 @@ static bool hpm_allowed(int hpm_num, ulong prev_mode, bool virt)
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
 	if (prev_mode <= PRV_S) {
-		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10) {
+		if (sbi_hart_has_feature(scratch, SBI_HART_HAS_MCOUNTEREN)) {
 			cen &= csr_read(CSR_MCOUNTEREN);
 			if (virt)
 				cen &= csr_read(CSR_HCOUNTEREN);
@@ -33,13 +33,13 @@ static bool hpm_allowed(int hpm_num, ulong prev_mode, bool virt)
 		}
 	}
 	if (prev_mode == PRV_U) {
-		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
+		if (sbi_hart_has_feature(scratch, SBI_HART_HAS_SCOUNTEREN))
 			cen &= csr_read(CSR_SCOUNTEREN);
 		else
 			cen = 0;
 	}
 
-	return ((cen >> hpm_num) & 1) ? true : false;
+	return ((cen >> hpm_num) & 1) ? TRUE : FALSE;
 }
 
 int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
@@ -49,9 +49,9 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 	ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 #if __riscv_xlen == 32
-	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
+	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
 #else
-	bool virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
+	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
 #endif
 
 	switch (csr_num) {
@@ -164,9 +164,9 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 	int ret = 0;
 	ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 #if __riscv_xlen == 32
-	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
+	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
 #else
-	bool virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
+	bool virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
 #endif
 
 	switch (csr_num) {

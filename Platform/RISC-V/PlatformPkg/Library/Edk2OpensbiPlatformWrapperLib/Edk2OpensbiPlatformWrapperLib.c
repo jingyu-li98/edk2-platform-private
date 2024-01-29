@@ -306,27 +306,6 @@ Edk2OpensbiPlatforMMISAGetXLEN (
 }
 
 /**
-  OpenSBI platform extensions init hook.
-
-  @param[in]   ColdBoot  Is cold boot path or warm boot path.
-  @retval      OpenSBI error code.
-
-**/
-INT32
-Edk2OpensbiPlatformExtensionsInit (
-  IN struct sbi_hart_features *hfeatures
-  )
-{
-  DEBUG ((DEBUG_INFO, "%a: Entry\n", __FUNCTION__));
-
-  if (platform_ops.extensions_init) {
-    return platform_ops.extensions_init (hfeatures);
-  }
-
-  return 0;
-}
-
-/**
   Initialize (or populate) domains for the platform*
 
   @retval  OpenSBI error code.
@@ -561,7 +540,6 @@ CONST struct sbi_platform_operations  Edk2OpensbiPlatformOps = {
   .final_exit           = Edk2OpensbiPlatformFinalExit,
   .misa_check_extension = Edk2OpensbiPlatforMMISACheckExtension,
   .misa_get_xlen        = Edk2OpensbiPlatforMMISAGetXLEN,
-  .extensions_init      = Edk2OpensbiPlatformExtensionsInit,
   .domains_init         = Edk2OpensbiPlatformDomainsInit,
   .console_init         = Edk2OpensbiPlatformSerialInit,
   .irqchip_init         = Edk2OpensbiPlatformIrqchipInit,

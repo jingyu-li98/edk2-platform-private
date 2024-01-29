@@ -13,10 +13,10 @@ Platform Options
 ----------------
 
 The *T-HEAD C9xx* does not have any platform-specific compile options
-because it uses generic platform.
+because it use generic platform.
 
 ```
-CROSS_COMPILE=riscv64-linux-gnu- PLATFORM=generic /usr/bin/make
+CROSS_COMPILE=riscv64-linux-gnu- PLATFORM=generic FW_PIC=y /usr/bin/make
 ```
 
 The *T-HEAD C9xx* DTB provided to OpenSBI generic firmwares will usually have
@@ -51,18 +51,23 @@ DTS Example1: (Single core, eg: Allwinner D1 - c906)
 		compatible = "simple-bus";
 		ranges;
 
+		reset: reset-sample {
+			compatible = "thead,reset-sample";
+			plic-delegate = <0x0 0x101ffffc>;
+		};
+
 		clint0: clint@14000000 {
-			compatible = "allwinner,sun20i-d1-clint";
+			compatible = "riscv,clint0";
 			interrupts-extended = <
 				&cpu0_intc  3 &cpu0_intc  7
 				>;
 			reg = <0x0 0x14000000 0x0 0x04000000>;
+			clint,has-no-64bit-mmio;
 		};
 
 		intc: interrupt-controller@10000000 {
 			#interrupt-cells = <1>;
-			compatible = "allwinner,sun20i-d1-plic",
-				     "thead,c900-plic";
+			compatible = "riscv,plic0";
 			interrupt-controller;
 			interrupts-extended = <
 				&cpu0_intc  0xffffffff &cpu0_intc  9
@@ -145,6 +150,7 @@ DTS Example2: (Multi cores with soc reset-regs)
 
 		reset: reset-sample {
 			compatible = "thead,reset-sample";
+			plic-delegate = <0xff 0xd81ffffc>;
 			entry-reg = <0xff 0xff019050>;
 			entry-cnt = <4>;
 			control-reg = <0xff 0xff015004>;
@@ -162,11 +168,12 @@ DTS Example2: (Multi cores with soc reset-regs)
 				&cpu4_intc  3 &cpu4_intc  7
 				>;
 			reg = <0xff 0xdc000000 0x0 0x04000000>;
+			clint,has-no-64bit-mmio;
 		};
 
 		intc: interrupt-controller@ffd8000000 {
 			#interrupt-cells = <1>;
-			compatible = "thead,c900-plic";
+			compatible = "riscv,plic0";
 			interrupt-controller;
 			interrupts-extended = <
 				&cpu0_intc  0xffffffff &cpu0_intc  9
@@ -187,6 +194,7 @@ DTS Example2: (Multi cores with old reset csrs)
 ```
 	reset: reset-sample {
 		compatible = "thead,reset-sample";
+		plic-delegate = <0xff 0xd81ffffc>;
 		using-csr-reset;
 		csr-copy = <0x7c0 0x7c1 0x7c2 0x7c3 0x7c5 0x7cc
 			    0x3b0 0x3b1 0x3b2 0x3b3

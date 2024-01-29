@@ -18,14 +18,21 @@
 #
 ################################################################################
 
+# The Size value is rather arbitrary, and doesn't reflect the actual size of the FLASH Device,
+# but is instead chosen to accommodate a normal build while reducing the amount of time required
+# to copy the image to the target.
+#
+# Juno R2 has a 64MB NOR flash split into 2 areas: the main area is 65280KB (0x3FC0000) with
+# a 256KB block size.
+
 [FD.BL33_AP_UEFI]
 BaseAddress   = 0xE0000000|gArmTokenSpaceGuid.PcdFdBaseAddress  # The base address of the Firmware in NOR Flash.
-Size          = 0x000F9000|gArmTokenSpaceGuid.PcdFdSize         # The size in bytes of the FLASH Device
+Size          = 0x00200000|gArmTokenSpaceGuid.PcdFdSize         # The size in bytes of the FLASH Device
 ErasePolarity = 1
 
 # This one is tricky, it must be: BlockSize * NumBlocks = Size
-BlockSize     = 0x00001000
-NumBlocks     = 0xF9
+BlockSize     = 0x00040000
+NumBlocks     = 0x0008
 
 ################################################################################
 #
@@ -43,7 +50,7 @@ NumBlocks     = 0xF9
 #
 ################################################################################
 
-0x00000000|0x000F9000
+0x00000000|0x00200000
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = FVMAIN_COMPACT
 
@@ -96,10 +103,10 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
   INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
   INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+  INF MdeModulePkg/Universal/Metronome/Metronome.inf
   INF MdeModulePkg/Universal/MonotonicCounterRuntimeDxe/MonotonicCounterRuntimeDxe.inf
   INF MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
   INF EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
-  INF EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
 
   INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
   INF MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf

@@ -1,7 +1,7 @@
 ## @file
 #  PCD configuration build description file for the X58Ich10 board.
 #
-# Copyright (c) 2019 - 2022, Intel Corporation. All rights reserved. <BR>
+# Copyright (c) 2019 - 2023, Intel Corporation. All rights reserved. <BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -32,12 +32,18 @@
   ######################################
   gEfiMdeModulePkgTokenSpaceGuid.PcdBrowerGrayOutReadOnlyMenu|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
+!if $(PEI_ARCH) == "IA32" && $(DXE_ARCH) == "X64"
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode|TRUE
+!else
+  gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode|FALSE
+!endif
   gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciBusHotplugDeviceSupport|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdSupportUpdateCapsuleReset|FALSE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuHotPlugSupport|FALSE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmEnableBspElection|FALSE
+  gUefiCpuPkgTokenSpaceGuid.PcdSmmFeatureControlEnable|FALSE
+  gUefiCpuPkgTokenSpaceGuid.PcdSmrrEnable|FALSE
 
   ######################################
   # Platform Configuration
@@ -67,6 +73,7 @@
   ######################################
   gNetworkFeaturePkgTokenSpaceGuid.PcdNetworkFeatureEnable|TRUE
   gSmbiosFeaturePkgTokenSpaceGuid.PcdSmbiosFeatureEnable|TRUE
+  gMinPlatformPkgTokenSpaceGuid.PcdSerialTerminalEnable|TRUE
 
 [PcdsFeatureFlag.X64]
   ######################################
@@ -129,7 +136,16 @@
   gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x10
   gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|0x0
 !if gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable == TRUE
-  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|0x1
+  #  BIT0 - Enable Performance Measurement.<BR>
+  #  BIT1 - Disable Start Image Logging.<BR>
+  #  BIT2 - Disable Load Image logging.<BR>
+  #  BIT3 - Disable Binding Support logging.<BR>
+  #  BIT4 - Disable Binding Start logging.<BR>
+  #  BIT5 - Disable Binding Stop logging.<BR>
+  #  BIT6 - Disable all other general Perfs.<BR>
+  #  BIT1-BIT6 are evaluated when BIT0 is set.<BR>
+  #  Enable performance measurement but disable driver binding support logging.
+  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|0x09
 !endif
 !if $(TARGET) == "RELEASE"
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x03
@@ -146,7 +162,6 @@
   gPcAtChipsetPkgTokenSpaceGuid.PcdAcpiIoPortBaseAddressMask|0xFFFC
   gPcAtChipsetPkgTokenSpaceGuid.PcdAcpiPm1TmrOffset|0x0008
   gUefiCpuPkgTokenSpaceGuid.PcdCpuApStackSize|0x1000
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuInitIpiDelayInMicroSeconds|10
   gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|512
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmApSyncTimeout|10000
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmStackSize|0x4000

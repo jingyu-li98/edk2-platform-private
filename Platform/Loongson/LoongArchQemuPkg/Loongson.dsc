@@ -61,8 +61,13 @@
 [BuildOptions.LOONGARCH64.EDKII.SEC]
   *_*_*_CC_FLAGS                 =
 
+#
+# default page size is 16K for loongarch qemu tcg
+# code section separated with data section with 16K page alignment, else data
+# write operation in the same page with code section will cause qemu TB flush
+#
 [BuildOptions.common.EDKII.DXE_CORE,BuildOptions.common.EDKII.DXE_DRIVER,BuildOptions.common.EDKII.UEFI_DRIVER,BuildOptions.common.EDKII.UEFI_APPLICATION]
-  GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000
+  GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x4000
 
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
   GCC:*_*_LOONGARCH64_DLINK_FLAGS = -z common-page-size=0x10000
@@ -94,6 +99,9 @@
 !if $(NETWORK_TLS_ENABLE) == TRUE
   TlsLib|CryptoPkg/Library/TlsLib/TlsLib.inf
 !endif
+
+  # For stack protector support
+  NULL                             | MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
 
   BaseLib                          | MdePkg/Library/BaseLib/BaseLib.inf
   SafeIntLib                       | MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
@@ -263,6 +271,7 @@
   QemuFwCfgLib                     | OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgLibMmio.inf
   PciPcdProducerLib                | OvmfPkg/Fdt/FdtPciPcdProducerLib/FdtPciPcdProducerLib.inf
   PciExpressLib                    | MdePkg/Library/BasePciExpressLib/BasePciExpressLib.inf
+  AcpiPlatformLib                  | OvmfPkg/Library/AcpiPlatformLib/DxeAcpiPlatformLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   PcdLib                           | MdePkg/Library/DxePcdLib/DxePcdLib.inf
@@ -547,7 +556,7 @@
   #
   # IDE/SCSI
   #
-  OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
   MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
   MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
 

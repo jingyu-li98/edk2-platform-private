@@ -19,9 +19,6 @@ struct sbi_console_device {
 	/** Write a character to the console output */
 	void (*console_putc)(char ch);
 
-	/** Write a character string to the console output */
-	unsigned long (*console_puts)(const char *str, unsigned long len);
-
 	/** Read a character from the console input */
 	int (*console_getc)(void);
 };
@@ -36,11 +33,7 @@ void sbi_putc(char ch);
 
 void sbi_puts(const char *str);
 
-unsigned long sbi_nputs(const char *str, unsigned long len);
-
 void sbi_gets(char *s, int maxwidth, char endchar);
-
-unsigned long sbi_ngets(char *str, unsigned long len);
 
 int __printf(2, 3) sbi_sprintf(char *out, const char *format, ...);
 
@@ -50,8 +43,6 @@ int __printf(1, 2) sbi_printf(const char *format, ...);
 
 int __printf(1, 2) sbi_dprintf(const char *format, ...);
 
-void __printf(1, 2) __attribute__((noreturn)) sbi_panic(const char *format, ...);
-
 const struct sbi_console_device *sbi_console_get_device(void);
 
 void sbi_console_set_device(const struct sbi_console_device *dev);
@@ -59,10 +50,5 @@ void sbi_console_set_device(const struct sbi_console_device *dev);
 struct sbi_scratch;
 
 int sbi_console_init(struct sbi_scratch *scratch);
-
-#define SBI_ASSERT(cond, args) do { \
-	if (unlikely(!(cond))) \
-		sbi_panic args; \
-} while (0)
 
 #endif

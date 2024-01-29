@@ -32,8 +32,8 @@
   # Non discoverable devices Pcds
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciBase|0|UINT64|0x00000001
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciSize|0x10000|UINT32|0x00000002
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciBase|0|UINT64|0x00000003
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciSize|0x10000|UINT32|0x00000004
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciBase|0|UINT64|0x00000003
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciSize|0x10000|UINT32|0x00000004
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdDeviceTreeBaseAddress|0x10000000000|UINT64|0x00000005
 
   # PCDs complementing PCIe layout pulled into ACPI tables
@@ -67,3 +67,10 @@
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisManufacturer|L""|VOID*|0x0000011B
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisAssetTag|L""|VOID*|0x0000011C
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisSKU|L""|VOID*|0x0000011D
+
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMajor|0x0|UINT32|0x0000011E
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMinor|0x0|UINT32|0x0000011F
+
+  # ARM Generic Interrupt Controller ITS
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdGicItsBase|0|UINT64|0x00000120
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdSmmuBase|0|UINT64|0x00000121

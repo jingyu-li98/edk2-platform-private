@@ -28,8 +28,7 @@ static int ipi_mswi_cold_init(void *fdt, int nodeoff,
 		return SBI_ENOSPC;
 	ms = &mswi[mswi_count];
 
-	rc = fdt_parse_aclint_node(fdt, nodeoff, false,
-				   &ms->addr, &ms->size, NULL, NULL,
+	rc = fdt_parse_aclint_node(fdt, nodeoff, false, &ms->addr, &ms->size,
 				   &ms->first_hartid, &ms->hart_count);
 	if (rc)
 		return rc;
@@ -51,13 +50,11 @@ static int ipi_mswi_cold_init(void *fdt, int nodeoff,
 	return 0;
 }
 
-static const unsigned long clint_offset = CLINT_MSWI_OFFSET;
+static unsigned long clint_offset = CLINT_MSWI_OFFSET;
 
 static const struct fdt_match ipi_mswi_match[] = {
 	{ .compatible = "riscv,clint0", .data = &clint_offset },
 	{ .compatible = "sifive,clint0", .data = &clint_offset },
-	{ .compatible = "thead,c900-clint", .data = &clint_offset },
-	{ .compatible = "thead,c900-clint-mswi", .data = &clint_offset },
 	{ .compatible = "riscv,aclint-mswi" },
 	{ },
 };

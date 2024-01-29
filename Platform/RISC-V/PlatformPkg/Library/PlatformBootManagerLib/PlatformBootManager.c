@@ -162,7 +162,6 @@ PlatformBootManagerBeforeConsole (
   EFI_STATUS                    Status;
   EFI_INPUT_KEY                 Enter;
   EFI_INPUT_KEY                 F2;
-  EFI_INPUT_KEY                 Esc;
   EFI_BOOT_MANAGER_LOAD_OPTION  BootOption;
 
   //
@@ -200,28 +199,10 @@ PlatformBootManagerBeforeConsole (
   //
   // Map F2 to Boot Manager Menu
   //
-  F2.ScanCode     = SCAN_F2;
-  F2.UnicodeChar  = CHAR_NULL;
-  Esc.ScanCode    = SCAN_ESC;
-  Esc.UnicodeChar = CHAR_NULL;
-  Status          = EfiBootManagerGetBootManagerMenu (&BootOption);
-  ASSERT_EFI_ERROR (Status);
-  Status = EfiBootManagerAddKeyOptionVariable (
-             NULL,
-             (UINT16)BootOption.OptionNumber,
-             0,
-             &F2,
-             NULL
-             );
-  ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
-  Status = EfiBootManagerAddKeyOptionVariable (
-             NULL,
-             (UINT16)BootOption.OptionNumber,
-             0,
-             &Esc,
-             NULL
-             );
-  ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+  F2.ScanCode    = SCAN_F2;
+  F2.UnicodeChar = CHAR_NULL;
+  EfiBootManagerGetBootManagerMenu (&BootOption);
+  EfiBootManagerAddKeyOptionVariable (NULL, (UINT16)BootOption.OptionNumber, 0, &F2, NULL);
   //
   // Register UEFI Shell
   //

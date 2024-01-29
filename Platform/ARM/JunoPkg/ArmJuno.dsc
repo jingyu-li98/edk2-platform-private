@@ -21,7 +21,7 @@
   OUTPUT_DIRECTORY               = Build/ArmJuno
 !endif
   SUPPORTED_ARCHITECTURES        = AARCH64|ARM
-  BUILD_TARGETS                  = DEBUG|RELEASE
+  BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = Platform/ARM/JunoPkg/ArmJuno.fdf
 
@@ -188,8 +188,8 @@
   #
   # ARM Architectural Timer Frequency
   #
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|50000000
-  gEmbeddedTokenSpaceGuid.PcdMetronomeTickPeriod|1000
+  # Set to 0 so ArmArchTimerLib will read its value from CNTFRQ_EL0
+  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|0
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
 
@@ -248,10 +248,10 @@
   MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
   MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
   MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+  MdeModulePkg/Universal/Metronome/Metronome.inf
   MdeModulePkg/Universal/MonotonicCounterRuntimeDxe/MonotonicCounterRuntimeDxe.inf
   MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
   EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
-  EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
 
   MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf

@@ -59,7 +59,7 @@ extern void __thead_pre_start_warm(void);
 static int thead_reset_init(void *fdt, int nodeoff,
 				 const struct fdt_match *match)
 {
-	char *p;
+	void *p;
 	const fdt64_t *val;
 	const fdt32_t *val_w;
 	int len, i;
@@ -82,6 +82,14 @@ static int thead_reset_init(void *fdt, int nodeoff,
 			clone_csrs(cnt);
 	}
 
+
+	/* Delegate plic enable regs for S-mode */
+	val = fdt_getprop(fdt, nodeoff, "plic-delegate", &len);
+	if (len > 0 && val) {
+		p = (void *)(ulong)fdt64_to_cpu(*val);
+		writel(BIT(0), p);
+	}
+
 	/* Old reset method for secondary harts */
 	if (fdt_getprop(fdt, nodeoff, "using-csr-reset", &len)) {
 		csr_write(0x7c7, (ulong)&__thead_pre_start_warm);
@@ -91,7 +99,7 @@ static int thead_reset_init(void *fdt, int nodeoff,
 	/* Custom reset method for secondary harts */
 	val = fdt_getprop(fdt, nodeoff, "entry-reg", &len);
 	if (len > 0 && val) {
-          p = (char *)(ulong)fdt64_to_cpu(*val);
+		p = (void *)(ulong)fdt64_to_cpu(*val);
 
 		val_w = fdt_getprop(fdt, nodeoff, "entry-cnt", &len);
 		if (len > 0 && val_w) {
@@ -118,7 +126,7 @@ static int thead_reset_init(void *fdt, int nodeoff,
 		}
 	}
 
-	sbi_system_reset_add_device(&thead_reset);
+	sbi_system_reset_set_device(&thead_reset);
 
 	return 0;
 }

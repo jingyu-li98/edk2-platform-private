@@ -21,14 +21,13 @@
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_platform.h>
-#include <sbi/sbi_pmu.h>
 
 static unsigned long tlb_sync_off;
 static unsigned long tlb_fifo_off;
 static unsigned long tlb_fifo_mem_off;
 static unsigned long tlb_range_flush_limit;
 
-static void tlb_flush_all(void)
+static void sbi_tlb_flush_all(void)
 {
 	__asm__ __volatile("sfence.vma");
 }
@@ -39,8 +38,6 @@ void sbi_tlb_local_hfence_vvma(struct sbi_tlb_info *tinfo)
 	unsigned long size  = tinfo->size;
 	unsigned long vmid  = tinfo->vmid;
 	unsigned long i, hgatp;
-
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_RCVD);
 
 	hgatp = csr_swap(CSR_HGATP,
 			 (vmid << HGATP_VMID_SHIFT) & HGATP_VMID_MASK);
@@ -64,15 +61,13 @@ void sbi_tlb_local_hfence_gvma(struct sbi_tlb_info *tinfo)
 	unsigned long size  = tinfo->size;
 	unsigned long i;
 
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_RCVD);
-
 	if ((start == 0 && size == 0) || (size == SBI_TLB_FLUSH_ALL)) {
 		__sbi_hfence_gvma_all();
 		return;
 	}
 
 	for (i = 0; i < size; i += PAGE_SIZE) {
-		__sbi_hfence_gvma_gpa((start + i) >> 2);
+		__sbi_hfence_gvma_gpa(start+i);
 	}
 }
 
@@ -82,10 +77,8 @@ void sbi_tlb_local_sfence_vma(struct sbi_tlb_info *tinfo)
 	unsigned long size  = tinfo->size;
 	unsigned long i;
 
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_SFENCE_VMA_RCVD);
-
 	if ((start == 0 && size == 0) || (size == SBI_TLB_FLUSH_ALL)) {
-		tlb_flush_all();
+		sbi_tlb_flush_all();
 		return;
 	}
 
@@ -104,8 +97,6 @@ void sbi_tlb_local_hfence_vvma_asid(struct sbi_tlb_info *tinfo)
 	unsigned long asid  = tinfo->asid;
 	unsigned long vmid  = tinfo->vmid;
 	unsigned long i, hgatp;
-
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_ASID_RCVD);
 
 	hgatp = csr_swap(CSR_HGATP,
 			 (vmid << HGATP_VMID_SHIFT) & HGATP_VMID_MASK);
@@ -135,8 +126,6 @@ void sbi_tlb_local_hfence_gvma_vmid(struct sbi_tlb_info *tinfo)
 	unsigned long vmid  = tinfo->vmid;
 	unsigned long i;
 
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_VMID_RCVD);
-
 	if (start == 0 && size == 0) {
 		__sbi_hfence_gvma_all();
 		return;
@@ -148,7 +137,7 @@ void sbi_tlb_local_hfence_gvma_vmid(struct sbi_tlb_info *tinfo)
 	}
 
 	for (i = 0; i < size; i += PAGE_SIZE) {
-		__sbi_hfence_gvma_vmid_gpa((start + i) >> 2, vmid);
+		__sbi_hfence_gvma_vmid_gpa(start + i, vmid);
 	}
 }
 
@@ -159,10 +148,8 @@ void sbi_tlb_local_sfence_vma_asid(struct sbi_tlb_info *tinfo)
 	unsigned long asid  = tinfo->asid;
 	unsigned long i;
 
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_SFENCE_VMA_ASID_RCVD);
-
 	if (start == 0 && size == 0) {
-		tlb_flush_all();
+		sbi_tlb_flush_all();
 		return;
 	}
 
@@ -185,37 +172,14 @@ void sbi_tlb_local_sfence_vma_asid(struct sbi_tlb_info *tinfo)
 
 void sbi_tlb_local_fence_i(struct sbi_tlb_info *tinfo)
 {
-	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_FENCE_I_RECVD);
-
 	__asm__ __volatile("fence.i");
 }
 
-static void tlb_pmu_incr_fw_ctr(struct sbi_tlb_info *data)
-{
-	if (unlikely(!data))
-		return;
-
-	if (data->local_fn == sbi_tlb_local_fence_i)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_FENCE_I_SENT);
-	else if (data->local_fn == sbi_tlb_local_sfence_vma)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_SFENCE_VMA_SENT);
-	else if (data->local_fn == sbi_tlb_local_sfence_vma_asid)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_SFENCE_VMA_ASID_SENT);
-	else if (data->local_fn == sbi_tlb_local_hfence_gvma)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_SENT);
-	else if (data->local_fn == sbi_tlb_local_hfence_gvma_vmid)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_VMID_SENT);
-	else if (data->local_fn == sbi_tlb_local_hfence_vvma)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_SENT);
-	else if (data->local_fn == sbi_tlb_local_hfence_vvma_asid)
-		sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_ASID_SENT);
-}
-
-static void tlb_process_helper(struct sbi_tlb_info *tinfo)
+static void sbi_tlb_entry_process(struct sbi_tlb_info *tinfo)
 {
 	u32 rhartid;
 	struct sbi_scratch *rscratch = NULL;
-	atomic_t *rtlb_sync = NULL;
+	unsigned long *rtlb_sync = NULL;
 
 	tinfo->local_fn(tinfo);
 
@@ -225,46 +189,54 @@ static void tlb_process_helper(struct sbi_tlb_info *tinfo)
 			continue;
 
 		rtlb_sync = sbi_scratch_offset_ptr(rscratch, tlb_sync_off);
-		atomic_sub_return(rtlb_sync, 1);
+		while (atomic_raw_xchg_ulong(rtlb_sync, 1)) ;
 	}
 }
 
-static int tlb_process_once(struct sbi_scratch *scratch)
+static void sbi_tlb_process_count(struct sbi_scratch *scratch,
+				  unsigned int count)
+{
+	struct sbi_tlb_info tinfo;
+	unsigned int deq_count = 0;
+	struct sbi_fifo *tlb_fifo =
+			sbi_scratch_offset_ptr(scratch, tlb_fifo_off);
+
+	while (!sbi_fifo_dequeue(tlb_fifo, &tinfo)) {
+		sbi_tlb_entry_process(&tinfo);
+		deq_count++;
+		if (deq_count > count)
+			break;
+
+	}
+}
+
+static void sbi_tlb_process(struct sbi_scratch *scratch)
 {
 	struct sbi_tlb_info tinfo;
 	struct sbi_fifo *tlb_fifo =
 			sbi_scratch_offset_ptr(scratch, tlb_fifo_off);
 
-	if (!sbi_fifo_dequeue(tlb_fifo, &tinfo)) {
-		tlb_process_helper(&tinfo);
-		return 0;
-	}
-
-	return -1;
+	while (!sbi_fifo_dequeue(tlb_fifo, &tinfo))
+		sbi_tlb_entry_process(&tinfo);
 }
 
-static void tlb_process(struct sbi_scratch *scratch)
+static void sbi_tlb_sync(struct sbi_scratch *scratch)
 {
-	while (!tlb_process_once(scratch));
-}
+	unsigned long *tlb_sync =
+			sbi_scratch_offset_ptr(scratch, tlb_sync_off);
 
-static void tlb_sync(struct sbi_scratch *scratch)
-{
-	atomic_t *tlb_sync =
-		sbi_scratch_offset_ptr(scratch, tlb_sync_off);
-
-	while (atomic_read(tlb_sync) > 0) {
+	while (!atomic_raw_xchg_ulong(tlb_sync, 0)) {
 		/*
 		 * While we are waiting for remote hart to set the sync,
 		 * consume fifo requests to avoid deadlock.
 		 */
-		tlb_process_once(scratch);
+		sbi_tlb_process_count(scratch, 1);
 	}
 
 	return;
 }
 
-static inline int tlb_range_check(struct sbi_tlb_info *curr,
+static inline int __sbi_tlb_range_check(struct sbi_tlb_info *curr,
 					struct sbi_tlb_info *next)
 {
 	unsigned long curr_end;
@@ -307,7 +279,7 @@ static inline int tlb_range_check(struct sbi_tlb_info *curr,
  *	before continuing the while loop. This method is preferred over wfi/ipi because
  *	of MMIO cost involved in later method.
  */
-static int tlb_update_cb(void *in, void *data)
+static int sbi_tlb_update_cb(void *in, void *data)
 {
 	struct sbi_tlb_info *curr;
 	struct sbi_tlb_info *next;
@@ -322,21 +294,20 @@ static int tlb_update_cb(void *in, void *data)
 	if (next->local_fn == sbi_tlb_local_sfence_vma_asid &&
 	    curr->local_fn == sbi_tlb_local_sfence_vma_asid) {
 		if (next->asid == curr->asid)
-			ret = tlb_range_check(curr, next);
+			ret = __sbi_tlb_range_check(curr, next);
 	} else if (next->local_fn == sbi_tlb_local_sfence_vma &&
 		   curr->local_fn == sbi_tlb_local_sfence_vma) {
-		ret = tlb_range_check(curr, next);
+		ret = __sbi_tlb_range_check(curr, next);
 	}
 
 	return ret;
 }
 
-static int tlb_update(struct sbi_scratch *scratch,
+static int sbi_tlb_update(struct sbi_scratch *scratch,
 			  struct sbi_scratch *remote_scratch,
 			  u32 remote_hartid, void *data)
 {
 	int ret;
-	atomic_t *tlb_sync;
 	struct sbi_fifo *tlb_fifo_r;
 	struct sbi_tlb_info *tinfo = data;
 	u32 curr_hartid = current_hartid();
@@ -362,8 +333,12 @@ static int tlb_update(struct sbi_scratch *scratch,
 
 	tlb_fifo_r = sbi_scratch_offset_ptr(remote_scratch, tlb_fifo_off);
 
-	ret = sbi_fifo_inplace_update(tlb_fifo_r, data, tlb_update_cb);
-	if (ret == SBI_FIFO_UNCHANGED && sbi_fifo_enqueue(tlb_fifo_r, data) < 0) {
+	ret = sbi_fifo_inplace_update(tlb_fifo_r, data, sbi_tlb_update_cb);
+	if (ret != SBI_FIFO_UNCHANGED) {
+		return 1;
+	}
+
+	while (sbi_fifo_enqueue(tlb_fifo_r, data) < 0) {
 		/**
 		 * For now, Busy loop until there is space in the fifo.
 		 * There may be case where target hart is also
@@ -372,23 +347,19 @@ static int tlb_update(struct sbi_scratch *scratch,
 		 * TODO: Introduce a wait/wakeup event mechanism to handle
 		 * this properly.
 		 */
-		tlb_process_once(scratch);
+		sbi_tlb_process_count(scratch, 1);
 		sbi_dprintf("hart%d: hart%d tlb fifo full\n",
 			    curr_hartid, remote_hartid);
-		return -2;
 	}
-
-	tlb_sync = sbi_scratch_offset_ptr(scratch, tlb_sync_off);
-	atomic_add_return(tlb_sync, 1);
 
 	return 0;
 }
 
 static struct sbi_ipi_event_ops tlb_ops = {
 	.name = "IPI_TLB",
-	.update = tlb_update,
-	.sync = tlb_sync,
-	.process = tlb_process,
+	.update = sbi_tlb_update,
+	.sync = sbi_tlb_sync,
+	.process = sbi_tlb_process,
 };
 
 static u32 tlb_event = SBI_IPI_EVENT_MAX;
@@ -398,8 +369,6 @@ int sbi_tlb_request(ulong hmask, ulong hbase, struct sbi_tlb_info *tinfo)
 	if (!tinfo->local_fn)
 		return SBI_EINVAL;
 
-	tlb_pmu_incr_fw_ctr(tinfo);
-
 	return sbi_ipi_send_many(hmask, hbase, tlb_event, tinfo);
 }
 
@@ -407,7 +376,7 @@ int sbi_tlb_init(struct sbi_scratch *scratch, bool cold_boot)
 {
 	int ret;
 	void *tlb_mem;
-	atomic_t *tlb_sync;
+	unsigned long *tlb_sync;
 	struct sbi_fifo *tlb_q;
 	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 
@@ -449,7 +418,7 @@ int sbi_tlb_init(struct sbi_scratch *scratch, bool cold_boot)
 	tlb_q = sbi_scratch_offset_ptr(scratch, tlb_fifo_off);
 	tlb_mem = sbi_scratch_offset_ptr(scratch, tlb_fifo_mem_off);
 
-	tlb_sync->counter = 0;
+	*tlb_sync = 0;
 
 	sbi_fifo_init(tlb_q, tlb_mem,
 		      SBI_TLB_FIFO_NUM_ENTRIES, SBI_TLB_INFO_SIZE);

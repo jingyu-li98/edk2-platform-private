@@ -19,7 +19,7 @@
   DSC_SPECIFICATION              = 0x0001001A
   OUTPUT_DIRECTORY               = Build/$(PLATFORM_NAME)
   SUPPORTED_ARCHITECTURES        = AARCH64
-  BUILD_TARGETS                  = DEBUG|NOOPT|RELEASE
+  BUILD_TARGETS                  = NOOPT|DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = Platform/Hisilicon/$(PLATFORM_NAME)/$(PLATFORM_NAME).fdf
 
@@ -57,7 +57,7 @@
   TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
   RtcHelperLib|Silicon/Hisilicon/Library/RtcHelperLib/RtcHelperLib.inf
   RealTimeClockLib|Silicon/Hisilicon/Library/M41T83RealTimeClockLib/M41T83RealTimeClockLib.inf
-  OemMiscLib|Platform/Hisilicon/D06/Library/OemMiscLibD06/OemMiscLibD06.inf
+  HisiOemMiscLib|Platform/Hisilicon/D06/Library/HisiOemMiscLibD06/HisiOemMiscLibD06.inf
   OemAddressMapLib|Platform/Hisilicon/D06/Library/OemAddressMapD06/OemAddressMapD06.inf
   PlatformSysCtrlLib|Silicon/Hisilicon/Hi1620/Library/PlatformSysCtrlLibHi1620/PlatformSysCtrlLibHi1620.inf
 

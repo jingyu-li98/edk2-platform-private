@@ -67,6 +67,8 @@
   gMinPlatformPkgTokenSpaceGuid.PcdFadtFlags
   gMinPlatformPkgTokenSpaceGuid.PcdFadtDutyOffset
   gMinPlatformPkgTokenSpaceGuid.PcdFadtDutyWidth
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtMajorVersion
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtMinorVersion
 
   gPcAtChipsetPkgTokenSpaceGuid.PcdHpetBaseAddress
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress
@@ -126,6 +128,7 @@
   gEfiGlobalVariableGuid                        ## CONSUMES
   gEfiHobListGuid                               ## CONSUMES
   gEfiEndOfDxeEventGroupGuid                    ## CONSUMES
+  gEfiAcpiTableGuid                             ## CONSUMES
 
 [Depex]
   gEfiAcpiTableProtocolGuid           AND

@@ -30,7 +30,7 @@
   EmbeddedPkg/EmbeddedPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
-  Platform/Sophgo/SG2042Pkg/SG2042Pkg.dec
+  Platform/SiFive/U5SeriesPkg/U5SeriesPkg.dec
   Platform/RISC-V/PlatformPkg/RiscVPlatformPkg.dec
   Silicon/RISC-V/ProcessorPkg/RiscVProcessorPkg.dec
 

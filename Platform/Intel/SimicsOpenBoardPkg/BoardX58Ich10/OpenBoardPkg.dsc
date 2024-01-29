@@ -1,7 +1,7 @@
 ## @file
 #  The main build description file for the X58Ich10 board.
 #
-# Copyright (c) 2019 - 2021, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2019 - 2023, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -72,9 +72,7 @@
 #######################################
 # Component Includes
 #######################################
-# @todo: Change below line to [Components.$(PEI_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.IA32]
+[Components.$(PEI_ARCH)]
 !include $(PLATFORM_PACKAGE)/Include/Dsc/CorePeiInclude.dsc
 !include $(SKT_PKG)/SktPkgPei.dsc
 
@@ -116,9 +114,7 @@
   #######################################
   DxeLoadLinuxLib|$(BOARD_PKG)/Library/LoadLinuxLib/DxeLoadLinuxLib.inf
   LogoLib|$(BOARD_PKG)/Library/DxeLogoLib/DxeLogoLib.inf
-  NvVarsFileLib|$(BOARD_PKG)/Library/NvVarsFileLib/NvVarsFileLib.inf
   ReportFvLib|$(BOARD_PKG)/Library/PeiReportFvLib/PeiReportFvLib.inf
-  SerializeVariablesLib|$(BOARD_PKG)/Library/SerializeVariablesLib/SerializeVariablesLib.inf
   SiliconPolicyInitLib|$(BOARD_PKG)/Policy/Library/SiliconPolicyInitLib/SiliconPolicyInitLib.inf
   SiliconPolicyUpdateLib|$(BOARD_PKG)/Policy/Library/SiliconPolicyUpdateLib/SiliconPolicyUpdateLib.inf
   PlatformCmosAccessLib|BoardModulePkg/Library/PlatformCmosAccessLibNull/PlatformCmosAccessLibNull.inf
@@ -142,6 +138,7 @@
   # Silicon Package
   #####################################
   ReportCpuHobLib|IntelSiliconPkg/Library/ReportCpuHobLib/ReportCpuHobLib.inf
+  SmmAccessLib|IntelSiliconPkg/Feature/SmmAccess/Library/PeiSmmAccessLib/PeiSmmAccessLib.inf
 
   #####################################
   # Platform Package
@@ -174,9 +171,7 @@
 #######################################
 # PEI Components
 #######################################
-# @todo: Change below line to [Components.$(PEI_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.IA32]
+[Components.$(PEI_ARCH)]
   #######################################
   # Edk2 Packages
   #######################################
@@ -190,12 +185,6 @@
   #######################################
   # Silicon Initialization Package
   #######################################
-!if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
-  $(SKT_PKG)/Smm/Access/SmmAccessPei.inf {
-    <LibraryClasses>
-      PcdLib|MdePkg/Library/PeiPcdLib/PeiPcdLib.inf
-  }
-!endif
 
   #####################################
   # Platform Package
@@ -252,10 +241,6 @@
   MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
   MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
 !if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
-  MdeModulePkg/Universal/LockBox/SmmLockBox/SmmLockBox.inf {
-    <LibraryClasses>
-      LockBoxLib|MdeModulePkg/Library/SmmLockBoxLib/SmmLockBoxSmmLib.inf
-  }
   UefiCpuPkg/CpuS3DataDxe/CpuS3DataDxe.inf
   UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuDxeSmm.inf
 !endif
@@ -280,6 +265,14 @@
       ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
   }
 
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable == TRUE
+  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf {
+    <PcdsFixedAtBuild>
+      gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+  }
+!endif
+
   #######################################
   # Silicon Initialization Package
   #######################################
@@ -287,7 +280,7 @@
 !if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
   $(PCH_PKG)/SmmControl/RuntimeDxe/SmmControl2Dxe.inf
   $(PCH_PKG)/Spi/Smm/PchSpiSmm.inf
-  $(SKT_PKG)/Smm/Access/SmmAccess2Dxe.inf
+  IntelSiliconPkg/Feature/SmmAccess/SmmAccessDxe/SmmAccess.inf
   IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceSmm.inf
 !endif
 

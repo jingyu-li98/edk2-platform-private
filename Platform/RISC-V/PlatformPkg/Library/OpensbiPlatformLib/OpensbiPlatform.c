@@ -223,21 +223,6 @@ generic_final_exit (
 }
 
 static int
-generic_extensions_init (
-  struct sbi_hart_features *hfeatures
-  )
-{
-  int  rc;
-  if (generic_plat && generic_plat->extensions_init) {
-    rc = generic_plat->extensions_init (generic_plat_match, hfeatures);
-    if (rc) {
-      return rc;
-    }
-  }
-  return 0;
-}
-
-static int
 generic_domains_init (
   void
   )
@@ -262,7 +247,6 @@ const struct sbi_platform_operations  platform_ops = {
   .final_init           = generic_final_init,
   .early_exit           = generic_early_exit,
   .final_exit           = generic_final_exit,
-  .extensions_init      = generic_extensions_init,
   .domains_init         = generic_domains_init,
   .console_init         = fdt_serial_init,
   .irqchip_init         = fdt_irqchip_init,

@@ -106,9 +106,6 @@ _scratch_init:
   sd    a4, SBI_SCRATCH_FW_START_OFFSET(tp)
   sd    a5, SBI_SCRATCH_FW_SIZE_OFFSET(tp)
 
-  li    a4, 0x1000
-  sd    a4, SBI_SCRATCH_FW_RW_OFFSET(tp)
-  
   /*
    Note: fw_next_addr()uses a0, a1, and ra
   */
@@ -510,8 +507,6 @@ _uninitialized_hart_wait:
   .globl _trap_handler
   .globl _trap_exit
 _trap_handler:
-  sfence.vma
-  
   TRAP_SAVE_AND_SETUP_SP_T0
 
   TRAP_SAVE_MEPC_MSTATUS 0

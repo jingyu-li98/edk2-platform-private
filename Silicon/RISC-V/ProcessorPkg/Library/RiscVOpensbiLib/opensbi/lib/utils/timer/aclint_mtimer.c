@@ -10,13 +10,15 @@
 #include <sbi/riscv_asm.h>
 #include <sbi/riscv_atomic.h>
 #include <sbi/riscv_io.h>
-#include <sbi/sbi_bitops.h>
 #include <sbi/sbi_domain.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_ipi.h>
 #include <sbi/sbi_timer.h>
 #include <sbi_utils/timer/aclint_mtimer.h>
+
+#define MTIMER_CMP_OFF		0x0000
+#define MTIMER_VAL_OFF		0x7ff8
 
 static struct aclint_mtimer_data *mtimer_hartid2data[SBI_HARTMASK_MAX_BITS];
 
@@ -47,24 +49,24 @@ static u64 mtimer_time_rd32(volatile u64 *addr)
 static void mtimer_time_wr32(bool timecmp, u64 value, volatile u64 *addr)
 {
 	writel_relaxed((timecmp) ? -1U : 0U, (void *)(addr));
-	writel_relaxed((u32)(value >> 32), (char *)(addr) + 0x04);
+	writel_relaxed((u32)(value >> 32), (void *)(addr) + 0x04);
 	writel_relaxed((u32)value, (void *)(addr));
 }
 
 static u64 mtimer_value(void)
 {
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[current_hartid()];
-	u64 *time_val = (void *)mt->mtime_addr;
+	u64 *time_val = ((void *)mt->addr) + MTIMER_VAL_OFF;
 
 	/* Read MTIMER Time Value */
-	return mt->time_rd(time_val);
+	return mt->time_rd(time_val) + mt->time_delta;
 }
 
 static void mtimer_event_stop(void)
 {
 	u32 target_hart = current_hartid();
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
-	u64 *time_cmp = (void *)mt->mtimecmp_addr;
+	u64 *time_cmp = (void *)mt->addr + MTIMER_CMP_OFF;
 
 	/* Clear MTIMER Time Compare */
 	mt->time_wr(true, -1ULL, &time_cmp[target_hart - mt->first_hartid]);
@@ -74,10 +76,10 @@ static void mtimer_event_start(u64 next_event)
 {
 	u32 target_hart = current_hartid();
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
-	u64 *time_cmp = (void *)mt->mtimecmp_addr;
+	u64 *time_cmp = (void *)mt->addr + MTIMER_CMP_OFF;
 
 	/* Program MTIMER Time Compare */
-	mt->time_wr(true, next_event,
+	mt->time_wr(true, next_event - mt->time_delta,
 		    &time_cmp[target_hart - mt->first_hartid]);
 }
 
@@ -88,54 +90,39 @@ static struct sbi_timer_device mtimer = {
 	.timer_event_stop = mtimer_event_stop
 };
 
-void aclint_mtimer_sync(struct aclint_mtimer_data *mt)
-{
-	u64 v1, v2, mv, delta;
-	u64 *mt_time_val, *ref_time_val;
-	struct aclint_mtimer_data *reference;
-
-	/* Sync-up non-shared MTIME if reference is available */
-	if (mt->has_shared_mtime || !mt->time_delta_reference)
-		return;
-
-	reference = mt->time_delta_reference;
-	mt_time_val = (void *)mt->mtime_addr;
-	ref_time_val = (void *)reference->mtime_addr;
-	if (!atomic_raw_xchg_ulong(&mt->time_delta_computed, 1)) {
-		v1 = mt->time_rd(mt_time_val);
-		mv = reference->time_rd(ref_time_val);
-		v2 = mt->time_rd(mt_time_val);
-		delta = mv - ((v1 / 2) + (v2 / 2));
-		mt->time_wr(false, mt->time_rd(mt_time_val) + delta,
-			    mt_time_val);
-	}
-
-}
-
-void aclint_mtimer_set_reference(struct aclint_mtimer_data *mt,
-				 struct aclint_mtimer_data *ref)
-{
-	if (!mt || !ref || mt == ref)
-		return;
-
-	mt->time_delta_reference = ref;
-	mt->time_delta_computed = 0;
-}
-
 int aclint_mtimer_warm_init(void)
 {
-	u64 *mt_time_cmp;
+	u64 v1, v2, mv;
 	u32 target_hart = current_hartid();
+	struct aclint_mtimer_data *reference;
+	u64 *mt_time_val, *mt_time_cmp, *ref_time_val;
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
 
 	if (!mt)
 		return SBI_ENODEV;
 
-	/* Sync-up MTIME register */
-	aclint_mtimer_sync(mt);
+	/*
+	 * Compute delta if reference available
+	 *
+	 * We deliberately compute time_delta in warm init so that time_delta
+	 * is computed on a HART which is going to use given MTIMER. We use
+	 * atomic flag timer_delta_computed to ensure that only one HART does
+	 * time_delta computation.
+	 */
+	if (mt->time_delta_reference) {
+		reference = mt->time_delta_reference;
+		mt_time_val = (void *)mt->addr + MTIMER_VAL_OFF;
+		ref_time_val = (void *)reference->addr + MTIMER_VAL_OFF;
+		if (!atomic_raw_xchg_ulong(&mt->time_delta_computed, 1)) {
+			v1 = mt->time_rd(mt_time_val);
+			mv = reference->time_rd(ref_time_val);
+			v2 = mt->time_rd(mt_time_val);
+			mt->time_delta = mv - ((v1 / 2) + (v2 / 2));
+		}
+	}
 
 	/* Clear Time Compare */
-	mt_time_cmp = (void *)mt->mtimecmp_addr;
+	mt_time_cmp = (void *)mt->addr + MTIMER_CMP_OFF;
 	mt->time_wr(true, -1ULL,
 		    &mt_time_cmp[target_hart - mt->first_hartid]);
 
@@ -147,22 +134,20 @@ int aclint_mtimer_cold_init(struct aclint_mtimer_data *mt,
 {
 	u32 i;
 	int rc;
+	unsigned long pos, region_size;
+	struct sbi_domain_memregion reg;
 
 	/* Sanity checks */
-	if (!mt ||
-	    (mt->hart_count && !mt->mtimecmp_size) ||
-	    (mt->mtime_size && (mt->mtime_addr & (ACLINT_MTIMER_ALIGN - 1))) ||
-	    (mt->mtime_size && (mt->mtime_size & (ACLINT_MTIMER_ALIGN - 1))) ||
-	    (mt->mtimecmp_addr & (ACLINT_MTIMER_ALIGN - 1)) ||
-	    (mt->mtimecmp_size & (ACLINT_MTIMER_ALIGN - 1)) ||
+	if (!mt || (mt->addr & (ACLINT_MTIMER_ALIGN - 1)) ||
+	    (mt->size < ACLINT_MTIMER_SIZE) ||
 	    (mt->first_hartid >= SBI_HARTMASK_MAX_BITS) ||
 	    (mt->hart_count > ACLINT_MTIMER_MAX_HARTS))
 		return SBI_EINVAL;
-	if (reference && mt->mtime_freq != reference->mtime_freq)
-		return SBI_EINVAL;
 
 	/* Initialize private data */
-	aclint_mtimer_set_reference(mt, reference);
+	mt->time_delta_reference = reference;
+	mt->time_delta_computed = 0;
+	mt->time_delta = 0;
 	mt->time_rd = mtimer_time_rd32;
 	mt->time_wr = mtimer_time_wr32;
 
@@ -178,49 +163,17 @@ int aclint_mtimer_cold_init(struct aclint_mtimer_data *mt,
 	for (i = 0; i < mt->hart_count; i++)
 		mtimer_hartid2data[mt->first_hartid + i] = mt;
 
-	if (!mt->mtime_size) {
-		/* Disable reading mtime when mtime is not available */
-		mtimer.timer_value = NULL;
-	}
-
 	/* Add MTIMER regions to the root domain */
-	if (mt->mtime_addr == (mt->mtimecmp_addr + mt->mtimecmp_size)) {
-		rc = sbi_domain_root_add_memrange(mt->mtimecmp_addr,
-					mt->mtime_size + mt->mtimecmp_size,
-					MTIMER_REGION_ALIGN,
-					(SBI_DOMAIN_MEMREGION_MMIO |
-					 SBI_DOMAIN_MEMREGION_M_READABLE |
-					 SBI_DOMAIN_MEMREGION_M_WRITABLE));
-		if (rc)
-			return rc;
-	} else if (mt->mtimecmp_addr == (mt->mtime_addr + mt->mtime_size)) {
-		rc = sbi_domain_root_add_memrange(mt->mtime_addr,
-					mt->mtime_size + mt->mtimecmp_size,
-					MTIMER_REGION_ALIGN,
-					(SBI_DOMAIN_MEMREGION_MMIO |
-					 SBI_DOMAIN_MEMREGION_M_READABLE |
-					 SBI_DOMAIN_MEMREGION_M_WRITABLE));
-		if (rc)
-			return rc;
-	} else if (!mt->use_extern_domain) {
-		rc = sbi_domain_root_add_memrange(mt->mtime_addr,
-						mt->mtime_size, MTIMER_REGION_ALIGN,
-						(SBI_DOMAIN_MEMREGION_MMIO |
-						 SBI_DOMAIN_MEMREGION_M_READABLE |
-						 SBI_DOMAIN_MEMREGION_M_WRITABLE));
-		if (rc)
-			return rc;
-
-		rc = sbi_domain_root_add_memrange(mt->mtimecmp_addr,
-						mt->mtimecmp_size, MTIMER_REGION_ALIGN,
-						(SBI_DOMAIN_MEMREGION_MMIO |
-						 SBI_DOMAIN_MEMREGION_M_READABLE |
-						 SBI_DOMAIN_MEMREGION_M_WRITABLE));
+	for (pos = 0; pos < mt->size; pos += ACLINT_MTIMER_ALIGN) {
+		region_size = ((mt->size - pos) < ACLINT_MTIMER_ALIGN) ?
+			      (mt->size - pos) : ACLINT_MTIMER_ALIGN;
+		sbi_domain_memregion_init(mt->addr + pos, region_size,
+					  SBI_DOMAIN_MEMREGION_MMIO, &reg);
+		rc = sbi_domain_root_add_memregion(&reg);
 		if (rc)
 			return rc;
 	}
 
-	mtimer.timer_freq = mt->mtime_freq;
 	sbi_timer_set_device(&mtimer);
 
 	return 0;
