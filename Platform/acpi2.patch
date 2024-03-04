@@ -1,0 +1,30 @@
+diff --git a/Platform/Sophgo/SG2042_EVB_Board/SG2042.fdf b/Platform/Sophgo/SG2042_EVB_Board/SG2042.fdf
+index 6f769ed031..b67a9d1e67 100644
+--- a/Platform/Sophgo/SG2042_EVB_Board/SG2042.fdf
++++ b/Platform/Sophgo/SG2042_EVB_Board/SG2042.fdf
+@@ -72,8 +72,8 @@ INF  EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
+ 
+ # RISC-V Platform Drivers
+ INF  Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+-INF  Silicon/Sophgo/SG2042Pkg/Drivers/MmcDxe/MmcDxe.inf
+-INF  Silicon/Sophgo/SG2042Pkg/Drivers/SdHostDxe/SdHostDxe.inf
++INF  Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
++INF  Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
+ 
+ # RISC-V Core Drivers
+ INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
+@@ -100,6 +100,14 @@ INF  MdeModulePkg/Universal/MemoryTest/NullMemoryTestDxe/NullMemoryTestDxe.inf
+ #  INF  MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
+ #!endif
+ 
++#
++# ACPI Support
++#
++INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
++INF MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
++INF Silicon/Sophgo/SG2042Pkg/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
++INF RuleOverride=ACPITABLE Silicon/Sophgo/SG2042Pkg/AcpiTables/SGX4EvbAcpiTables.inf
++
+ #
+ # SMBIOS Support
+ #
