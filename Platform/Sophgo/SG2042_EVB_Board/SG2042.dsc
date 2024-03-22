@@ -166,6 +166,8 @@
   PciSegmentLib|Silicon/Sophgo/SG2042Pkg/Library/PciSegmentLib/PciSegmentLib.inf
   PciHostBridgeLib|Silicon/Sophgo/SG2042Pkg/Library/PciHostBridgeLib/PciHostBridgeLib.inf
 
+  # Nor Flash Library
+  NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -244,6 +246,7 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeMemorySize|1
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
+  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0xFFFFFFFFFFFFFFFC
   gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x10
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize|0x8000
@@ -326,8 +329,21 @@
   #
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
 
+  #
+  # Variable store - default values
+  # 64KB + 64KB + 64KB
+  # Flash Offset: 60MB
+  #
+  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x03c00000
+  gSophgoTokenSpaceGuid.PcdSpiMemoryMapped|FALSE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize|0x00010000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize|0x00010000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00010000
+
 [PcdsFixedAtBuild.common]
   gSophgoTokenSpaceGuid.PcdSDIOBase|0x704002B000
+  gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x7000180000
+  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7002180000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x7060800000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0CfgBase|0x7062000000
@@ -391,6 +407,9 @@
 [PcdsDynamicDefault]
   gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0x03c00000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|0x03c10000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0x03c20000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE
@@ -490,7 +509,10 @@
   #
   # RISC-V Platform module
   #
-  Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+  #Platform/SiFive/U5SeriesPkg/Universal/Dxe/RamFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+  Silicon/Sophgo/Drivers/SpiDxe/SpiFlashMasterController.inf
+  Silicon/Sophgo/Drivers/NorFlashDxe/NorFlashDxe.inf
+  Silicon/Sophgo/Drivers/FlashFvbDxe/FlashFvbDxe.inf
   Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
   Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
 

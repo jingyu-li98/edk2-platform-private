@@ -18,35 +18,15 @@
 
 [Protocols]
   gSophgoMmcHostProtocolGuid = { 0x3E591C00, 0x9E4A, 0x11DF, { 0x92, 0x44, 0x00, 0x02, 0xA5, 0xF5, 0xF5, 0x1B } }
+  gSophgoSpiMasterProtocolGuid = { 0xB67F29A5, 0x7E7D, 0x48C6, { 0xA0, 0x00, 0xE8, 0xB5, 0x1D, 0x6D, 0x3A, 0xA8 } }
+  gSophgoNorFlashProtocolGuid = { 0xE9A39038, 0x1965, 0x4404, { 0xA5, 0x2A, 0xB9, 0xA3, 0xA1, 0xAE, 0xC2, 0xE4 } }
 
 [Guids]
   gSophgoTokenSpaceGuid  = { 0xDA6ECA1D, 0x220A, 0x45D6, { 0xA7, 0x4D, 0x83, 0x64, 0x50, 0x90, 0x82, 0x1C } }
 
 [PcdsFixedAtBuild]
   gSophgoTokenSpaceGuid.PcdSDIOBase|0x0|UINT64|0x00001001
-  # SMBIOS
-  gSophgoTokenSpaceGuid.PcdFirmwareVendor|L"SOPHGO Inc."|VOID*|0x30000052
-  gSophgoTokenSpaceGuid.PcdSystemProductName|L""|VOID*|0x30000053
-  gSophgoTokenSpaceGuid.PcdSystemVersion|L""|VOID*|0x30000054
-  gSophgoTokenSpaceGuid.PcdBaseBoardProductName|L""|VOID*|0x30000055
-  gSophgoTokenSpaceGuid.PcdBaseBoardVersion|L""|VOID*|0x30000056
-  gSophgoTokenSpaceGuid.PcdCPUInfo|L""|VOID*|0x30000060
-  gSophgoTokenSpaceGuid.PcdBiosVersionString|L""|VOID*|0x00010069
-  gSophgoTokenSpaceGuid.PcdBiosVersionForBmc|L""|VOID*|0x00010070
-
-  gSophgoTokenSpaceGuid.PcdPlatformDefaultPackageType|0x0|UINT32|0x40000001
-
-  gSophgoTokenSpaceGuid.PcdTopOfLowMemory|0x0|UINT32|0x40000002
-  gSophgoTokenSpaceGuid.PcdBottomOfHighMemory|0x0|UINT64|0x40000003
-
-  gSophgoTokenSpaceGuid.PcdSlotPerChannelNum|0x0|UINT32|0x40000004
-
-  gSophgoTokenSpaceGuid.PcdShellFile|{ 0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1 }|VOID*|0x30006554
-
-#Platform description
-  #gMarvellTokenSpaceGuid.PcdFirmwareVendor|"EFI Development Kit II / Semihalf"|VOID*|0x50000104
-  #gMarvellTokenSpaceGuid.PcdFirmwareVersion|"EDK II"|VOID*|0x50000105
-  #gMarvellTokenSpaceGuid.PcdProductManufacturer|"Marvell"|VOID*|0x50000100
-  #gMarvellTokenSpaceGuid.PcdProductPlatformName|"Marvell Development Board"|VOID*|0x50000101
-  #gMarvellTokenSpaceGuid.PcdProductSerial|"Serial Not Set"|VOID*|0x50000103
-  #gMarvellTokenSpaceGuid.PcdProductVersion|"Revision unknown"|VOID*|0x50000102
+  gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x0|UINT64|0x00001002
+  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x0|UINT64|0x00001003
+  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x0|UINT64|0x00001004
+  gSophgoTokenSpaceGuid.PcdSpiMemoryMapped|TRUE|BOOLEAN|0x00001005
