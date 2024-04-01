@@ -29,7 +29,6 @@ typedef struct {
   SOPHGO_SPI_MASTER_PROTOCOL          *SpiMasterProtocol;
   EFI_HANDLE                          Handle;
   UINT32                              Signature;
-  BOOLEAN                             IsMemoryMapped;
   UINTN                               RegionBaseAddress;
   UINTN                               Size;
   UINTN                               FvbOffset;
@@ -42,28 +41,28 @@ typedef struct {
 
 EFI_STATUS
 EFIAPI
-FvbGetAttributes(
+FvbGetAttributes (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     OUT       EFI_FVB_ATTRIBUTES_2*                    Attributes
 );
 
 EFI_STATUS
 EFIAPI
-FvbSetAttributes(
+FvbSetAttributes (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     IN OUT    EFI_FVB_ATTRIBUTES_2*                    Attributes
 );
 
 EFI_STATUS
 EFIAPI
-FvbGetPhysicalAddress(
+FvbGetPhysicalAddress (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     OUT       EFI_PHYSICAL_ADDRESS*                    Address
 );
 
 EFI_STATUS
 EFIAPI
-FvbGetBlockSize(
+FvbGetBlockSize (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     IN        EFI_LBA                                  Lba,
     OUT       UINTN*                                   BlockSize,
@@ -72,7 +71,7 @@ FvbGetBlockSize(
 
 EFI_STATUS
 EFIAPI
-FvbRead(
+FvbRead (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     IN        EFI_LBA                                  Lba,
     IN        UINTN                                    Offset,
@@ -82,7 +81,7 @@ FvbRead(
 
 EFI_STATUS
 EFIAPI
-FvbWrite(
+FvbWrite (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     IN        EFI_LBA                                  Lba,
     IN        UINTN                                    Offset,
@@ -92,7 +91,7 @@ FvbWrite(
 
 EFI_STATUS
 EFIAPI
-FvbEraseBlocks(
+FvbEraseBlocks (
     IN CONST  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL*     This,
     ...
 );

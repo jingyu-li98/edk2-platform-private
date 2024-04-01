@@ -9,8 +9,6 @@
 
 #include "SpiFlashMasterController.h"
 
-//#define ENABLE_SPIFMC_DMMR
-
 SPI_MASTER *mSpiMasterInstance;
 
 STATIC
@@ -178,29 +176,14 @@ SpifmcRead (
   OUT UINT8   *Buffer
   )
 {
-  UINTN      SpiBase;
-
-  SpiBase = Nor->SpiBase;
-#ifdef ENABLE_SPIFMC_DMMR
-  //
-  // enable DMMR (Direct Memory Mapping Read)
-  //
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 0x1);
-
-
-  CopyMem (Buffer, (UINTN *)(SpiBase + From), Length);
-
-  //
-  // disable DMMR (Direct Memory Mapping Read)
-  //
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 0);
-#else
   INT32      XferSize;
   INT32      Offset;
   INT32      Index;
+  UINTN      SpiBase;
   UINT32     Register;
   EFI_STATUS Status;
 
+  SpiBase = Nor->SpiBase;
   Offset = 0;
 
   Register = SpifmcInitReg (SpiBase);
@@ -210,6 +193,15 @@ SpifmcRead (
   Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX;
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->ReadOpcode);
+
+  //
+  // This is a workaround.
+  // For Length<=SPIFMC_MAX_FIFO_DEPTH, we have to modify the Length manually.
+  // Although we set the TRAN_CSR_FIFO_TRG_LVL_1_BYTE, not
+  // TRAN_CSR_FIFO_TRG_LVL_8_BYTE, we cannot wait for the INT_RD_FIFO to be set
+  // when the Length equals one byte.
+  //
+  Length = MAX (SPIFMC_MAX_FIFO_DEPTH, Length);
 
   for (Index = Nor->AddrNbytes - 1; Index >= 0; Index --) {
     MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), (From >> Index * 8) & 0xff);
@@ -256,7 +248,6 @@ SpifmcRead (
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
-#endif
 
   return EFI_SUCCESS;
 }

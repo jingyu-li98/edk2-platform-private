@@ -706,12 +706,14 @@ RiscVMmuSetSatpMode (
   }
 
   //
-  // Nor Flash Memory
+  // Variables of Firmware Volume
   //
   Status = UpdateRegionMapping (
-    0xfffffff002180000,
-    0x4000000,
-    RISCV_PG_R | RISCV_PG_W | RISCV_PG_X | THEAD_C920_PTE_SH | THEAD_C920_PTE_SO,
+    PcdGet64 (PcdFlashVariableOffset),
+    PcdGet32 (PcdFlashNvStorageFtwSpareSize) +
+    PcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+    PcdGet32 (PcdFlashNvStorageVariableSize),
+    RISCV_PG_R | RISCV_PG_W | THEAD_C920_PTE_SH | THEAD_C920_PTE_SO,
     PTE_ATTRIBUTES_MASK,
     TranslationTable,
     FALSE

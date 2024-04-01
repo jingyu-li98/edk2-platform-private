@@ -13,8 +13,8 @@
 #include <Include/Spi.h>
 #include <Include/SpiNorFlash.h>
 
-STATIC SOPHGO_NOR_FLASH_PROTOCOL         *NorFlashProtocol;
-STATIC SOPHGO_SPI_MASTER_PROTOCOL        *SpiMasterProtocol;
+//STATIC SOPHGO_NOR_FLASH_PROTOCOL         *NorFlashProtocol;
+//STATIC SOPHGO_SPI_MASTER_PROTOCOL        *SpiMasterProtocol;
 
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
@@ -666,7 +666,7 @@ PlatformRegisterOptionsAndKeys (
   ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
 }
 
-#if 1
+#if 0
 
 /**
   SPI Nor Flash read/write/erase test case.
@@ -781,7 +781,7 @@ TestNorFlash (
     Status = EFI_OUT_OF_RESOURCES;
     goto EXIT;
   }
-#if 0
+#if 1
   DEBUG ((DEBUG_WARN, "%a[%d]: Start Read/Write test\n", __func__, __LINE__));
   //
   // Initialize WriteBuffer
@@ -801,7 +801,7 @@ TestNorFlash (
       ));
     goto EXIT;
   }
-
+#if 1
   //
   // Read Data
   //
@@ -815,7 +815,9 @@ TestNorFlash (
       ));
     goto EXIT;
   }
-
+#else
+  CopyMem (ReadBuffer, (UINTN *)(0xfffffff002180000 + StartFlashAddr), DataSize); 
+#endif
   //
   // Verify that the data read back matches the data written
   //
@@ -841,6 +843,7 @@ TestNorFlash (
     }
     goto EXIT;
   }
+
 #else
 #if 0
   //
@@ -959,7 +962,7 @@ PlatformBootManagerBeforeConsole (
   //
   EfiBootManagerDispatchDeferredImages ();
 
-  TestNorFlash ();
+  //TestNorFlash ();
 
   //
   // Locate the PCI root bridges and make the PCI bus driver connect each,

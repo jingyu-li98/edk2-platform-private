@@ -36,8 +36,8 @@ STATIC CONST FVB_DEVICE mFvbFlashInstanceTemplate = {
 
   FVB_FLASH_SIGNATURE, // Signature
 
-  FALSE, // IsMemoryMapped ... NEED TO BE FILLED
   0, // RegionBaseAddress ... NEED TO BE FILLED
+  //SIZE_256KB, // Size?
   SIZE_256KB, // Size?
   0, // FvbOffset ... NEED TO BE FILLED
   0, // FvbSize ... NEED TO BE FILLED
@@ -218,14 +218,11 @@ InitializeFvAndVariableStoreHeaders (
                                       EFI_FVB2_READ_ENABLED_CAP   | // Reads may be enabled
                                       EFI_FVB2_READ_STATUS        | // Reads are currently enabled
                                       EFI_FVB2_STICKY_WRITE       | // A block erase is required to flip bits into EFI_FVB2_ERASE_POLARITY
+				      EFI_FVB2_MEMORY_MAPPED      | // It is memory mapped
                                       EFI_FVB2_ERASE_POLARITY     | // After erasure all bits take this value (i.e. '1')
                                       EFI_FVB2_WRITE_STATUS       | // Writes are currently enabled
                                       EFI_FVB2_WRITE_ENABLED_CAP    // Writes may be enabled
                                                             );
-
-  if (!Instance->IsMemoryMapped) {
-    FirmwareVolumeHeader->Attributes |= EFI_FVB2_MEMORY_MAPPED;
-  }
 
   FirmwareVolumeHeader->HeaderLength = sizeof (EFI_FIRMWARE_VOLUME_HEADER) +
                                        sizeof (EFI_FV_BLOCK_MAP_ENTRY);
@@ -385,7 +382,7 @@ FvbGetAttributes (
 
   *Attributes = *FlashFvbAttributes;
 
-  DEBUG ((DEBUG_INFO, "FvbGetAttributes(0x%X)\n", *Attributes));
+  DEBUG ((DEBUG_VERBOSE, "FvbGetAttributes(0x%X)\n", *Attributes));
 
   return EFI_SUCCESS;
 }
@@ -417,7 +414,7 @@ FvbSetAttributes (
   )
 {
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_WARN,
     "FvbSetAttributes(0x%X) is not supported\n",
     *Attributes
     ));
@@ -456,7 +453,7 @@ FvbGetPhysicalAddress (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "FvbGetPhysicalAddress(BaseAddress=0x%08x)\n",
     Instance->RegionBaseAddress
     ));
@@ -506,7 +503,7 @@ FvbGetBlockSize (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "FvbGetBlockSize(Lba=%ld, BlockSize=0x%x, LastBlock=%ld)\n",
     Lba,
     Instance->Media.BlockSize,
@@ -529,7 +526,7 @@ FvbGetBlockSize (
     *NumberOfBlocks = (UINTN)(Instance->Media.LastBlock - Lba + 1);
 
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "FvbGetBlockSize: *BlockSize=0x%x, *NumberOfBlocks=0x%x.\n",
       *BlockSize,
       *NumberOfBlocks
@@ -590,7 +587,7 @@ FvbRead (
   IN OUT    UINT8                                *Buffer
   )
 {
-  //EFI_STATUS          Status;
+  EFI_STATUS          Status;
   UINTN               BlockSize;
   UINTN               DataOffset;
   FVB_DEVICE          *Instance;
@@ -598,7 +595,7 @@ FvbRead (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "FvbRead(Parameters: Lba=%ld, Offset=0x%x, *NumBytes=0x%x, Buffer @ 0x%08x)\n",
     Instance->StartLba + Lba,
     Offset,
@@ -620,7 +617,7 @@ FvbRead (
   BlockSize = Instance->Media.BlockSize;
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "FvbRead: Check if (Offset=0x%x + NumBytes=0x%x) <= BlockSize=0x%x\n",
     Offset,
     *NumBytes,
@@ -655,7 +652,8 @@ FvbRead (
   DataOffset = GET_DATA_OFFSET (Instance->RegionBaseAddress + Offset,
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
-#if 0
+  DEBUG ((DEBUG_WARN, "%a[%d] DataOffset=0x%lx\n", __func__, __LINE__, DataOffset));
+
   Status = Instance->NorFlashProtocol->ReadData (
               Instance->Nor,
               DataOffset,
@@ -670,12 +668,7 @@ FvbRead (
        ));
     return Status;
   }
-#else
-  //
-  // Read the memory-mapped data
-  //
-  CopyMem (Buffer, (UINTN *)DataOffset, *NumBytes);
-#endif
+
   return EFI_SUCCESS;
 }
 
@@ -756,6 +749,7 @@ FvbWrite (
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
 
+  DEBUG ((DEBUG_WARN, "%a[%d] DataOffset=0x%lx\n", __func__, __LINE__, DataOffset));
   Status = Instance->NorFlashProtocol->WriteData (
               Instance->Nor,
               DataOffset,
@@ -770,18 +764,7 @@ FvbWrite (
       ));
     return Status;
   }
-#if 1
-  //
-  // Update shadow buffer
-  //
-  if (!Instance->IsMemoryMapped) {
-    DataOffset = GET_DATA_OFFSET (Instance->RegionBaseAddress + Offset,
-                   Instance->StartLba + Lba,
-                   Instance->Media.BlockSize);
 
-    CopyMem ((UINTN *)DataOffset, Buffer, *NumBytes);
-  }
-#endif
   return Status;
 }
 
@@ -845,7 +828,7 @@ FvbEraseBlocks (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "FvbEraseBlocks()\n"
     ));
 
@@ -880,7 +863,7 @@ FvbEraseBlocks (
     // All blocks must be within range
     //
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "FvbEraseBlocks: Check if: ( StartingLba=%ld + NumOfLba=%Lu - 1 ) > LastBlock=%ld.\n",
       Instance->StartLba + StartingLba,
       (UINT64)NumOfLba,
@@ -944,7 +927,7 @@ FvbEraseBlocks (
       // Erase single block
       //
       DEBUG ((
-        DEBUG_INFO,
+        DEBUG_VERBOSE,
         "FvbEraseBlocks: Erasing Lba=%ld @ 0x%08x.\n",
         Instance->StartLba + StartingLba,
         BlockAddress
@@ -1059,7 +1042,7 @@ FlashFvbPrepareFvHeader (
   )
 {
   EFI_BOOT_MODE BootMode;
-  EFI_STATUS Status;
+  EFI_STATUS    Status;
 
   //
   // Check if it is required to use default environment
@@ -1120,8 +1103,9 @@ FlashFvbConfigureFlashInstance (
   IN OUT FVB_DEVICE *FlashInstance
   )
 {
-  UINTN      DataOffset;
-  UINTN      VariableSize, FtwWorkingSize, FtwSpareSize, MemorySize;
+  UINTN      VariableSize;
+  UINTN      FtwWorkingSize;
+  UINTN      FtwSpareSize;
   EFI_STATUS Status;
 
   //
@@ -1183,7 +1167,6 @@ FlashFvbConfigureFlashInstance (
   FtwWorkingSize = PcdGet32 (PcdFlashNvStorageFtwWorkingSize);
   FtwSpareSize = PcdGet32 (PcdFlashNvStorageFtwSpareSize);
 
-  FlashInstance->IsMemoryMapped = PcdGetBool (PcdSpiMemoryMapped);
   FlashInstance->FvbSize = VariableSize + FtwWorkingSize + FtwSpareSize;
   FlashInstance->FvbOffset = PcdGet64 (PcdFlashVariableOffset);
 
@@ -1193,51 +1176,23 @@ FlashFvbConfigureFlashInstance (
   FlashInstance->Media.LastBlock = FlashInstance->Size /
                                    FlashInstance->Media.BlockSize - 1;
 
-  //FlashInstance->Media.LastBlock = FlashInstance->FvbSize /
-    //                               FlashInstance->Media.BlockSize - 1;
+  FlashInstance->RegionBaseAddress = PcdGet64 (PcdFlashNvStorageVariableBase64);
 
-  MemorySize = EFI_SIZE_TO_PAGES (FlashInstance->FvbSize);
-
-  if (!FlashInstance->IsMemoryMapped) {
-    FlashInstance->RegionBaseAddress = PcdGet64 (PcdFlashNvStorageVariableBase64);
-  } else {
-    //
-    // FaultTolerantWriteDxe requires memory to be aligned to FtwWorkingSize
-    //
-    FlashInstance->RegionBaseAddress = (UINTN) AllocateAlignedRuntimePages (
-		                     MemorySize, SIZE_64KB);
-    if (FlashInstance->RegionBaseAddress == (UINTN) NULL) {
-      return EFI_OUT_OF_RESOURCES;
-    }
-
-    Status = PcdSet64S (PcdFlashNvStorageVariableBase64,
-              (UINT64) FlashInstance->RegionBaseAddress);
-    ASSERT_EFI_ERROR (Status);
-    Status = PcdSet64S (PcdFlashNvStorageFtwWorkingBase64,
-              (UINT64) FlashInstance->RegionBaseAddress
-              + VariableSize);
-    ASSERT_EFI_ERROR (Status);
-    Status = PcdSet64S (PcdFlashNvStorageFtwSpareBase64,
-              (UINT64) FlashInstance->RegionBaseAddress
-              + VariableSize
-              + FtwWorkingSize);
-    ASSERT_EFI_ERROR (Status);
-
-    //
-    // Fill the buffer with data from flash
-    //
-    DataOffset = GET_DATA_OFFSET (FlashInstance->FvbOffset,
-                  FlashInstance->StartLba,
-                  FlashInstance->Media.BlockSize);
-    Status = FlashInstance->NorFlashProtocol->ReadData (
-                      FlashInstance->Nor,
-                      DataOffset,
-                      FlashInstance->FvbSize,
-                      (VOID *)FlashInstance->RegionBaseAddress);
-    if (EFI_ERROR (Status)) {
-      goto ErrorFreeAllocatedPages;
-    }
-  }
+  DEBUG ((DEBUG_WARN,
+	"%a[%d] Media.BlockSize=0x%lx\n \
+	Media.LastBlock=0x%lx\n \
+	Size=0x%x\n \
+	FvbSize=0x%lx\n \
+	FvbOffset=0x%lx\n \
+	RegionBaseAddress=0x%lx\n",
+	__func__,
+	__LINE__,
+	FlashInstance->Media.BlockSize,
+        FlashInstance->Media.LastBlock,
+	FlashInstance->Size,
+	FlashInstance->FvbSize,
+	FlashInstance->FvbOffset,
+	FlashInstance->RegionBaseAddress));
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                       &FlashInstance->Handle,
@@ -1264,12 +1219,6 @@ ErrorPrepareFvbHeader:
                 &gEfiFirmwareVolumeBlockProtocolGuid,
                 NULL);
 
-ErrorFreeAllocatedPages:
-  if (!FlashInstance->IsMemoryMapped) {
-    FreeAlignedPages ((VOID *)FlashInstance->RegionBaseAddress,
-      MemorySize);
-  }
-
   return Status;
 }
 
@@ -1281,14 +1230,14 @@ FlashFvbEntryPoint (
   )
 {
   EFI_STATUS  Status;
-  UINTN       RuntimeMmioRegionSize;
-  UINTN       RegionBaseAddress;
 
   //
   // Create FVB flash device
   //
-  mFvbDevice = AllocateRuntimeCopyPool (sizeof (mFvbFlashInstanceTemplate),
+  mFvbDevice = AllocateRuntimeCopyPool (sizeof (FVB_DEVICE),
                  &mFvbFlashInstanceTemplate);
+  //mFvbDevice = AllocateRuntimeCopyPool (sizeof (mFvbFlashInstanceTemplate),
+    //             &mFvbFlashInstanceTemplate);
   if (mFvbDevice == NULL) {
     DEBUG ((
       DEBUG_ERROR,
@@ -1301,6 +1250,7 @@ FlashFvbEntryPoint (
   //
   // Detect and configure flash device
   //
+  DEBUG ((DEBUG_WARN, "%a[%d] Detect and configure flash device\n", __func__, __LINE__));
   Status = FlashFvbConfigureFlashInstance (mFvbDevice);
   if (EFI_ERROR (Status)) {
     DEBUG ((
@@ -1329,31 +1279,6 @@ FlashFvbEntryPoint (
   }
 
   //
-  // Declare the Non-Volatile storage as EFI_MEMORY_RUNTIME
-  //
-  RegionBaseAddress = mFvbDevice->RegionBaseAddress;
-#if 1
-  if (mFvbDevice->IsMemoryMapped) {
-    RuntimeMmioRegionSize = mFvbDevice->FvbSize;
-    Status = gDS->AddMemorySpace (EfiGcdMemoryTypeMemoryMappedIo,
-                    RegionBaseAddress,
-                    RuntimeMmioRegionSize,
-                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a: Failed to add memory space\n", __FUNCTION__));
-      goto ErrorAddSpace;
-    }
-
-    Status = gDS->SetMemorySpaceAttributes (RegionBaseAddress,
-                    RuntimeMmioRegionSize,
-                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
-    if (EFI_ERROR (Status)) {
-     DEBUG ((DEBUG_ERROR, "%a: Failed to set memory attributes\n", __FUNCTION__));
-      goto ErrorSetMemAttr;
-    }
-  }
-#endif
-  //
   // Register for the virtual address change event
   //
   Status = gBS->CreateEventEx (
@@ -1370,18 +1295,10 @@ FlashFvbEntryPoint (
       __func__
       ));
     return Status;
-    goto ErrorSetMemAttr;
   }
 
   return Status;
 
-ErrorSetMemAttr:
-  gDS->RemoveMemorySpace (RegionBaseAddress, RuntimeMmioRegionSize);
-
-ErrorAddSpace:
-  gBS->UninstallProtocolInterface (gImageHandle,
-         &gEdkiiNvVarStoreFormattedGuid,
-         NULL);
 
 ErrorInstallNvVarStoreFormatted:
   gBS->UninstallMultipleProtocolInterfaces (
