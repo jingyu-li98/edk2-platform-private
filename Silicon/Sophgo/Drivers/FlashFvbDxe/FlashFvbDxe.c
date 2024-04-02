@@ -276,6 +276,21 @@ ValidateFvHeader (
   UINTN                       VariableStoreLength;
 
   FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)Instance->RegionBaseAddress;
+  DEBUG ((
+    DEBUG_INFO,
+    "%a[%d] FwVolHeader->Revision=0x%lx\n \
+    FwVolHeader->Signature=0x%lx\n \
+    FwVolHeader->FvLength=0x%lx\n \
+    Instance->FvbSize=0x%lx\n \
+    FwVolHeader->HeaderLength=0X%lx\n",
+    __func__,
+    __LINE__,
+    FwVolHeader->Revision,
+    FwVolHeader->Signature,
+    FwVolHeader->FvLength,
+    Instance->FvbSize,
+    FwVolHeader->HeaderLength
+    ));
 
   //
   // Verify the header revision, header signature, length
@@ -652,7 +667,6 @@ FvbRead (
   DataOffset = GET_DATA_OFFSET (Instance->RegionBaseAddress + Offset,
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
-  DEBUG ((DEBUG_WARN, "%a[%d] DataOffset=0x%lx\n", __func__, __LINE__, DataOffset));
 
   Status = Instance->NorFlashProtocol->ReadData (
               Instance->Nor,
@@ -749,7 +763,6 @@ FvbWrite (
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
 
-  DEBUG ((DEBUG_WARN, "%a[%d] DataOffset=0x%lx\n", __func__, __LINE__, DataOffset));
   Status = Instance->NorFlashProtocol->WriteData (
               Instance->Nor,
               DataOffset,
@@ -1178,22 +1191,6 @@ FlashFvbConfigureFlashInstance (
 
   FlashInstance->RegionBaseAddress = PcdGet64 (PcdFlashNvStorageVariableBase64);
 
-  DEBUG ((DEBUG_WARN,
-	"%a[%d] Media.BlockSize=0x%lx\n \
-	Media.LastBlock=0x%lx\n \
-	Size=0x%x\n \
-	FvbSize=0x%lx\n \
-	FvbOffset=0x%lx\n \
-	RegionBaseAddress=0x%lx\n",
-	__func__,
-	__LINE__,
-	FlashInstance->Media.BlockSize,
-        FlashInstance->Media.LastBlock,
-	FlashInstance->Size,
-	FlashInstance->FvbSize,
-	FlashInstance->FvbOffset,
-	FlashInstance->RegionBaseAddress));
-
   Status = gBS->InstallMultipleProtocolInterfaces (
                       &FlashInstance->Handle,
                       &gEfiDevicePathProtocolGuid,
@@ -1229,6 +1226,8 @@ FlashFvbEntryPoint (
   IN EFI_SYSTEM_TABLE *SystemTable
   )
 {
+  UINTN       RuntimeMmioRegionSize;
+  UINTN       RegionBaseAddress;
   EFI_STATUS  Status;
 
   //
@@ -1236,8 +1235,6 @@ FlashFvbEntryPoint (
   //
   mFvbDevice = AllocateRuntimeCopyPool (sizeof (FVB_DEVICE),
                  &mFvbFlashInstanceTemplate);
-  //mFvbDevice = AllocateRuntimeCopyPool (sizeof (mFvbFlashInstanceTemplate),
-    //             &mFvbFlashInstanceTemplate);
   if (mFvbDevice == NULL) {
     DEBUG ((
       DEBUG_ERROR,
@@ -1250,7 +1247,6 @@ FlashFvbEntryPoint (
   //
   // Detect and configure flash device
   //
-  DEBUG ((DEBUG_WARN, "%a[%d] Detect and configure flash device\n", __func__, __LINE__));
   Status = FlashFvbConfigureFlashInstance (mFvbDevice);
   if (EFI_ERROR (Status)) {
     DEBUG ((
@@ -1279,6 +1275,35 @@ FlashFvbEntryPoint (
   }
 
   //
+  // Declare the Non-Volatile storage as EFI_MEMORY_RUNTIME
+  //
+
+  //
+  // Note: all the NOR Flash region needs to be reserved into the UEFI Runtime
+  // memory; even if we only use the small block region at the top of the NOR
+  // Flash. The reason is when the NOR Flash memory is set into program mode,
+  // the command is written as the base of the flash region.
+  //
+  RegionBaseAddress = mFvbDevice->RegionBaseAddress;
+  RuntimeMmioRegionSize = mFvbDevice->FvbSize;
+  Status = gDS->AddMemorySpace (EfiGcdMemoryTypeMemoryMappedIo,
+                  RegionBaseAddress,
+		  RuntimeMmioRegionSize,
+                  EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to add memory space\n", __FUNCTION__));
+    goto ErrorAddSpace;
+  }
+
+  Status = gDS->SetMemorySpaceAttributes (RegionBaseAddress,
+                  RuntimeMmioRegionSize,
+                  EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to set memory attributes\n", __FUNCTION__));
+    goto ErrorSetMemAttr;
+  }
+
+  //
   // Register for the virtual address change event
   //
   Status = gBS->CreateEventEx (
@@ -1299,6 +1324,13 @@ FlashFvbEntryPoint (
 
   return Status;
 
+ErrorSetMemAttr:
+  gDS->RemoveMemorySpace (RegionBaseAddress, RuntimeMmioRegionSize);
+
+ErrorAddSpace:
+  gBS->UninstallProtocolInterface (gImageHandle,
+         &gEdkiiNvVarStoreFormattedGuid,
+         NULL);
 
 ErrorInstallNvVarStoreFormatted:
   gBS->UninstallMultipleProtocolInterfaces (
