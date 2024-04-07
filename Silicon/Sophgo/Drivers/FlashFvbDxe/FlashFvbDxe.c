@@ -276,21 +276,6 @@ ValidateFvHeader (
   UINTN                       VariableStoreLength;
 
   FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)Instance->RegionBaseAddress;
-  DEBUG ((
-    DEBUG_INFO,
-    "%a[%d] FwVolHeader->Revision=0x%lx\n \
-    FwVolHeader->Signature=0x%lx\n \
-    FwVolHeader->FvLength=0x%lx\n \
-    Instance->FvbSize=0x%lx\n \
-    FwVolHeader->HeaderLength=0X%lx\n",
-    __func__,
-    __LINE__,
-    FwVolHeader->Revision,
-    FwVolHeader->Signature,
-    FwVolHeader->FvLength,
-    Instance->FvbSize,
-    FwVolHeader->HeaderLength
-    ));
 
   //
   // Verify the header revision, header signature, length

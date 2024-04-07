@@ -3,6 +3,8 @@
 
   Copyright (c) 2022, Ventana Micro Systems Inc. All rights reserved.<BR>
   Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -47,6 +49,18 @@ EFIAPI
 SecStartup (
   IN  UINTN  BootHartId,
   IN  VOID   *DeviceTreeAddress
+  );
+
+/**
+  Auto-generated function that calls the library constructors for all of the module's
+  dependent libraries.  This function must be called by the SEC Core once a stack has
+  been established.
+
+**/
+VOID
+EFIAPI
+ProcessLibraryConstructorList (
+  VOID
   );
 
 /**

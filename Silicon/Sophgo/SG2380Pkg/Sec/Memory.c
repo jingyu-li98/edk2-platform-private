@@ -1,9 +1,10 @@
 /** @file
-  Memory Detection for SG2042 EVB.
+  Memory Detection for SG2380 Platform.
 
   Copyright (c) 2021, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
   Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -19,6 +20,7 @@ Module Name:
 #include <Library/HobLib.h>
 #include <Library/IoLib.h>
 #include <Library/PcdLib.h>
+#include <Library/PeimEntryPoint.h>
 #include <Library/ResourcePublicationLib.h>
 #include <Register/RiscV64/RiscVEncoding.h>
 #include <Library/PrePiLib.h>
@@ -231,11 +233,6 @@ AddReservedMemoryMap (
 /**
   Initialize memory hob based on the DTB information.
 
-  NOTE: The memory space size of SG2042 EVB is determined by the number
-  and size of DDRs inserted on the board. There is an error with initializing
-  the system ram space of each memory node separately using InitializeRamRegions,
-  so InitializeRamRegions is only called once for total system ram initialization.
-
   @param  DeviceTreeAddress  Pointer to FDT.
   @return EFI_SUCCESS        The memory hob added successfully.
 
@@ -250,15 +247,11 @@ MemoryPeimInitialization (
   UINT64                      UefiMemoryBase;
   UINT64                      CurBase;
   UINT64                      CurSize;
-  UINT64                      LowestMemBase;
-  UINT64                      LowestMemSize;
   INT32                       Node;
   INT32                       Prev;
   INT32                       Len;
 
   UefiMemoryBase = (UINT64)FixedPcdGet32 (PcdTemporaryRamBase) + FixedPcdGet32 (PcdTemporaryRamSize) - SIZE_32MB;
-  LowestMemBase = 0;
-  LowestMemSize = 0;
 
   // Look for the lowest memory node
   for (Prev = 0; ; Prev = Node) {
@@ -277,22 +270,17 @@ MemoryPeimInitialization (
         CurBase = fdt64_to_cpu (ReadUnaligned64 (RegProp));
         CurSize = fdt64_to_cpu (ReadUnaligned64 (RegProp + 1));
 
-        if ((LowestMemBase == 0) || (CurBase <= LowestMemBase)) {
-          LowestMemBase = CurBase;
-          LowestMemSize = CurSize;
-          if (CurBase != 0) {
-            DEBUG ((
-              DEBUG_INFO,
-              "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
-              __func__,
-              CurBase,
-              CurBase + CurSize - 1
-            ));
+        if (CurBase != 0) {
+          DEBUG ((
+            DEBUG_INFO,
+            "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
+            __func__,
+            CurBase,
+            CurBase + CurSize - 1
+          ));
 
-            InitializeRamRegions (CurBase, CurSize);
-          }
+          InitializeRamRegions (CurBase, CurSize);
         }
-
       } else {
         DEBUG ((
           DEBUG_ERROR,
@@ -302,21 +290,6 @@ MemoryPeimInitialization (
       }
     }
   }
-
-  if (UefiMemoryBase > LowestMemBase) {
-    LowestMemBase = UefiMemoryBase;
-    LowestMemSize -= UefiMemoryBase;
-  }
-
-  DEBUG ((
-    DEBUG_INFO,
-    "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
-    __func__,
-    LowestMemBase,
-    LowestMemBase + LowestMemSize - 1
-    ));
-
-  InitializeRamRegions (LowestMemBase, LowestMemSize);
 
   AddReservedMemoryMap (DeviceTreeAddress);
 

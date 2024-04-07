@@ -1,10 +1,10 @@
 /** @file
-The library call to pass the device tree to DXE via HOB.
+ The library call to pass the device tree to DXE via HOB.
 
-Copyright (c) 2021, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
-Copyright (c) 2024, SOPHGO Inc, All rights reserved.<BR>
+ Copyright (c) 2021, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
+ Copyright (c) 2024, SOPHGO Inc, All rights reserved.<BR>
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -66,10 +66,6 @@ PopulateIoResources (
   Node = fdt_node_offset_by_compatible (FdtBase, -1, Compatible);
   while (Node != -FDT_ERR_NOTFOUND) {
     Reg = (UINT64 *)fdt_getprop (FdtBase, Node, "reg", &LenP);
-    if (SwapBytes64 (Reg[0]) >= (1UL << 39)) {
-      break;
-    }
-
     if (Reg) {
       AddIoMemoryBaseSizeHob (SwapBytes64 (Reg[0]), SwapBytes64 (Reg[1]));
       DEBUG ((
@@ -146,16 +142,6 @@ PlatformPeimInitialization (
   *FdtHobData = (UINTN)NewBase;
 
   BuildFvHob (PcdGet32 (PcdRiscVDxeFvBase), PcdGet32 (PcdRiscVDxeFvSize));
-
-  //
-  // Add PCI resource
-  //
-  PopulateIoResources (Base, "sophgo,cdns-pcie-host");
-
-  //
-  // 3GB - 4GB memory space is reserved for PCIe 32-bit inbound access.
-  //
-  AddIoMemoryBaseSizeHob (0xC0000000, 0x40000000);
 
   //
   // Add SDHI resource

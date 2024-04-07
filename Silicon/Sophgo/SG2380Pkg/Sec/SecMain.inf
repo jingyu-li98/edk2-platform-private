@@ -3,15 +3,16 @@
 #
 #  Copyright (c) 2022, Ventana Micro Systems Inc. All rights reserved.<BR>
 #  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
 
 [Defines]
-  INF_VERSION                    = 1.30
+  INF_VERSION                    = 0x0001001B
   BASE_NAME                      = SecMainRiscV64
-  FILE_GUID                      = 125E1236-9D4F-457B-BF7E-6311C88A1621
+  FILE_GUID                      = 71DE2F3C-1586-4558-97F2-7F0631C6908A
   MODULE_TYPE                    = SEC
   VERSION_STRING                 = 1.0
   ENTRY_POINT                    = SecMain
@@ -26,6 +27,7 @@
   SecEntry.S
   SecMain.c
   SecMain.h
+  Cpu.c
   Memory.c
   Platform.c
 
@@ -34,7 +36,6 @@
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
-  Silicon/Sophgo/SG2042Pkg/SG2042Pkg.dec
   Platform/RISC-V/PlatformPkg/RiscVPlatformPkg.dec
 
 [LibraryClasses]

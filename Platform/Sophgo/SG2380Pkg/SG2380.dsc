@@ -1,7 +1,8 @@
-## @file
-#  RISC-V EFI on Sophgo SG2042 EVB RISC-V platform
+## @file SG2380.dsc
 #
-#  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+#  RISC-V EFI on SOPHGO SG2380 RISC-V platform
+#
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -13,15 +14,15 @@
 #
 ################################################################################
 [Defines]
-  PLATFORM_NAME                  = SG2042_EVB
-  PLATFORM_GUID                  = 8014637B-6999-4110-9762-464BE11E935F
+  PLATFORM_NAME                  = SG2380
+  PLATFORM_GUID                  = D98574D9-110C-4804-BA4E-0DE396A17A0E
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x0001001c
   OUTPUT_DIRECTORY               = Build/$(PLATFORM_NAME)
   SUPPORTED_ARCHITECTURES        = RISCV64
   BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
   SKUID_IDENTIFIER               = DEFAULT
-  FLASH_DEFINITION               = Platform/Sophgo/SG2042_EVB_Board/SG2042.fdf
+  FLASH_DEFINITION               = Platform/Sophgo/SG2380Pkg/SG2380.fdf
 
   #
   # Enable below options may cause build error or may not work on
@@ -151,7 +152,7 @@
 
   # RISC-V Architectural Libraries
   RiscVSbiLib|MdePkg/Library/BaseRiscVSbiLib/BaseRiscVSbiLib.inf
-  RiscVMmuLib|Silicon/Sophgo/SG2042Pkg/Library/MmuLib/RiscVMmuLib.inf
+  RiscVMmuLib|UefiCpuPkg/Library/BaseRiscVMmuLib/BaseRiscVMmuLib.inf
   CpuExceptionHandlerLib|UefiCpuPkg/Library/BaseRiscV64CpuExceptionHandlerLib/BaseRiscV64CpuExceptionHandlerLib.inf
 
   TimerLib|UefiCpuPkg/Library/BaseRiscV64CpuTimerLib/BaseRiscV64CpuTimerLib.inf
@@ -161,13 +162,9 @@
   # Flattened Device Tree (FDT) access library
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
 
-  # PCIe dependencies
-  PlatformPciLib|Silicon/Sophgo/SG2042Pkg/Library/PlatformPciLib/PlatformPciLib.inf
-  PciSegmentLib|Silicon/Sophgo/SG2042Pkg/Library/PciSegmentLib/PciSegmentLib.inf
-  PciHostBridgeLib|Silicon/Sophgo/SG2042Pkg/Library/PciHostBridgeLib/PciHostBridgeLib.inf
-
   # Nor Flash Library
   NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
+
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -246,15 +243,13 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeMemorySize|1
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
-  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0xFFFFFFFFFFFFFFFC
   gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x10
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize|0x8000
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize|0xe000
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize|40
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize|39
+
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000004F
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -274,7 +269,7 @@
   gEfiSecurityPkgTokenSpaceGuid.PcdRemovableMediaImageVerificationPolicy|0x04
 !endif
 
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString|L"1.0 for SOPHGO SG2042"
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString|L"1.0 for SOPHGO SG2380"
 
   #
   # F2 for UI APP
@@ -314,7 +309,7 @@
   # 9 - 48bit mode.
   # 10 - 57bit mode.
   #
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode|8
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode|0
 
   #
   # Terminal Type
@@ -344,59 +339,6 @@
   gSophgoTokenSpaceGuid.PcdSDIOBase|0x704002B000
   gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x7000180000
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7002180000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x7060800000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0CfgBase|0x7062000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1CfgBase|0x7062800000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Slv0CfgBase|0x4000000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Slv1CfgBase|0x4400000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Slv0CfgBase|0x4800000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Slv1CfgBase|0x4c00000000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPciCfgLink0ApbBase|0x000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPciCfgLink1ApbBase|0x800000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPciCfgPhyApbBase|0x1000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPciCfgMangoApbBase|0x1800000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region1BaseAddress|0x0
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region1Size|0x40
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region2BaseAddress|0x0
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region2Size|0x400000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region3BaseAddress|0xC0000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region3Size|0x40000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region4BaseAddress|0x4100000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0Region4Size|0x300000000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region1BaseAddress|0x40
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region1Size|0x40
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region2BaseAddress|0x400000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region2Size|0x400000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region3BaseAddress|0xC0000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region3Size|0x40000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region4BaseAddress|0x4500000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1Region4Size|0x300000000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region1BaseAddress|0x80
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region1Size|0x40
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region2BaseAddress|0x800000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region2Size|0x400000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region3BaseAddress|0xC0000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region3Size|0x40000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region4BaseAddress|0x4900000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0Region4Size|0x300000000
-
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region1BaseAddress|0xC0
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region1Size|0x40
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region2BaseAddress|0xC00000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region2Size|0x400000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region3BaseAddress|0xC0000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region3Size|0x40000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region4BaseAddress|0x4D00000000
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link1Region4Size|0x300000000
-
-[PcdsPatchableInModule]
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdSG2042PhyAddrToVirAddr|0
 
 ################################################################################
 #
@@ -411,8 +353,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0x02820000
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE
 
-  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0208
-  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0208
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
 
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|10
 
@@ -427,15 +369,6 @@
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|0
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|0
 
-  #
-  # RC#0(P0L0,BIT0); RC#1(P0L1,BIT1); RC#2(P1L0,BIT2); RC#3(P1L1,BIT3)
-  # 2U Server: 0x4
-  # X8\X4 EVB: 0x7
-  # PioneerBox: 0xF
-  # Set the value at the PCIe RC initialization phase
-  #
-  gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPcieEnableMask|0x0
-
 [PcdsDynamicHii]
   gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|TRUE|NV,BS
 
@@ -449,7 +382,7 @@
   #
   # SEC Phase modules
   #
-  Silicon/Sophgo/SG2042Pkg/Sec/SecMain.inf {
+  Silicon/Sophgo/SG2380Pkg/Sec/SecMain.inf  {
     <LibraryClasses>
       ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
       LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
@@ -457,15 +390,6 @@
       HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
       PrePiHobListPointerLib|OvmfPkg/RiscVVirt/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
       MemoryAllocationLib|EmbeddedPkg/Library/PrePiMemoryAllocationLib/PrePiMemoryAllocationLib.inf
-  }
-
-  #
-  # PEI Phase modules
-  #
-  Silicon/Sophgo/Drivers/CpuPei/CpuPei.inf {
-    <LibraryClasses>
-      HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
-      PrePiHobListPointerLib|OvmfPkg/RiscVVirt/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
   }
 
   #
@@ -525,7 +449,7 @@
   # RISC-V Core module
   #
   UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
-  Silicon/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
+  UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
   MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
@@ -566,21 +490,19 @@
   #
   # SMBIOS Support
   #
-  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-  Silicon/Sophgo/SG2042Pkg/Drivers/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+  #MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
 
   #
   # PCIe Support
   #
-  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf {
-    <LibraryClasses>
-      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  }
-  Silicon/Sophgo/SG2042Pkg/Override/MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
-    <LibraryClasses>
-      NULL|Silicon/Sophgo/SG2042Pkg/Library/PlatformPciLib/PlatformPciLib.inf
-      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  }
+  #MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf {
+  #  <LibraryClasses>
+  #    PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
+  #}
+  #MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
+  #  <LibraryClasses>
+  #    PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
+  #}
 
   #
   # NVMe Support
@@ -604,26 +526,14 @@
   #
   # USB Support
   #
-  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
-  MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
-  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
-  MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
+  #MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
+  #MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  #MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+  #MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
-
-  #
-  # Emulator for x64 OpRoms, etc.
-  #
-  !if $(X64EMU_ENABLE) == TRUE
-    Emulator/MultiArchUefiPkg/EmulatorDxe.inf
-  !endif
-
-  #
-  # ASPEED AST2600 GOP driver
-  #
-  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2600GopDxe.inf
 
   #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem

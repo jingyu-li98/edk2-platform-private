@@ -1,19 +1,19 @@
-# @file
-#  Flash definition file on Sophgo SG2042 EVB RISC-V platform
+## @file SG2380.fdf
 #
-#  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+#  Flash layout on SOPHGO SG2380 RISC-V platform
+#
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-# Platform definitions
-#
-!include SG2042.fdf.inc
+##
+!include SG2380.fdf.inc
 
 #
 # Build the variable store and the firmware code as one unified flash device
 # image.
 #
-[FD.SG2042]
+[FD.SG2380]
 BaseAddress   = $(FW_BASE_ADDRESS)
 Size          = $(FW_SIZE)
 ErasePolarity = 1
@@ -50,7 +50,7 @@ READ_LOCK_STATUS   = TRUE
 APRIORI DXE {
   INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
-  INF  Silicon/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
+  INF  UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
   INF  Silicon/Sophgo/Drivers/SpiDxe/SpiFlashMasterController.inf
   INF  Silicon/Sophgo/Drivers/NorFlashDxe/NorFlashDxe.inf
   INF  Silicon/Sophgo/Drivers/FlashFvbDxe/FlashFvbDxe.inf
@@ -82,7 +82,7 @@ INF  Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
 
 # RISC-V Core Drivers
 INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
-INF  Silicon/Sophgo/SG2042Pkg/Override/UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
+INF  UefiCpuPkg/CpuDxeRiscV64/CpuDxeRiscV64.inf
 
 INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
 INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
@@ -108,8 +108,7 @@ INF  MdeModulePkg/Universal/MemoryTest/NullMemoryTestDxe/NullMemoryTestDxe.inf
 #
 # SMBIOS Support
 #
-INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-INF  Silicon/Sophgo/SG2042Pkg/Drivers/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+#INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
 
 #
 # Network modules
@@ -125,8 +124,8 @@ INF  Silicon/Sophgo/SG2042Pkg/Drivers/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 #
 # PCIe Support
 #
-INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
-INF  Silicon/Sophgo/SG2042Pkg/Override/MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
+#INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
+#INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 
 #
 # NVMe Support
@@ -145,10 +144,10 @@ INF  MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
 #
 # USB Support
 #
-INF  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
-INF  MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
-INF  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
-INF  MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
+#INF  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
+#INF  MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+#INF  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+#INF  MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
@@ -173,18 +172,6 @@ INF  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
 # TianoCore Logo (splash screen)
 #
 INF  MdeModulePkg/Logo/LogoDxe.inf
-
-#
-# Emulator for x64 OpRoms, etc.
-#
-!if $(X64EMU_ENABLE) == TRUE
-  INF  Emulator/MultiArchUefiPkg/EmulatorDxe.inf
-!endif
-
-#
-# ASPEED AST2600 GOP driver
-#
-INF  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2600GopDxe.inf
 
 #
 # FAT filesystem + GPT/MBR partitioning + UDF filesystem
@@ -230,10 +217,9 @@ READ_ENABLED_CAP   = TRUE
 READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
-FvNameGuid         = 27A72E80-3118-4c0c-8673-AA5B4EFA9613
+FvNameGuid         = 02CBA7CB-BDE9-4934-A182-9043BE539261
 
-INF Silicon/Sophgo/SG2042Pkg/Sec/SecMain.inf
-INF Silicon/Sophgo/Drivers/CpuPei/CpuPei.inf
+INF Silicon/Sophgo/SG2380Pkg/Sec/SecMain.inf
 
 FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
    SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
@@ -251,21 +237,6 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     PE32     PE32    Align = Auto     $(INF_OUTPUT)/$(MODULE_NAME).efi
     UI       STRING ="$(MODULE_NAME)" Optional
     VERSION  STRING ="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-  }
-
-[Rule.Common.PEI_CORE]
-  FILE PEI_CORE = $(NAMED_GUID) {
-    PE32     PE32   Align=4K    $(INF_OUTPUT)/$(MODULE_NAME).efi
-    UI       STRING ="$(MODULE_NAME)" Optional
-    VERSION  STRING ="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-  }
-
-[Rule.Common.PEIM]
-  FILE PEIM = $(NAMED_GUID) {
-     PEI_DEPEX PEI_DEPEX Optional        $(INF_OUTPUT)/$(MODULE_NAME).depex
-     PE32     PE32   Align=4K         $(INF_OUTPUT)/$(MODULE_NAME).efi
-     UI       STRING="$(MODULE_NAME)" Optional
-     VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
 [Rule.Common.DXE_CORE]
