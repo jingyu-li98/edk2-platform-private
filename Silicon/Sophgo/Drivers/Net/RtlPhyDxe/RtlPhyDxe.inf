@@ -1,0 +1,44 @@
+# Copyright (C) 2016 Marvell International Ltd.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = RtlPhyDxe
+  FILE_GUID                      = D41BB05B-C32F-468A-AAAD-22E4C6ABF79B
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = RtlPhyDxeInitialise
+
+[Sources.common]
+  RtlPhyDxe.c
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Sophgo/Sophgo.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  PcdLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gSophgoMdioProtocolGuid
+  gSophgoPhyProtocolGuid
+
+[Pcd]
+  gSophgoSiliconTokenSpaceGuid.PcdMdioControllersEnabled
+  gSophgoSiliconTokenSpaceGuid.PcdPhy2MdioController
+  gSophgoSiliconTokenSpaceGuid.PcdPhyDeviceIds
+  gSophgoSiliconTokenSpaceGuid.PcdPhySmiAddresses
+  gSophgoSiliconTokenSpaceGuid.PcdPhyStartupAutoneg
+
+[Depex]
+  TRUE

@@ -167,5 +167,10 @@ PlatformPeimInitialization (
   //
   PopulateIoResources (Base, "sophgo,spifmc");
 
+  //
+  // Add ETH resource
+  //
+  PopulateIoResources (Base, "bitmain,ethernet");
+
   return EFI_SUCCESS;
 }

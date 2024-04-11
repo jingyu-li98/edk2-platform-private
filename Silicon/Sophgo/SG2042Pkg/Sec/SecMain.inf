@@ -26,6 +26,7 @@
   SecEntry.S
   SecMain.c
   SecMain.h
+  Cpu.c
   Memory.c
   Platform.c
 

@@ -35,11 +35,12 @@
   #
   # Network definition
   #
-  DEFINE NETWORK_SNP_ENABLE       = FALSE
-  DEFINE NETWORK_IP6_ENABLE       = FALSE
-  DEFINE NETWORK_TLS_ENABLE       = FALSE
-  DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
-  DEFINE NETWORK_ISCSI_ENABLE     = FALSE
+  DEFINE NETWORK_SNP_ENABLE             = TRUE
+  DEFINE NETWORK_IP6_ENABLE             = TRUE
+  DEFINE NETWORK_TLS_ENABLE             = FALSE
+  DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
+  DEFINE NETWORK_ALLOW_HTTP_CONNECTIONS = TRUE
+  DEFINE NETWORK_ISCSI_ENABLE           = FALSE
 
 [BuildOptions]
   GCC:RELEASE_*_*_CC_FLAGS       = -DMDEPKG_NDEBUG
@@ -253,8 +254,7 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize|0xe000
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize|40
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize|39
+
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000004F
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -344,6 +344,7 @@
   gSophgoTokenSpaceGuid.PcdSDIOBase|0x704002B000
   gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x7000180000
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7002180000
+  gSophgoTokenSpaceGuid.PcdETHBase|0x7040026000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link0CfgBase|0x7060000000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci0Link1CfgBase|0x7060800000
   gSophgoSG2042PlatformPkgTokenSpaceGuid.PcdMangoPci1Link0CfgBase|0x7062000000
@@ -449,7 +450,7 @@
   #
   # SEC Phase modules
   #
-  Silicon/Sophgo/SG2042Pkg/Sec/SecMain.inf {
+  Silicon/Sophgo/SG2042Pkg/Sec/SecMain.inf  {
     <LibraryClasses>
       ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
       LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
@@ -457,15 +458,6 @@
       HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
       PrePiHobListPointerLib|OvmfPkg/RiscVVirt/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
       MemoryAllocationLib|EmbeddedPkg/Library/PrePiMemoryAllocationLib/PrePiMemoryAllocationLib.inf
-  }
-
-  #
-  # PEI Phase modules
-  #
-  Silicon/Sophgo/Drivers/CpuPei/CpuPei.inf {
-    <LibraryClasses>
-      HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
-      PrePiHobListPointerLib|OvmfPkg/RiscVVirt/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
   }
 
   #
