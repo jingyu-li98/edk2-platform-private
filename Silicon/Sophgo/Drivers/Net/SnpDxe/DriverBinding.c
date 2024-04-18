@@ -2,6 +2,7 @@
 
   Copyright (c) 2011 - 2019, Intel Corporaton. All rights reserved.
   Copyright (c) 2020, Arm Limited. All rights reserved.<BR>
+  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
@@ -151,42 +152,73 @@ DriverStart (
   BufferSize = ETH_BUFSIZE;
 
   for (int Index=0; Index < DESC_NUM; Index++) {
-    //DMA TxdescRing allocate buffer and map
+    //
+    // DMA TxdescRing allocate buffer and map
+    //
     Status = DmaAllocateBuffer (EfiBootServicesData,
                EFI_SIZE_TO_PAGES (sizeof (DESIGNWARE_HW_DESCRIPTOR)), (VOID *)&Snp->MacDriver.TxdescRing[Index]);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a () for TxdescRing: %r\n", __func__, Status));
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for TxdescRing: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
 
     Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.TxdescRing[Index],
                &DescriptorSize, &Snp->MacDriver.TxdescRingMap[Index].AddrMap, &Snp->MacDriver.TxdescRingMap[Index].Mapping);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a () for TxdescRing: %r\n", __func__, Status));
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for TxdescRing: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
 
+    //
     // DMA RxdescRing allocte buffer and map
+    //
     Status = DmaAllocateBuffer (EfiBootServicesData,
                EFI_SIZE_TO_PAGES (sizeof (DESIGNWARE_HW_DESCRIPTOR)), (VOID *)&Snp->MacDriver.RxdescRing[Index]);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a () for RxdescRing: %r\n", __func__, Status));
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for RxdescRing: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
 
     Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.RxdescRing[Index],
                &DescriptorSize, &Snp->MacDriver.RxdescRingMap[Index].AddrMap, &Snp->MacDriver.RxdescRingMap[Index].Mapping);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a () for RxdescRing: %r\n", __func__, Status));
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for RxdescRing: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
 
-    //DMA mapping for receive buffer
+    //
+    // DMA mapping for receive buffer
+    //
     RxBufferAddr = (UINTN*)((UINTN)Snp->MacDriver.RxBuffer + (Index * BufferSize));
     Status = DmaMap (MapOperationBusMasterWrite,  (VOID *) RxBufferAddr,
                &BufferSize, &RxBufferAddrMap, &Snp->MacDriver.RxBufNum[Index].Mapping);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a () for Rxbuffer: %r\n", __func__, Status));
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for Rxbuffer: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
     Snp->MacDriver.RxBufNum[Index].AddrMap= RxBufferAddrMap;
@@ -197,19 +229,27 @@ DriverStart (
     return EFI_OUT_OF_RESOURCES;
   }
 
+  //
   // Initialized signature (used by INSTANCE_FROM_SNP_THIS macro)
+  //
   Snp->Signature = SNP_DRIVER_SIGNATURE;
 
   EfiInitializeLock (&Snp->Lock, TPL_CALLBACK);
 
+  //
   // Initialize pointers
+  //
   SnpMode = &Snp->SnpMode;
   Snp->Snp.Mode = SnpMode;
 
+  //
   // Get MAC controller base address
+  //
   Snp->MacBase = (UINTN)Snp->Dev->Resources[0].AddrRangeMin;
 
+  //
   // Assign fields and func pointers
+  //
   Snp->Snp.Revision = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;
   Snp->Snp.WaitForPacket = NULL;
   Snp->Snp.Initialize = SnpInitialize;
@@ -234,7 +274,9 @@ DriverStart (
   Snp->MaxRecycledTxBuf = SNP_TX_BUFFER_INCREASE;
   Snp->RecycledTxBufCount = 0;
 
+  //
   // Start completing simple network mode structure
+  //
   SnpMode->State = EfiSimpleNetworkStopped;
   SnpMode->HwAddressSize = NET_ETHER_ADDR_LEN;    // HW address is 6 bytes
   SnpMode->MediaHeaderSize = sizeof (ETHER_HEAD);
@@ -242,40 +284,60 @@ DriverStart (
   SnpMode->NvRamSize = 0;                         // No NVRAM with this device
   SnpMode->NvRamAccessSize = 0;                   // No NVRAM with this device
 
+  //
   // Update network mode information
+  //
   SnpMode->ReceiveFilterMask = EFI_SIMPLE_NETWORK_RECEIVE_UNICAST     |
                                EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST   |
                                EFI_SIMPLE_NETWORK_RECEIVE_BROADCAST   |
                                EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS |
                                EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS_MULTICAST;
 
+  //
   // We do not intend to receive anything for the time being.
+  //
   SnpMode->ReceiveFilterSetting = 0;
 
+  //
   // EMAC has 64bit hash table, can filter 64 MCast MAC Addresses
+  //
   SnpMode->MaxMCastFilterCount = MAX_MCAST_FILTER_CNT;
   SnpMode->MCastFilterCount = 0;
   ZeroMem (&SnpMode->MCastFilter, MAX_MCAST_FILTER_CNT * sizeof (EFI_MAC_ADDRESS));
 
+  //
   // Set the interface type (1: Ethernet or 6: IEEE 802 Networks)
+  //
   SnpMode->IfType = NET_IFTYPE_ETHERNET;
 
+  //
   // Mac address is changeable as it is loaded from erasable memory
+  //
   SnpMode->MacAddressChangeable = TRUE;
 
+  //
   // Can only transmit one packet at a time
+  //
   SnpMode->MultipleTxSupported = FALSE;
 
+  //
   // MediaPresent checks for cable connection and partner link
+  //
   SnpMode->MediaPresentSupported = TRUE;
   SnpMode->MediaPresent = FALSE;
 
+  //
   // Set broadcast address
+  //
   SetMem (&SnpMode->BroadcastAddress, sizeof (EFI_MAC_ADDRESS), 0xFF);
 
-  //Set current address
+  //
+  // Set current address
+  //
   DefaultMacAddress = Snp->Dev->Resources[1].AddrRangeMin;
+  //
   // Swap PCD human readable form to correct endianess
+  //
   SwapMacAddressPtr = (EFI_MAC_ADDRESS *) &DefaultMacAddress;
   SnpMode->CurrentAddress.Addr[0] = SwapMacAddressPtr->Addr[5];
   SnpMode->CurrentAddress.Addr[1] = SwapMacAddressPtr->Addr[4];
@@ -284,7 +346,9 @@ DriverStart (
   SnpMode->CurrentAddress.Addr[4] = SwapMacAddressPtr->Addr[1];
   SnpMode->CurrentAddress.Addr[5] = SwapMacAddressPtr->Addr[0];
 
+  //
   // Assign fields for device path
+  //
   CopyMem (&DevicePath->MacAddrDP.MacAddress, &Snp->Snp.Mode->CurrentAddress, NET_ETHER_ADDR_LEN);
   DevicePath->MacAddrDP.IfType = Snp->Snp.Mode->IfType;
 
@@ -329,11 +393,16 @@ DriverStop (
                   (VOID **)&SnpProtocol
                 );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a (): HandleProtocol: %r\n", __func__, Status));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): HandleProtocol: %r\n",
+      __func__,
+      Status
+      ));
     return Status;
   }
 
-  Snp = INSTANCE_FROM_SNP_THIS(SnpProtocol);
+  Snp = INSTANCE_FROM_SNP_THIS (SnpProtocol);
 
   Status = gBS->UninstallMultipleProtocolInterfaces (
                   Controller,
@@ -341,7 +410,9 @@ DriverStop (
                   &Snp->Snp,
                   NULL);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a (): UninstallMultipleProtocolInterfaces: %r\n", __func__, Status));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): UninstallMultipleProtocolInterfaces: %r\n", __func__, Status));
     return Status;
   }
 
@@ -359,11 +430,10 @@ DriverStop (
    @return EFI_SUCCESS       Success.
    EFI_DEVICE_ERROR  Fail.
 **/
-
 EFI_STATUS
 EFIAPI
-DwEmacSnpDxeEntry (
-  IN  EFI_HANDLE ImageHandle,
+DwSnpDxeEntry (
+  IN  EFI_HANDLE       ImageHandle,
   IN  EFI_SYSTEM_TABLE *SystemTable
   )
 {

@@ -1,13 +1,7 @@
 /** @file
 
   Copyright (c) 2011 - 2019, Intel Corporaton. All rights reserved.
-
-  SPDX-License-Identifier: BSD-2-Clause-Patent
-
-  The original software modules are licensed as follows:
-
-  Copyright (c) 2012 - 2014, ARM Limited. All rights reserved.
-  Copyright (c) 2004 - 2010, Intel Corporation. All rights reserved.
+  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -22,6 +16,12 @@
 #include <Library/TimerLib.h>
 #include <Library/UefiLib.h>
 
+#include "RtlPhyDxe.h"
+
+#define TIMEOUT   500
+
+STATIC SOPHGO_MDIO_PROTOCOL *Mdio;
+
 EFI_STATUS
 EFIAPI
 PhyDxeInitialization (
@@ -31,7 +31,7 @@ PhyDxeInitialization (
 {
   EFI_STATUS   Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
 
   // initialize the phyaddr
   PhyDriver->PhyAddr = 0;
@@ -60,7 +60,7 @@ PhyDetectDevice (
   UINT32       PhyAddr;
   EFI_STATUS   Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
 
   for (PhyAddr = 0; PhyAddr < 32; PhyAddr++) {
     Status = PhyReadId (PhyAddr, MacBaseAddress);
@@ -80,14 +80,15 @@ PhyDetectDevice (
 
 EFI_STATUS
 EFIAPI
-PhyConfig (
+Rtl8122fPhyConfig (
   IN  PHY_DRIVER   *PhyDriver,
   IN  UINTN        MacBaseAddress
+  //IN PHY_DEVICE *PhyDev
   )
 {
   EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
 
   Status = PhySoftReset (PhyDriver, MacBaseAddress);
   if (EFI_ERROR (Status)) {
@@ -106,12 +107,155 @@ PhyConfig (
 
   // Configure AN and Advertise
   PhyAutoNego (PhyDriver, MacBaseAddress);
+  UINTN Reg;
+
+  if (phydev->flags & PHY_RTL8211F_FORCE_EEE_RXC_ON) {
+    UINT32 Reg;
+
+    Reg = Mdio->Read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1);
+    Reg &= ~MDIO_PCS_CTRL1_CLKSTOP_EN;
+    Mdio->Write_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1, reg);
+  }
+
+  write(phydev, MDIO_DEVAD_NONE, MII_BMCR, BMCR_RESET);
+
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0xd08);
+  Mdio->Read(phydev, MDIO_DEVAD_NONE, 0x11);
+
+  //
+  // enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
+  //
+  if (PhyDev->Interface == PHY_INTERFACE_MODE_RGMII_ID ||
+            PhyDev->Interface == PHY_INTERFACE_MODE_RGMII_TXID)
+    Reg |= MIIM_RTL8211F_TX_DELAY;
+  else
+    Reg &= ~MIIM_RTL8211F_TX_DELAY;
+
+  Mdio->Write(phydev, MDIO_DEVAD_NONE, 0x11, reg);
+
+  //
+  // enable RX-delay for rgmii-id and rgmii-rxid, otherwise disable it */
+  //
+  Reg = Mdio->Read(phydev, MDIO_DEVAD_NONE, 0x15);
+  if (PhyDev->Interface == PHY_INTERFACE_MODE_RGMII_ID ||
+            PhyDev->Interface == PHY_INTERFACE_MODE_RGMII_RXID)
+    Reg |= MIIM_RTL8211F_RX_DELAY;
+  else
+    Reg &= ~MIIM_RTL8211F_RX_DELAY;
+
+  Mdio->Write(phydev, MDIO_DEVAD_NONE, 0x15, reg);
+
+  //
+  // restore to default page 0
+  //
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+
+  //
+  // Set green LED for Link, yellow LED for Active
+  //
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
+  Mdio->Write(phydev, MDIO_DEVAD_NONE, 0x10, 0x617f);
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+
+        genphy_config_aneg(phydev);
+
+  DEBUG ((DEBUG_INFO, "disable CLKOUT\n"));
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0xa43);
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  0x19, Mdio->Read(phydev, MDIO_DEVAD_NONE, 0x19) & ~0x1);
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+  Mdio->Write(phydev, MDIO_DEVAD_NONE,
+                  MII_BMCR, Mdio->Read(phydev, MDIO_DEVAD_NONE, MII_BMCR) | BMCR_RESET);
+#endif
+
+        return 0;
 
   return EFI_SUCCESS;
 }
 
 
-// Perform PHY software reset
+EFI_STATUS
+RtlPhyInit (
+  IN CONST SOPHGO_PHY_PROTOCOL  *Snp,
+  IN UINT32                     PhyIndex,
+  IN PHY_CONNECTION             PhyConnection,
+  IN OUT PHY_DEVICE             **OutPhyDev
+  )
+{
+  UINT8       *DeviceIds;
+  UINT8       MdioIndex;
+  UINT8       PhyId;
+  EFI_STATUS  Status;
+  PHY_DEVICE  *PhyDev;
+
+  Status = gBS->LocateProtocol (
+      &gSophgoMdioProtocolGuid,
+      NULL,
+      (VOID **) &Mdio
+      );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  MdioIndex = Phy2MdioController[PhyIndex];
+
+  //
+  // Verify correctness of PHY <-> MDIO assignment
+  //
+  if ((MdioDeviceTable[MdioIndex] == 0) ||
+      (MdioIndex >= Mdio->ControllerCount)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "RtlPhyDxe: Incorrect Mdio controller assignment for PHY#%d",
+      PhyIndex
+      ));
+
+    return EFI_INVALID_PARAMETER;
+  }
+
+  DeviceIds = PcdGetPtr (PcdPhyDeviceIds);
+  PhyId = DeviceIds[PhyIndex];
+  if (PhyId >= MV_PHY_DEVICE_ID_MAX) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a, Incorrect PHY ID (0x%x) for PHY#%d\n",
+      __func__,
+      PhyId,
+      PhyIndex
+      ));
+
+    return EFI_INVALID_PARAMETER;
+  }
+
+  //
+  // perform setup common for all PHYs
+  //
+  PhyDev = AllocateZeroPool (sizeof (PHY_DEVICE));
+  PhyDev->Addr = PhySmiAddresses[PhyIndex];
+  PhyDev->Connection = PhyConnection;
+  PhyDev->MdioIndex = MdioIndex;
+  DEBUG ((
+    DEBUG_INFO,
+    "MvPhyDxe: MdioIndex is %d, PhyAddr is %d, connection %d\n",
+    PhyDev->MdioIndex,
+    PhyDev->Addr,
+    PhyConnection
+    ));
+
+  *OutPhyDev = PhyDev;
+
+  return MvPhyDevices[PhyId].DevInit (Snp, PhyDev);
+}
+/*
+  Perform PHY software reset
+
+  */
 EFI_STATUS
 EFIAPI
 PhySoftReset (
@@ -123,12 +267,16 @@ PhySoftReset (
   UINT32        Data32;
   EFI_STATUS    Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
 
+  //
   // PHY Basic Control Register reset
-  PhyWrite (PhyDriver->PhyAddr, PHY_BASIC_CTRL, PHYCTRL_RESET, MacBaseAddress);
+  //
+  PhyWrite (PhyDriver->PhyAddr, MII_BMCR, BMCR_RESET, MacBaseAddress);
 
+  //
   // Wait for completion
+  //
   TimeOut = 0;
   do {
     // Read PHY_BASIC_CTRL register from PHY
@@ -159,14 +307,15 @@ PhyReadId (
   IN UINTN    MacBaseAddress
   )
 {
-  EFI_STATUS    Status;
   UINT32        PhyId1;
   UINT32        PhyId2;
+  EFI_STATUS    Status;
 
   Status = PhyRead (PhyAddr, PHY_ID1, &PhyId1, MacBaseAddress);
   if (EFI_ERROR (Status)) {
       return Status;
   }
+
   Status = PhyRead (PhyAddr, PHY_ID2, &PhyId2, MacBaseAddress);
   if (EFI_ERROR (Status)) {
       return Status;
@@ -176,8 +325,15 @@ PhyReadId (
     return EFI_NOT_FOUND;
   }
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: Ethernet PHY detected. PHY_ID1=0x%04X, PHY_ID2=0x%04X, PHY_ADDR=0x%02X\r\n",
-          PhyId1, PhyId2, PhyAddr));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: Ethernet PHY detected. \
+    PHY_ID1=0x%04X, PHY_ID2=0x%04X, PHY_ADDR=0x%02X\r\n",
+    PhyId1,
+    PhyId2,
+    PhyAddr
+    ));
+
   return EFI_SUCCESS;
 }
 
@@ -284,14 +440,20 @@ PhyAutoNego (
   IN UINTN        MacBaseAddress
   )
 {
-  EFI_STATUS    Status;
   UINT32        PhyControl;
   UINT32        PhyStatus;
   UINT32        Features;
+  EFI_STATUS    Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __FUNCTION__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: %a ()\r\n",
+    __func__
+    ));
 
+  //
   // Read PHY Status
+  //
   Status = PhyRead (PhyDriver->PhyAddr, PHY_BASIC_STATUS, &PhyStatus, MacBaseAddress);
   if (EFI_ERROR (Status)) {
     return Status;

@@ -1,4 +1,5 @@
 /** @file
+ *
  *  STMMAC Ethernet Driver -- MDIO bus implementation
  *  Provides Bus interface for MII registers.
  *
@@ -88,12 +89,12 @@ MdioWaitReady (
 STATIC
 EFI_STATUS
 MdioOperation (
-  IN CONST       SOPHGO_MDIO_PROTOCOL *This,
-  IN UINT32      PhyAddr,
-  IN UINT32      MdioIndex,
-  IN UINT32      RegOff,
-  IN BOOLEAN     Write,
-  IN OUT UINT32  *Data
+  IN CONST SOPHGO_MDIO_PROTOCOL  *This,
+  IN UINT32                      PhyAddr,
+  IN UINT32                      MdioIndex,
+  IN UINT32                      RegOff,
+  IN BOOLEAN                     Write,
+  IN OUT UINT32                  *Data
   )
 {
   UINTN      MdioBase;
@@ -173,11 +174,11 @@ MdioOperation (
 STATIC
 EFI_STATUS
 StmmacMdioRead (
-  IN CONST   SOPHGO_MDIO_PROTOCOL *This,
-  IN UINT32  PhyAddr,
-  IN UINT32  MdioIndex,
-  IN UINT32  RegOff,
-  IN UINT32  *Data
+  IN CONST SOPHGO_MDIO_PROTOCOL  *This,
+  IN UINT32                      PhyAddr,
+  IN UINT32                      MdioIndex,
+  IN UINT32                      RegOff,
+  IN UINT32                      *Data
   )
 {
   EFI_STATUS Status;
@@ -196,11 +197,11 @@ StmmacMdioRead (
 
 EFI_STATUS
 StmmacMdioWrite (
-  IN CONST   SOPHGO_MDIO_PROTOCOL *This,
-  IN UINT32  PhyAddr,
-  IN UINT32  MdioIndex,
-  IN UINT32  RegOff,
-  IN UINT32  Data
+  IN CONST SOPHGO_MDIO_PROTOCOL  *This,
+  IN UINT32                      PhyAddr,
+  IN UINT32                      MdioIndex,
+  IN UINT32                      RegOff,
+  IN UINT32                      Data
   )
 {
   return MdioOperation (
@@ -220,29 +221,100 @@ MdioDxeInitialize (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  MARVELL_BOARD_DESC_PROTOCOL *BoardDescProtocol;
-  MV_BOARD_MDIO_DESC          *MdioBoardDesc;
   UINT8                       Index;
+  UINTN                       MdioDevCount;
+  UINTN                       Capacity;
+  INT32                       Node;
+  CONST VOID                  *Prop;
+  UINT32                      PropSize;
+  FDT_CLIENT_PROTOCOL         *FdtClient;
   SOPHGO_MDIO_PROTOCOL        *Mdio;
   EFI_STATUS                  Status;
+  EFI_STATUS                  FindNodeStatus;
   EFI_HANDLE                  Handle;
 
-  Handle = NULL;
+  Handle       = NULL;
+  MdioDevCount = 0;
+  Capacity     = 0;
 
   //
-  // Obtain list of available controllers
+  // Obtain base addresses of all possible controllers
   //
-  Status = gBS->LocateProtocol (&gMarvellBoardDescProtocolGuid,
-                  NULL,
-                  (VOID **)&BoardDescProtocol);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  Status = gBS->LocateProtocol (
+      &gFdtClientProtocolGuid,
+      NULL,
+      (VOID **) &FdtClient
+      );
+  ASSERT_EFI_ERROR (Status);
 
-  Status = BoardDescProtocol->BoardDescMdioGet (BoardDescProtocol,
-                                &MdioBoardDesc);
-  if (EFI_ERROR (Status)) {
-    return Status;
+  for (FindNodeStatus = FdtClient->FindCompatibleNode (
+                                     FdtClient,
+                                     "bitmain,ethernet",
+                                     &Node
+                                     );
+
+    !EFI_ERROR (FindNodeStatus);
+
+    FindNodeStatus = FdtClient->FindNextCompatibleNode (
+                                     FdtClient,
+                                     "bitmain,ethernet",
+                                     Node,
+                                     &Node
+                                     ))
+  {
+    if (MdioDevNum >= Capacity) {
+      UINTN NewCapacity = Capacity == 0 ? 1 : ++Capacity;
+      UINTN *NewArray = NULL;
+
+      NewArray = AllocateZeroPool (NewCapacity * sizeof (UINTN));
+      if (!NewArray) {
+        DEBUG ((
+          DEBUG_ERROR,
+          "MdioDxe: Protocol allocation failed\n"
+          ));
+
+	if (Mdio->BaseAddresses) {
+          FreePool (Mdio->BaseAddresses);
+	}
+
+        return EFI_OUT_OF_RESOURCES;
+      }
+
+      if (Mdio->BaseAddresses != NULL) {
+        CopyMem (NewArray, Mdio->BaseAddresses, Size * sizeof (UINTN));
+
+        FreePool (Mdio->BaseAddresses);
+      }
+
+      Mdio->BaseAddresses = NewArray;
+      Capacity = NewCapacity;
+    }
+
+    Status = FdtClient->GetNodeProperty (
+                                FdtClient,
+                                Node,
+                                "reg",
+                                &Prop,
+                                &PropSize
+                                );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a: Get reg failed (Status = %r)\n",
+        __func__,
+        Status
+        ));
+
+      return Status;
+    }
+
+    Mdio->BaseAddresses[MdioDevNum] = SwapBytes64 (((CONST UINT64 *) Prop)[0]); 
+
+    if (Mdio->BaseAddresses[MdioDevNum] >= (1UL << 39)) {
+      break;
+    }
+    
+    MdioDevNum ++;
   }
 
   Mdio = AllocateZeroPool (sizeof (SOPHGO_MDIO_PROTOCOL));
@@ -255,31 +327,13 @@ MdioDxeInitialize (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  Mdio->BaseAddresses = AllocateZeroPool (MdioBoardDesc->MdioDevCount *
-                                          sizeof (UINTN));
-  if (Mdio->BaseAddresses == NULL) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "MdioDxe: Protocol allocation failed\n"
-      ));
-
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  //
-  // Obtain base addresses of all possible controllers
-  //
-  for (Index = 0; Index < MdioBoardDesc->MdioDevCount; Index++) {
-    Mdio->BaseAddresses[Index] = MdioBoardDesc[Index].SoC->MdioBaseAddress;
-  }
-
-  Mdio->ControllerCount = MdioBoardDesc->MdioDevCount;
-  Mdio->Read = StmmacMdioRead;
-  Mdio->Write = StmmacMdioWrite;
+  Mdio->ControllerCount = MdioDevCount;
+  Mdio->Read            = StmmacMdioRead;
+  Mdio->Write           = StmmacMdioWrite;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &Handle,
-                  &gMarvellMdioProtocolGuid, Mdio,
+                  &gSophgoMdioProtocolGuid, Mdio,
                   NULL
                   );
 
@@ -291,8 +345,6 @@ MdioDxeInitialize (
 
     return Status;
   }
-
-  BoardDescProtocol->BoardDescFree (MdioBoardDesc);
 
   return EFI_SUCCESS;
 }

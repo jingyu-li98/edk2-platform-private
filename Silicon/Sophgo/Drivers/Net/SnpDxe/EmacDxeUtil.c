@@ -20,121 +20,187 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
 #include <Library/MemoryAllocationLib.h>
-
-/* Enable disable MAC RX/TX */
-void stmmac_set_mac(void __iomem *ioaddr, bool enable)
-{
-	u32 old_val, value;
-
-	old_val = readl(ioaddr + MAC_CTRL_REG);
-	value = old_val;
-
-	if (enable)
-		value |= MAC_ENABLE_RX | MAC_ENABLE_TX;
-	else
-		value &= ~(MAC_ENABLE_TX | MAC_ENABLE_RX);
-
-	if (value != old_val)
-		writel(value, ioaddr + MAC_CTRL_REG);
-}
-
-void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
-			 unsigned int high, unsigned int low)
-{
-	unsigned int hi_addr, lo_addr;
-
-	/* Read the MAC address from the hardware */
-	hi_addr = readl(ioaddr + high);
-	lo_addr = readl(ioaddr + low);
-
-	/* Extract the MAC address from the high and low words */
-	addr[0] = lo_addr & 0xff;
-	addr[1] = (lo_addr >> 8) & 0xff;
-	addr[2] = (lo_addr >> 16) & 0xff;
-	addr[3] = (lo_addr >> 24) & 0xff;
-	addr[4] = hi_addr & 0xff;
-	addr[5] = (hi_addr >> 8) & 0xff;
-}
-EXPORT_SYMBOL_GPL(stmmac_get_mac_addr);
+#define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
+#define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
 
 VOID
 EFIAPI
-StmmacSetMacAddr(void __iomem *ioaddr, const u8 addr[6],
-			 unsigned int high, unsigned int low)
-{
-	unsigned long data;
-
-	data = (addr[5] << 8) | addr[4];
-	/* For MAC Addr registers we have to set the Address Enable (AE)
-	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
-	 * is RO.
-	 */
-	writel(data | GMAC_HI_REG_AE, ioaddr + high);
-	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
-	writel(data, ioaddr + low);
-}
-EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
-VOID
-EFIAPI
-EmacSetMacAddress (
+DwMac4SetMacAddr (
   IN  EFI_MAC_ADDRESS   *MacAddress,
-  IN  UINTN             MacBaseAddress
+  IN  UINTN             MacBaseAddress,
+  IN  UINTN             RegN
   )
 {
-  DEBUG ((DEBUG_INFO, "SNP:MAC: %a ()\r\n", __func__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:MAC: %a ()\r\n",
+    __func__
+    ));
 
+  //
   // Note: This MAC_ADDR0 registers programming sequence cannot be swap:
   // Must program HIGH Offset first before LOW Offset
   // because synchronization is triggered when MAC Address0 Low Register are written.
-  MmioWrite32 (MacBaseAddress + DW_EMAC_GMACGRP_MAC_ADDRESS0_HIGH_OFST,
+  //
+  MmioWrite32 (MacBaseAddress + GMAC_ADDR_HIGH(RegN),
                (UINT32)(MacAddress->Addr[4] & 0xFF) |
                       ((MacAddress->Addr[5] & 0xFF) << 8) |
 		      GMAC_HI_REG_AE
                     );
+  //
   // MacAddress->Addr[0,1,2] is the 3 bytes OUI
-  MmioWrite32 (MacBaseAddress + DW_EMAC_GMACGRP_MAC_ADDRESS0_LOW_OFST,
+  //
+  MmioWrite32 (MacBaseAddress + GMAC_ADDR_LOW(RegN),
                        (MacAddress->Addr[0] & 0xFF) |
                       ((MacAddress->Addr[1] & 0xFF) << 8) |
                       ((MacAddress->Addr[2] & 0xFF) << 16) |
                       ((MacAddress->Addr[3] & 0xFF) << 24)
                     );
 
-  DEBUG ((DEBUG_INFO, "SNP:MAC: gmacgrp_mac_address0_low  = 0x%08X \r\n",
-          MmioRead32 (MacBaseAddress + DW_EMAC_GMACGRP_MAC_ADDRESS0_LOW_OFST)));
-  DEBUG ((DEBUG_INFO, "SNP:MAC: gmacgrp_mac_address0_high = 0x%08X \r\n",
-          MmioRead32 (MacBaseAddress +DW_EMAC_GMACGRP_MAC_ADDRESS0_HIGH_OFST)));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:MAC: GMAC_ADDR_LOW(%d)  = 0x%08X \r\n",
+    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN))),
+    RegN
+    ));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:MAC: GMAC_ADDR_HIGH(%d)  = 0x%08X \r\n",
+    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN))),
+    RegN
+    ));
 }
-
 
 VOID
 EFIAPI
-EmacReadMacAddress (
+DwMac4GetMacAddr (
   OUT  EFI_MAC_ADDRESS   *MacAddress,
-  IN   UINTN             MacBaseAddress
+  IN   UINTN             MacBaseAddress,
+  IN   UINTN             RegN
   )
 {
   UINT32          MacAddrHighValue;
   UINT32          MacAddrLowValue;
 
-  DEBUG ((DEBUG_INFO, "SNP:MAC: %a ()\r\n", __func__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:MAC: %a ()\r\n",
+    __func__
+    ));
 
+  //
   // Read the Mac Addr high register
-  MacAddrHighValue = (MmioRead32 (MacBaseAddress + DW_EMAC_GMACGRP_MAC_ADDRESS0_HIGH_OFST) & 0xFFFF);
+  //
+  MacAddrHighValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN))) & 0xFFFF;
+  //
   // Read the Mac Addr low register
-  MacAddrLowValue = MmioRead32 (MacBaseAddress + DW_EMAC_GMACGRP_MAC_ADDRESS0_LOW_OFST);
+  //
+  MacAddrLowValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN)));
 
   SetMem (MacAddress, sizeof(*MacAddress), 0);
-  MacAddress->Addr[0] = (MacAddrLowValue & 0xFF);
-  MacAddress->Addr[1] = (MacAddrLowValue & 0xFF00) >> 8;
-  MacAddress->Addr[2] = (MacAddrLowValue & 0xFF0000) >> 16;
-  MacAddress->Addr[3] = (MacAddrLowValue & 0xFF000000) >> 24;
-  MacAddress->Addr[4] = (MacAddrHighValue & 0xFF);
-  MacAddress->Addr[5] = (MacAddrHighValue & 0xFF00) >> 8;
+  MacAddress->Addr[0] = MacAddrLowValue & 0xFF;
+  MacAddress->Addr[1] = (MacAddrLowValue >> 8) & 0xFF;
+  MacAddress->Addr[2] = (MacAddrLowValue >> 16) & 0xFF;
+  MacAddress->Addr[3] = (MacAddrLowValue >> 24) & 0xFF;
+  MacAddress->Addr[4] = MacAddrHighValue & 0xFF;
+  MacAddress->Addr[5] = (MacAddrHighValue >> 8) & 0xFF;
 
-  DEBUG ((DEBUG_INFO, "SNP:MAC: MAC Address = %02X:%02X:%02X:%02X:%02X:%02X\r\n",
-    MacAddress->Addr[0], MacAddress->Addr[1], MacAddress->Addr[2],
-    MacAddress->Addr[3], MacAddress->Addr[4], MacAddress->Addr[5]
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:MAC: MAC Address = %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+    MacAddress->Addr[0],
+    MacAddress->Addr[1],
+    MacAddress->Addr[2],
+    MacAddress->Addr[3],
+    MacAddress->Addr[4],
+    MacAddress->Addr[5]
   ));
+}
+
+VOID
+DwMac4DmaStartTx (
+  IN  UINTN   MacBaseAddress,
+  IN  UINT32  Channel
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value |= DMA_CONTROL_ST;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  Value |= GMAC_CONFIG_TE;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+}
+
+VOID
+DwMac4DmaStopTx (
+  IN  UINTN   MacBaseAddress,
+  IN  UINT32  Channel
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value &= ~DMA_CONTROL_ST;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+}
+
+VOID
+DwMac4DmaStartRx (
+  IN  UINTN   MacBaseAddress,
+  IN  UINT32  Channel
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value |= DMA_CONTROL_SR;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value);
+
+  Value = MmioRead32((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  Value |= GMAC_CONFIG_RE;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+}
+
+VOID
+DwMac4DmaStopRx (
+  IN  UINTN   MacBaseAddress,
+  IN  UINT32  Channel
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value &= ~DMA_CONTROL_SR;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value);
+}
+
+VOID
+DwMac4SetTxRingLen (
+  IN  UINTN   MacBaseAddress,
+  IN  UINTN   Length,
+  IN  UINT32  Channel
+  )
+{
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_RING_LEN(Channel)), Length);
+}
+
+VOID
+DwMac4SetRxRingLen (
+  IN  UINTN   MacBaseAddress,
+  IN  UINTN   Length,
+  IN  UINT32  Channel
+  )
+{
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_RING_LEN(Channel)), Length);
 }
 
 EFI_STATUS
@@ -152,127 +218,213 @@ EmacDxeInitialization (
   return EFI_SUCCESS;
 }
 
-
-EFI_STATUS
-EFIAPI
-EmacDmaInit (
-  IN  EMAC_DRIVER   *EmacDriver,
+int
+Dwmac4DmaReset (
   IN  UINTN         MacBaseAddress
   )
 {
-  UINT32 DmaConf;
-  UINT32 DmaOpmode;
-  UINT32 InterruptEnable;
+  UINT32 Value;
 
-  DEBUG ((DEBUG_INFO, "SNP:MAC: %a ()\r\n", __func__));
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE));
 
-  // This section provides the instructions for initializing the DMA registers in the proper sequence. This
-  // initialization sequence can be done after the EMAC interface initialization has been completed. Perform
-  // the following steps to initialize the DMA:
-  // 1. Provide a software reset to reset all of the EMAC internal registers and logic. (DMA Register 0 (Bus
-  // Mode Register) � bit 0).
+  //
+  // DMA SW reset
+  //
+  Value |= DMA_BUS_MODE_SFT_RESET;
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE), Value);
 
-  MmioOr32 (MacBaseAddress +
-             DW_EMAC_DMAGRP_BUS_MODE_OFST,
-             DW_EMAC_DMAGRP_BUS_MODE_SWR_SET_MSK);
-
-  // 2. Wait for the completion of the reset process (poll bit 0 of the DMA Register 0 (Bus Mode Register),
-  // which is only cleared after the reset operation is completed).
-  while (DW_EMAC_DMAGRP_BUS_MODE_SWR_GET (MmioRead32 (MacBaseAddress + DW_EMAC_DMAGRP_BUS_MODE_OFST)));
-
-  // 3. Poll the bits of Register 11 (AHB or AXI Status) to confirm that all previously initiated (before
-  // software reset) or ongoing transactions are complete.
-  // Note: If the application cannot poll the register after soft reset (because of performance reasons), then
-  // it is recommended that you continue with the next steps and check this register again (as
-  // mentioned in 12 on page 1-72) before triggering the DMA operations.�
-
-  // 4. Program the following fields to initialize the Bus Mode Register by setting values in DMA Register 0
-  // (Bus Mode Register):
-  // � Mixed Burst and AAL
-  // � Fixed burst or undefined burst
-  // � Burst length values and burst mode values
-  // � Descriptor Length (only valid if Ring Mode is used)
-  // � TX and RX DMA Arbitration scheme
-  // 5. Program the interface options in Register 10 (AXI Bus Mode Register). If fixed burst-length is enabled,
-  // then select the maximum burst-length possible on the bus (bits[7:1]).�
-
-  DmaConf = DW_EMAC_DMAGRP_BUS_MODE_FB_SET_MSK | DW_EMAC_DMAGRP_BUS_MODE_PBL_SET_MSK | DW_EMAC_DMAGRP_BUS_MODE_PR_SET_MSK;
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_DMAGRP_BUS_MODE_OFST,
-            DmaConf);
-
-  // 6. Create a proper descriptor chain for transmit and receive. In addition, ensure that the receive descriptors
-  // are owned by DMA (bit 31 of descriptor should be set). When OSF mode is used, at least two
-  // descriptors are required.
-  // 7. Make sure that your software creates three or more different transmit or receive descriptors in the
-  // chain before reusing any of the descriptors.
-  // 8. Initialize receive and transmit descriptor list address with the base address of the transmit and receive
-  // descriptor (Register 3 (Receive Descriptor List Address Register) and Register 4 (Transmit Descriptor
-  // List Address Register) respectively).
-
-  EmacSetupTxdesc (EmacDriver, MacBaseAddress);
-  EmacSetupRxdesc (EmacDriver, MacBaseAddress);
-
-  // 9. Program the following fields to initialize the mode of operation in Register 6 (Operation Mode
-  // Register):
-  // � Receive and Transmit Store And Forward�
-  // � Receive and Transmit Threshold Control (RTC and TTC)�
-  // � Hardware Flow Control enable�
-  // � Flow Control Activation and De-activation thresholds for MTL Receive and Transmit FIFO buffers
-  // (RFA and RFD)�
-  // � Error frame and undersized good frame forwarding enable�
-  // � OSF Mode�
-
-  DmaOpmode = DW_EMAC_DMAGRP_OPERATION_MODE_FTF_SET_MSK | DW_EMAC_DMAGRP_OPERATION_MODE_TSF_SET_MSK;
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_DMAGRP_OPERATION_MODE_OFST,
-            DmaOpmode);
-  //while (DW_EMAC_DMAGRP_OPERATION_MODE_FTF_GET (MmioRead32 (MacBaseAddress + DW_EMAC_DMAGRP_OPERATION_MODE_OFST)));
-
-  // 10.Clear the interrupt requests, by writing to those bits of the status register (interrupt bits only) that are
-  // set. For example, by writing 1 into bit 16, the normal interrupt summary clears this bit (DMA Register 5 (Status Register)).
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_DMAGRP_STATUS_OFST,
-            0x1FFFF);
-
-  // 11.Enable the interrupts by programming Register 7 (Interrupt Enable Register).
-  InterruptEnable = DW_EMAC_DMAGRP_INTERRUPT_ENABLE_TIE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_RIE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_NIE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_AIE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_FBE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_UNE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_TSE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_TUE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_TJE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_OVE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_RUE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_RSE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_RWE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_ETE_SET_MSK |
-                    DW_EMAC_DMAGRP_INTERRUPT_ENABLE_ERE_SET_MSK;
-   MmioWrite32 (MacBaseAddress +
-                DW_EMAC_DMAGRP_INTERRUPT_ENABLE_OFST,
-                InterruptEnable);
-
-  // 12.Read Register 11 (AHB or AXI Status) to confirm that all previous transactions are complete.�
-  // Note: If any previous transaction is still in progress when you read the Register 11 (AHB or AXI
-  // Status), then it is strongly recommended to check the slave components addressed by the
-  // master interface.
-  if (MmioRead32 (MacBaseAddress + DW_EMAC_DMAGRP_AHB_OR_AXI_STATUS_OFST) != 0) {
-    DEBUG ((DEBUG_INFO, "SNP:MAC: Error! Previous AXI transaction is still in progress\r\n"));
-    //check the slave components addressed by the master interface
-    return EFI_DEVICE_ERROR;
-  }
-
-  DmaOpmode = DW_EMAC_DMAGRP_OPERATION_MODE_ST_SET_MSK | DW_EMAC_DMAGRP_OPERATION_MODE_SR_SET_MSK;
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_DMAGRP_OPERATION_MODE_OFST,
-            DmaOpmode);
-
-  return EFI_SUCCESS;
+        return readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
+                                 !(value & DMA_BUS_MODE_SFT_RESET),
+                                 10000, 1000000);
 }
 
+VOID
+DwMac4DmaInit (
+  IN  STMMAC_DMA_CFG *DmaCfg,
+  IN  EMAC_DRIVER    *EmacDriver,
+  IN  UINTN          MacBaseAddress
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE));
+
+  // 
+  // Set the Fixed burst mode
+  //
+  if (DmaCfg->FixedBurst)
+    Value |= DMA_SYS_BUS_FB;
+
+  //
+  // Mixed Burst has no effect when fb is set
+  //
+  if (DmaCfg->MixedBurst)
+    Value |= DMA_SYS_BUS_MB;
+
+  if (DmaCfg->Aal)
+    Value |= DMA_SYS_BUS_AAL;
+
+  if (DmaCfg->Eame)
+    Value |= DMA_SYS_BUS_EAME;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE), Value);
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE));
+
+  if (DmaCfg->MultiMsiEn) {
+    Value &= ~DMA_BUS_MODE_INTM_MASK;
+    Value |= (DMA_BUS_MODE_INTM_MODE1 << DMA_BUS_MODE_INTM_SHIFT);
+  }
+
+  if (DmaCfg->Dche)
+    Value |= DMA_BUS_MODE_DCHE;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE), Value);
+
+}
+
+VOID
+DwMac4DmaInitChannel (
+  IN  STMMAC_DMA_CFG *DmaCfg,
+  IN  EMAC_DRIVER    *EmacDriver,
+  IN  UINTN          MacBaseAddress,
+  IN  UINTN          Channel
+  )
+{
+  CONST struct Dwmac4Addrs *Dwmac4Addrs = priv->plat->Dwmac4Addrs;
+  UINT32 Value;
+
+  //
+  // common channel control register config
+  //
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_CONTROL(Dwmac4Addrs, Channel)));
+  if (DmaCfg->Pblx8) {
+   Value = Value | DMA_BUS_MODE_PBL;
+  }
+  
+  MmioWrite32 (((UINTN)(MacBaseAddress + DMA_CHAN_CONTROL(Dwmac4Addrs, Channel)), Value);
+
+  //
+  // Mask interrupts by writing to CSR7
+  //
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Dwmac4Addrs, Channel), DMA_CHAN_INTR_DEFAULT_MASK);
+}
+
+VOID
+DwMac4DmaInitRxChan (
+  IN  STMMAC_DMA_CFG *DmaCfg,
+  IN  EMAC_DRIVER    *EmacDriver,
+  IN  UINTN          MacBaseAddress,
+  IN  UINTN          DmaRxPhy,
+  IN  UINTN          Channel
+  )
+{
+  UINT32 Value;
+  UINT32 RxPbl;
+
+  RxPbl = DmaCfg->RxPbl ? : DmaCfg->Pbl;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value = Value | (RxPbl << DMA_BUS_MODE_RPBL_SHIFT);
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value));
+
+  if (IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT) && likely(DmaCfg->Eame)) {
+    MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR_HI(Channel)),
+		    UPPER_32_BITS(DmaRxPhy));
+  }
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR(Channel)),
+		    LOWER_32_BITS(DmaRxPhy));
+}
+
+VOID
+DwMac4DmaInitTxChan (
+  IN  STMMAC_DMA_CFG *DmaCfg,
+  IN  EMAC_DRIVER    *EmacDriver,
+  IN  UINTN          MacBaseAddress,
+  IN  UINTN          DmaRxPhy,
+  IN  UINTN          Channel
+  )
+{
+  UINT32 Value;
+  UINT32 TxPbl;
+
+  TxPbl = DmaCfg->TxPbl ? : DmaCfg->Pbl;
+
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value = Value | (TxPbl << DMA_BUS_MODE_PBL_SHIFT);
+
+  //
+  // Enable OSP to get best performance
+  //
+  Value |= DMA_CONTROL_OSP;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+
+  if (IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT) && likely(DmaCfg->Eame)) {
+    MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
+		    UPPER_32_BITS(DmaTxPhy));
+  }
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
+		    LOWER_32_BITS(DmaTxPhy));
+}
+
+VOID
+DwMac4ProgMtlRxAlgorithms (
+  IN struct mac_device_info *hw,
+  IN UINT32 RxAlg
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 (UINTN (MacBaseAddress + MTL_OPERATION_MODE));
+  Value &= ~MTL_OPERATION_RAA;
+
+  switch (RxAlg) {
+  case MTL_RX_ALGORITHM_SP:
+    Value |= MTL_OPERATION_RAA_SP;
+    break;
+  case MTL_RX_ALGORITHM_WSP:
+    Value |= MTL_OPERATION_RAA_WSP;
+    break;
+  default:
+    break;
+  }
+
+  MmioWrite32 (Value, UINTN (MacBaseAddress + MTL_OPERATION_MODE));
+}
+
+VOID
+DwMac4ProgMtlTxAlgorithms (
+  IN struct mac_device_info *hw,
+  IN UINT32 TxAlg
+  )
+{
+  UINT32 Value;
+
+  Value = MmioRead32 (UINTN (MacBaseAddress + MTL_OPERATION_MODE));
+  Value &= ~MTL_OPERATION_SCHALG_MASK;
+
+  switch (TxAlg) {
+  case MTL_TX_ALGORITHM_WRR:
+    Value |= MTL_OPERATION_SCHALG_WRR;
+    break;
+  case MTL_TX_ALGORITHM_WFQ:
+    Value |= MTL_OPERATION_SCHALG_WFQ;
+    break;
+  case MTL_TX_ALGORITHM_DWRR:
+    Value |= MTL_OPERATION_SCHALG_DWRR;
+    break;
+  case MTL_TX_ALGORITHM_SP:
+    Value |= MTL_OPERATION_SCHALG_SP;
+    break;
+  default:
+    break;
+  }
+
+  MmioWrite32 (Value, UINTN (MacBaseAddress + MTL_OPERATION_MODE));
+}
 
 EFI_STATUS
 EFIAPI
@@ -345,21 +497,107 @@ EmacSetupRxdesc (
   return EFI_SUCCESS;
 }
 
-
 VOID
-EFIAPI
-EmacStartTransmission (
+DwMac4SetFilter(struct mac_device_info *hw,
+                              struct net_device *dev)
   IN  UINTN   MacBaseAddress
   )
 {
-  DEBUG ((DEBUG_INFO, "SNP:MAC: %a ()\r\n", __func__));
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_OFST,
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_RE_SET_MSK |
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_TE_SET_MSK
-            );
-}
+  UINT32 Value;
+        int numhashregs = (hw->multicast_filter_bins >> 5);
+        int mcbitslog2 = hw->mcast_bits_log2;
+        unsigned int value;
+        u32 mc_filter[8];
+        int i;
 
+        memset(mc_filter, 0, sizeof(mc_filter));
+
+  Value = MmioRead32 (UINTN (MacBaseAddress + GMAC_PACKET_FILTER));
+  Value &= ~GMAC_PACKET_FILTER_HMC;
+  Value &= ~GMAC_PACKET_FILTER_HPF;
+  Value &= ~GMAC_PACKET_FILTER_PCF;
+  Value &= ~GMAC_PACKET_FILTER_PM;
+  Value &= ~GMAC_PACKET_FILTER_PR;
+  Value &= ~GMAC_PACKET_FILTER_RA;
+  if (dev->flags & IFF_PROMISC) {
+    /* VLAN Tag Filter Fail Packets Queuing */
+    if (hw->vlan_fail_q_en) {
+      Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_RXQ_CTRL4));
+      Value &= ~GMAC_RXQCTRL_VFFQ_MASK;
+      Value |= GMAC_RXQCTRL_VFFQE |
+               (hw->vlan_fail_q << GMAC_RXQCTRL_VFFQ_SHIFT);
+      MmioWrite32 (Value, (UINTN)(MacBaseAddress + GMAC_RXQ_CTRL4));
+      Value = GMAC_PACKET_FILTER_PR | GMAC_PACKET_FILTER_RA;
+    } else {
+      Value = GMAC_PACKET_FILTER_PR | GMAC_PACKET_FILTER_PCF;
+    }
+
+  } else if ((dev->flags & IFF_ALLMULTI) ||
+             (netdev_mc_count(dev) > hw->multicast_filter_bins)) {
+    /* Pass all multi */
+    Value |= GMAC_PACKET_FILTER_PM;
+    /* Set all the bits of the HASH tab */
+    memset(mc_filter, 0xff, sizeof(mc_filter));
+  } else if (!netdev_mc_empty(dev) && (dev->flags & IFF_MULTICAST)) {
+    struct netdev_hw_addr *ha;
+
+    /* Hash filter for multicast */
+    Value |= GMAC_PACKET_FILTER_HMC;
+
+    netdev_for_each_mc_addr(ha, dev) {
+      //
+      // The upper n bits of the calculated CRC are used to
+      // index the contents of the hash table. The number of
+      // bits used depends on the hardware configuration
+      // selected at core configuration time.
+      //
+      u32 bit_nr = bitrev32(~crc32_le(~0, ha->addr,
+                                        ETH_ALEN)) >> (32 - mcbitslog2);
+      //
+      // The most significant bit determines the register to use (H/L)
+      // while the other 5 bits determine the bit within the register.
+      //
+      mc_filter[bit_nr >> 5] |= (1 << (bit_nr & 0x1f));
+     }
+   }
+
+   for (i = 0; i < numhashregs; i++)
+     writel(mc_filter[i], ioaddr + GMAC_HASH_TAB(i));
+
+     Value |= GMAC_PACKET_FILTER_HPF;
+
+     //
+     // Handle multiple unicast addresses
+     //
+     if (netdev_uc_count(dev) > hw->unicast_filter_entries) {
+       //
+       // Switch to promiscuous mode if more than 128 addrs are required
+       //
+       Value |= GMAC_PACKET_FILTER_PR;
+     } else {
+       struct netdev_hw_addr *ha;
+       int reg = 1;
+
+       netdev_for_each_uc_addr(ha, dev) {
+         dwmac4_set_umac_addr(hw, ha->addr, reg);
+         reg++;
+       }
+
+       while (reg < GMAC_MAX_PERFECT_ADDRESSES) {
+         MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(reg)), 0);
+         MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(reg)), 0);
+        reg++;
+       }
+     }
+
+        /* VLAN filtering */
+        if (dev->flags & IFF_PROMISC && !hw->vlan_fail_q_en)
+                value &= ~GMAC_PACKET_FILTER_VTFE;
+        else if (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)
+                value |= GMAC_PACKET_FILTER_VTFE;
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_PACKET_FILTER), Value);
+}
 
 EFI_STATUS
 EFIAPI
@@ -417,11 +655,11 @@ EmacRxFilters (
   }
 
   if ((ReceiveFilterSetting & EFI_SIMPLE_NETWORK_RECEIVE_BROADCAST) == 0) {
-    MacFilter |=  DW_EMAC_GMACGRP_MAC_FRAME_FILTER_DBF_SET_MSK;
+    MacFilter |= DW_EMAC_GMACGRP_MAC_FRAME_FILTER_DBF_SET_MSK;
   }
 
   if (ReceiveFilterSetting & EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS) {
-    MacFilter |=  DW_EMAC_GMACGRP_MAC_FRAME_FILTER_PR_SET_MSK;
+    MacFilter |= DW_EMAC_GMACGRP_MAC_FRAME_FILTER_PR_SET_MSK;
   }
 
   if (ReceiveFilterSetting & EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS_MULTICAST) {

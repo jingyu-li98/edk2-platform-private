@@ -136,5 +136,7 @@
                         | DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
 
 #define STMMAC_MDIO_TIMEOUT     10000   // 10000us
-					//
+#define PHY_REG_MASK            0xFFFF
+#define PHY_ADDR_MASK           0x1F
+
 #endif // __MDIO_DXE_H__
