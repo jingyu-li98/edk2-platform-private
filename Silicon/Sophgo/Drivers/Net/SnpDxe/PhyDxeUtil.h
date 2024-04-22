@@ -16,13 +16,6 @@ typedef struct {
   UINT32 PhyOldLink;
 } PHY_DRIVER;
 
-#define SPEED_1000                            1000
-#define SPEED_100                             100
-#define SPEED_10                              10
-
-#define DUPLEX_FULL                           1
-#define DUPLEX_HALF                           0
-
 // PHY Super Special control/status
 #define PHYSSCS_HCDSPEED_MASK                 (7 << 2)        // Speed indication
 #define PHYSSCS_AUTODONE                      BIT12           // Auto-Negotiation Done
@@ -419,7 +412,7 @@ typedef struct {
 #define PHY_10G_FEATURES        (PHY_GBIT_FEATURES | \
                                 SUPPORTED_10000baseT_Full)
 
-#ifndef PHY_ANEG_TIMEOUT
+//#ifndef PHY_ANEG_TIMEOUT
 #define PHY_ANEG_TIMEOUT        4000
 
 //

@@ -26,9 +26,15 @@ PhyDxeInitialization (
 {
   EFI_STATUS   Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: %a ()\r\n",
+    __func__
+    ));
 
-  // initialize the phyaddr
+  //
+  // Initialize the phyaddr
+  //
   PhyDriver->PhyAddr = 0;
   PhyDriver->PhyCurrentLink = LINK_DOWN;
   PhyDriver->PhyOldLink = LINK_DOWN;
@@ -57,7 +63,11 @@ PhyDetectDevice (
   UINT32       PhyAddr;
   EFI_STATUS   Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: %a ()\r\n",
+    __func__
+    ));
 
   for (PhyAddr = 0; PhyAddr < 32; PhyAddr++) {
     Status = PhyReadId (PhyAddr, MacBaseAddress);
@@ -69,7 +79,11 @@ PhyDetectDevice (
     return EFI_SUCCESS;
   }
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: Fail to detect Ethernet PHY!\r\n"));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: Fail to detect Ethernet PHY!\r\n"
+    ));
+
   return EFI_NOT_FOUND;
 
 }
@@ -163,8 +177,9 @@ PhyRtl8211fConfig (
   return EFI_SUCCESS;
 }
 
-
-// Perform PHY software reset
+/*
+ * Perform PHY software reset
+ */
 EFI_STATUS
 EFIAPI
 PhySoftReset (
@@ -176,27 +191,43 @@ PhySoftReset (
   UINT32        Data32;
   EFI_STATUS    Status;
 
-  DEBUG ((DEBUG_INFO, "SNP:PHY: %a ()\r\n", __func__));
+  DEBUG ((
+    DEBUG_INFO,
+    "SNP:PHY: %a ()\r\n",
+    __func__
+    ));
 
+  //
   // PHY Basic Control Register reset
-  PhyWrite (PhyDriver->PhyAddr, MII_BMCR, PHYCTRL_RESET, MacBaseAddress);
+  //
+  PhyWrite (PhyDriver->PhyAddr, MII_BMCR, MBCR_RESET, MacBaseAddress);
 
+  //
   // Wait for completion
+  //
   TimeOut = 0;
   do {
+    //
     // Read MII_BMCR register from PHY
+    //
     Status = PhyRead (PhyDriver->PhyAddr, MII_BMCR, &Data32, MacBaseAddress);
     if (EFI_ERROR(Status)) {
       return Status;
     }
+    //
     // Wait until PHYCTRL_RESET become zero
-    if ((Data32 & PHYCTRL_RESET) == 0) {
+    //
+    if ((Data32 & MBCR_RESET) == 0) {
       break;
     }
-    MicroSecondDelay(1);
+    gBS->Stall (1000);
   } while (TimeOut++ < PHY_TIMEOUT);
+
   if (TimeOut >= PHY_TIMEOUT) {
-    DEBUG ((DEBUG_INFO, "SNP:PHY: ERROR! PhySoftReset timeout\n"));
+    DEBUG ((
+      DEBUG_INFO,
+      "SNP:PHY: ERROR! PhySoftReset timeout\n"
+      ));
     return EFI_TIMEOUT;
   }
 
@@ -387,7 +418,9 @@ Rtl8211xParseStatus (
   if (!(MiiReg & MIIM_RTL8211x_PHYSTAT_SPDDONE)) {
     Index = 0;
 
-    /* in case of timeout ->link is cleared */
+    //
+    // In case of timeout ->link is cleared
+    //
     PhyDriver->CurrentLink = LINK_UP;
     DEBUG ((
       DEBUG_INFO,
@@ -395,7 +428,9 @@ Rtl8211xParseStatus (
       ));
 
     while (!(MiiReg & MIIM_RTL8211x_PHYSTAT_SPDDONE)) {
-      /* Timeout reached ? */
+      //
+      // Timeout reached ?
+      //
       if (Index > PHY_AUTONEGOTIATE_TIMEOUT) {
         DEBUG ((
           DEBUG_WARN,

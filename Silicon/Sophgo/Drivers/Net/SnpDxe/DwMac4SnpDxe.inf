@@ -1,0 +1,52 @@
+## @file
+#
+#  DW Mac Simple Networking Protocol Driver (SNP) DXE Driver
+#
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+[Defines]
+  INF_VERSION                    = 1.27
+  BASE_NAME                      = DwMac4SnpDxe
+  FILE_GUID                      = 06f3315f-9fe6-4938-b83f-2c072af802ba
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = DwMac4SnpDxeEntry
+
+[Sources.common]
+  ComponentName.c
+  DriverBinding.c
+  DwMac4SnpDxe.c
+  DwMac4DxeUtil.c
+  PhyDxeUtil.c
+  DwMac4SnpDxe.h
+  DwMac4DxeUtil.h
+  PhyDxeUtil.h
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  NetworkPkg/NetworkPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  DmaLib
+  IoLib
+  NetLib
+  TimerLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEdkiiNonDiscoverableDeviceProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiDriverBindingProtocolGuid
+  gEfiMetronomeArchProtocolGuid
+  gEfiSimpleNetworkProtocolGuid
+

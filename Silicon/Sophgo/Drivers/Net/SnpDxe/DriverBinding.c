@@ -7,7 +7,7 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
 
-#include "DwEmacSnpDxe.h"
+#include "DwMac4SnpDxe.h"
 
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
@@ -126,6 +126,7 @@ DriverStart (
   UINTN                            BufferSize;
   UINTN                            *RxBufferAddr;
   EFI_PHYSICAL_ADDRESS             RxBufferAddrMap;
+  UINT32                           Index;
 
   //
   // Allocate Resources
@@ -145,18 +146,18 @@ DriverStart (
   //
   // Size for descriptor
   //
-  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DESIGNWARE_HW_DESCRIPTOR));
+  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESC));
   //
   // Size for transmit and receive buffer
   //
   BufferSize = ETH_BUFSIZE;
 
-  for (int Index=0; Index < DESC_NUM; Index++) {
+  for (Index = 0; Index < DESC_NUM; Index++) {
     //
     // DMA TxdescRing allocate buffer and map
     //
     Status = DmaAllocateBuffer (EfiBootServicesData,
-               EFI_SIZE_TO_PAGES (sizeof (DESIGNWARE_HW_DESCRIPTOR)), (VOID *)&Snp->MacDriver.TxdescRing[Index]);
+               EFI_SIZE_TO_PAGES (sizeof (DMA_DESC)), (VOID *)&Snp->MacDriver.TxDescRing[Index]);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -167,8 +168,8 @@ DriverStart (
       return Status;
     }
 
-    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.TxdescRing[Index],
-               &DescriptorSize, &Snp->MacDriver.TxdescRingMap[Index].AddrMap, &Snp->MacDriver.TxdescRingMap[Index].Mapping);
+    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.TxDescRing[Index],
+               &DescriptorSize, &Snp->MacDriver.TxDescRingMap[Index].AddrMap, &Snp->MacDriver.TxDescRingMap[Index].Mapping);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -183,7 +184,7 @@ DriverStart (
     // DMA RxdescRing allocte buffer and map
     //
     Status = DmaAllocateBuffer (EfiBootServicesData,
-               EFI_SIZE_TO_PAGES (sizeof (DESIGNWARE_HW_DESCRIPTOR)), (VOID *)&Snp->MacDriver.RxdescRing[Index]);
+               EFI_SIZE_TO_PAGES (sizeof (DMA_DESC)), (VOID *)&Snp->MacDriver.RxDescRing[Index]);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -194,8 +195,8 @@ DriverStart (
       return Status;
     }
 
-    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.RxdescRing[Index],
-               &DescriptorSize, &Snp->MacDriver.RxdescRingMap[Index].AddrMap, &Snp->MacDriver.RxdescRingMap[Index].Mapping);
+    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.RxDescRing[Index],
+               &DescriptorSize, &Snp->MacDriver.RxDescRingMap[Index].AddrMap, &Snp->MacDriver.RxDescRingMap[Index].Mapping);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -412,7 +413,10 @@ DriverStop (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): UninstallMultipleProtocolInterfaces: %r\n", __func__, Status));
+      "%a (): UninstallMultipleProtocolInterfaces: %r\n",
+      __func__,
+      Status
+      ));
     return Status;
   }
 
@@ -432,7 +436,7 @@ DriverStop (
 **/
 EFI_STATUS
 EFIAPI
-DwSnpDxeEntry (
+DwMac4SnpDxeEntry (
   IN  EFI_HANDLE       ImageHandle,
   IN  EFI_SYSTEM_TABLE *SystemTable
   )
@@ -449,5 +453,4 @@ DwSnpDxeEntry (
              );
 
   return Status;
-
 }

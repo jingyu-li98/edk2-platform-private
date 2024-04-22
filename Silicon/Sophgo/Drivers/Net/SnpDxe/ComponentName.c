@@ -5,7 +5,7 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
-#include "DwEmacSnpDxe.h"
+#include "DwMac4SnpDxe.h"
 
 //
 // EFI Component Name Functions
