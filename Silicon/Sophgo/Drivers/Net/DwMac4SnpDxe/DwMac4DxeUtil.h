@@ -19,9 +19,10 @@
 
 #include <Protocol/SimpleNetwork.h>
 #include <Base.h>
-
 #define BIT(nr)              (1UL << (nr))
 #define GENMASK(end, start)  (((1ULL << ((end) - (start) + 1)) - 1) << (start))
+
+#define GMAC4_VERSION           0x00000110      /* GMAC4+ CORE Version */
 
 //
 // Common MAC defines
@@ -98,6 +99,7 @@
 #define GMAC_PACKET_FILTER_PR		BIT0
 #define GMAC_PACKET_FILTER_HMC		BIT2
 #define GMAC_PACKET_FILTER_PM		BIT4
+#define GMAC_PACKET_FILTER_DBF		BIT5
 #define GMAC_PACKET_FILTER_PCF		BIT7
 #define GMAC_PACKET_FILTER_HPF		BIT10
 #define GMAC_PACKET_FILTER_VTFE		BIT16
@@ -190,6 +192,7 @@
 #define GMAC_INT_PMT_EN			BIT4
 #define GMAC_INT_LPI_EN			BIT5
 #define GMAC_INT_TSIE			BIT12
+#define GMAC_INT_FPE_EN                 BIT17
 
 #define	GMAC_PCS_IRQ_DEFAULT	(GMAC_INT_RGSMIIS | GMAC_INT_PCS_LINK |	\
 				 GMAC_INT_PCS_ANE)
@@ -384,15 +387,16 @@
 #define MTL_RXQ_DMA_QXMDMACH_MASK(x)	(0xf << 8 * (x))
 #define MTL_RXQ_DMA_QXMDMACH(chan, q)	((chan) << (8 * (q)))
 
-#define MTL_CHAN_BASE_ADDR		0x00000d00
-#define MTL_CHAN_BASE_OFFSET		0x40
+#define MTL_CHAN_BASE_ADDR              0x00000d00
+#define MTL_CHAN_BASE_OFFSET            0x40
+#define MTL_CHANX_BASE_ADDR(x)          (MTL_CHAN_BASE_ADDR + \
+                                        (x * MTL_CHAN_BASE_OFFSET))
 
-
-//#define MTL_CHAN_TX_OP_MODE(addrs, x)	mtl_chanx_base_addr(addrs, x)
-//#define MTL_CHAN_TX_DEBUG(addrs, x)	(mtl_chanx_base_addr(addrs, x) + 0x8)
-//#define MTL_CHAN_INT_CTRL(addrs, x)	(mtl_chanx_base_addr(addrs, x) + 0x2c)
-//#define MTL_CHAN_RX_OP_MODE(addrs, x)	(mtl_chanx_base_addr(addrs, x) + 0x30)
-//#define MTL_CHAN_RX_DEBUG(addrs, x)	(mtl_chanx_base_addr(addrs, x) + 0x38)
+#define MTL_CHAN_TX_OP_MODE(x)          MTL_CHANX_BASE_ADDR(x)
+#define MTL_CHAN_TX_DEBUG(x)            (MTL_CHANX_BASE_ADDR(x) + 0x8)
+#define MTL_CHAN_INT_CTRL(x)            (MTL_CHANX_BASE_ADDR(x) + 0x2c)
+#define MTL_CHAN_RX_OP_MODE(x)          (MTL_CHANX_BASE_ADDR(x) + 0x30)
+#define MTL_CHAN_RX_DEBUG(x)            (MTL_CHANX_BASE_ADDR(x) + 0x38)
 
 #define MTL_OP_MODE_RSF			BIT5
 #define MTL_OP_MODE_TXQEN_MASK		GENMASK(3, 2)
@@ -616,21 +620,21 @@
 //
 // DMA Bus Mode bitmap
 //
-#define DMA_BUS_MODE_DCHE               BIT(19)
+#define DMA_BUS_MODE_DCHE               BIT19
 #define DMA_BUS_MODE_INTM_MASK          GENMASK(17, 16)
 #define DMA_BUS_MODE_INTM_SHIFT         16
 #define DMA_BUS_MODE_INTM_MODE1         0x1
-#define DMA_BUS_MODE_SFT_RESET          BIT(0)
+#define DMA_BUS_MODE_SFT_RESET          BIT0
 
 //
 // DMA SYS Bus Mode bitmap
 //
-#define DMA_BUS_MODE_SPH                BIT(24)
-#define DMA_BUS_MODE_PBL                BIT(16)
+#define DMA_BUS_MODE_SPH                BIT24
+#define DMA_BUS_MODE_PBL                BIT16
 #define DMA_BUS_MODE_PBL_SHIFT          16
 #define DMA_BUS_MODE_RPBL_SHIFT         16
-#define DMA_BUS_MODE_MB                 BIT(14)
-#define DMA_BUS_MODE_FB                 BIT(0)
+#define DMA_BUS_MODE_MB                 BIT14
+#define DMA_BUS_MODE_FB                 BIT0
 
 //
 // Rx watchdog register
@@ -642,8 +646,8 @@
 #define DMA_DEBUG_STATUS_RS_MASK        0xf                                     
                                                                                 
 /* DMA AXI bitmap */                                                            
-#define DMA_AXI_EN_LPI                  BIT(31)                                 
-#define DMA_AXI_LPI_XIT_FRM             BIT(30)                                 
+#define DMA_AXI_EN_LPI                  BIT31                                 
+#define DMA_AXI_LPI_XIT_FRM             BIT30                                 
 #define DMA_AXI_WR_OSR_LMT              GENMASK(27, 24)                         
 #define DMA_AXI_WR_OSR_LMT_SHIFT        24                                      
 #define DMA_AXI_RD_OSR_LMT              GENMASK(19, 16)                         
@@ -658,20 +662,20 @@
 //
 #define DMA_AXI_BUS_MODE        0x00001028
 
-#define DMA_AXI_EN_LPI          BIT(31)
-#define DMA_AXI_LPI_XIT_FRM     BIT(30)
-#define DMA_SYS_BUS_MB                  BIT(14)
-#define DMA_AXI_1KBBE                   BIT(13)
-#define DMA_SYS_BUS_AAL                 BIT(12)
-#define DMA_SYS_BUS_EAME                BIT(11)
-#define DMA_AXI_BLEN256                 BIT(7)
-#define DMA_AXI_BLEN128                 BIT(6)
-#define DMA_AXI_BLEN64                  BIT(5)
-#define DMA_AXI_BLEN32                  BIT(4)
-#define DMA_AXI_BLEN16                  BIT(3)
-#define DMA_AXI_BLEN8                   BIT(2)
-#define DMA_AXI_BLEN4                   BIT(1)
-#define DMA_SYS_BUS_FB                  BIT(0)
+#define DMA_AXI_EN_LPI          BIT31
+#define DMA_AXI_LPI_XIT_FRM     BIT30
+#define DMA_SYS_BUS_MB                  BIT14
+#define DMA_AXI_1KBBE                   BIT13
+#define DMA_SYS_BUS_AAL                 BIT12
+#define DMA_SYS_BUS_EAME                BIT11
+#define DMA_AXI_BLEN256                 BIT7
+#define DMA_AXI_BLEN128                 BIT6
+#define DMA_AXI_BLEN64                  BIT5
+#define DMA_AXI_BLEN32                  BIT4
+#define DMA_AXI_BLEN16                  BIT3
+#define DMA_AXI_BLEN8                   BIT2
+#define DMA_AXI_BLEN4                   BIT1
+#define DMA_SYS_BUS_FB                  BIT0
 
 #define DMA_BURST_LEN_DEFAULT           (DMA_AXI_BLEN256 | DMA_AXI_BLEN128 | \
                                         DMA_AXI_BLEN64 | DMA_AXI_BLEN32 | \
@@ -682,7 +686,7 @@
 
 /* DMA TBS Control */
 #define DMA_TBS_FTOS                    GENMASK(31, 8)
-#define DMA_TBS_FTOV                    BIT(0)
+#define DMA_TBS_FTOV                    BIT0
 #define DMA_TBS_DEF_FTOS                (DMA_TBS_FTOS | DMA_TBS_FTOV)
 
 /* Following DMA defines are channel-oriented */
@@ -716,11 +720,67 @@
 #define DMA_CHAN_CUR_TX_BUF_ADDR(x)     (DMA_CHANX_BASE_ADDR(x) + 0x54)
 #define DMA_CHAN_CUR_RX_BUF_ADDR(x)     (DMA_CHANX_BASE_ADDR(x) + 0x5c)
 #define DMA_CHAN_STATUS(x)              (DMA_CHANX_BASE_ADDR(x) + 0x60)
-/* DMA default interrupt mask for 4.00 */
+
+//
+// DMA Control X
+//
+#define DMA_CONTROL_SPH                 BIT24
+#define DMA_CONTROL_MSS_MASK            GENMASK(13, 0)
+
+//
+// DMA Tx Channel X Control register defines
+//
+#define DMA_CONTROL_EDSE                BIT28
+#define DMA_CONTROL_TSE                 BIT12
+#define DMA_CONTROL_OSP                 BIT4
+#define DMA_CONTROL_ST                  BIT0
+
+//
+// DMA Rx Channel X Control register defines
+//
+#define DMA_CONTROL_SR                  BIT0
+#define DMA_RBSZ_MASK                   GENMASK(14, 1)
+#define DMA_RBSZ_SHIFT                  1
+
+//
+// Interrupt enable bits per channel
+//
+#define DMA_CHAN_INTR_ENA_NIE           BIT16
+#define DMA_CHAN_INTR_ENA_AIE           BIT15
+#define DMA_CHAN_INTR_ENA_NIE_4_10      BIT15
+#define DMA_CHAN_INTR_ENA_AIE_4_10      BIT14
+#define DMA_CHAN_INTR_ENA_CDE           BIT13
+#define DMA_CHAN_INTR_ENA_FBE           BIT12
+#define DMA_CHAN_INTR_ENA_ERE           BIT11
+#define DMA_CHAN_INTR_ENA_ETE           BIT10
+#define DMA_CHAN_INTR_ENA_RWE           BIT9
+#define DMA_CHAN_INTR_ENA_RSE           BIT8
+#define DMA_CHAN_INTR_ENA_RBUE          BIT7
+#define DMA_CHAN_INTR_ENA_RIE           BIT6
+#define DMA_CHAN_INTR_ENA_TBUE          BIT2
+#define DMA_CHAN_INTR_ENA_TSE           BIT1
+#define DMA_CHAN_INTR_ENA_TIE           BIT0
+
+#define DMA_CHAN_INTR_NORMAL            (DMA_CHAN_INTR_ENA_NIE | \
+                                         DMA_CHAN_INTR_ENA_RIE | \
+                                         DMA_CHAN_INTR_ENA_TIE)
+
+#define DMA_CHAN_INTR_ABNORMAL          (DMA_CHAN_INTR_ENA_AIE | \
+                                         DMA_CHAN_INTR_ENA_FBE)
+
+//
+// DMA default interrupt mask for 4.00
+//
 #define DMA_CHAN_INTR_DEFAULT_MASK      (DMA_CHAN_INTR_NORMAL | \
                                          DMA_CHAN_INTR_ABNORMAL)
 #define DMA_CHAN_INTR_DEFAULT_RX        (DMA_CHAN_INTR_ENA_RIE)
 #define DMA_CHAN_INTR_DEFAULT_TX        (DMA_CHAN_INTR_ENA_TIE)
+#define DMA_CHAN_INTR_NORMAL_4_10       (DMA_CHAN_INTR_ENA_NIE_4_10 | \
+                                         DMA_CHAN_INTR_ENA_RIE | \
+                                         DMA_CHAN_INTR_ENA_TIE)
+
+#define DMA_CHAN_INTR_ABNORMAL_4_10     (DMA_CHAN_INTR_ENA_AIE_4_10 | \
+                                         DMA_CHAN_INTR_ENA_FBE)
 //
 // Interrupt status per channel
 //
@@ -728,19 +788,19 @@
 #define DMA_CHAN_STATUS_REB_SHIFT       19
 #define DMA_CHAN_STATUS_TEB             GENMASK(18, 16)
 #define DMA_CHAN_STATUS_TEB_SHIFT       16
-#define DMA_CHAN_STATUS_NIS             BIT(15)
-#define DMA_CHAN_STATUS_AIS             BIT(14)
-#define DMA_CHAN_STATUS_CDE             BIT(13)
-#define DMA_CHAN_STATUS_FBE             BIT(12)
-#define DMA_CHAN_STATUS_ERI             BIT(11)
-#define DMA_CHAN_STATUS_ETI             BIT(10)
-#define DMA_CHAN_STATUS_RWT             BIT(9)
-#define DMA_CHAN_STATUS_RPS             BIT(8)
-#define DMA_CHAN_STATUS_RBU             BIT(7)
-#define DMA_CHAN_STATUS_RI              BIT(6)
-#define DMA_CHAN_STATUS_TBU             BIT(2)
-#define DMA_CHAN_STATUS_TPS             BIT(1)
-#define DMA_CHAN_STATUS_TI              BIT(0)
+#define DMA_CHAN_STATUS_NIS             BIT15
+#define DMA_CHAN_STATUS_AIS             BIT14
+#define DMA_CHAN_STATUS_CDE             BIT13
+#define DMA_CHAN_STATUS_FBE             BIT12
+#define DMA_CHAN_STATUS_ERI             BIT11
+#define DMA_CHAN_STATUS_ETI             BIT10
+#define DMA_CHAN_STATUS_RWT             BIT9
+#define DMA_CHAN_STATUS_RPS             BIT8
+#define DMA_CHAN_STATUS_RBU             BIT7
+#define DMA_CHAN_STATUS_RI              BIT6
+#define DMA_CHAN_STATUS_TBU             BIT2
+#define DMA_CHAN_STATUS_TPS             BIT1
+#define DMA_CHAN_STATUS_TI              BIT0
 
 #define DMA_CHAN_STATUS_MSK_COMMON      (DMA_CHAN_STATUS_NIS | \
 		                         DMA_CHAN_STATUS_AIS | \
@@ -811,20 +871,20 @@
 #define TDES2_BUFFER2_SIZE_MASK_SHIFT   16
 #define TDES3_IVTIR_MASK                GENMASK(19, 18)
 #define TDES3_IVTIR_SHIFT               18
-#define TDES3_IVLTV                     BIT(17)
-#define TDES2_TIMESTAMP_ENABLE          BIT(30)
+#define TDES3_IVLTV                     BIT17
+#define TDES2_TIMESTAMP_ENABLE          BIT30
 #define TDES2_IVT_MASK                  GENMASK(31, 16)
 #define TDES2_IVT_SHIFT                 16
-#define TDES2_INTERRUPT_ON_COMPLETION   BIT(31)
+#define TDES2_INTERRUPT_ON_COMPLETION   BIT31
 
 /* TDES3 (read format) */
 #define TDES3_PACKET_SIZE_MASK          GENMASK(14, 0)
 #define TDES3_VLAN_TAG                  GENMASK(15, 0)
-#define TDES3_VLTV                      BIT(16)
+#define TDES3_VLTV                      BIT16
 #define TDES3_CHECKSUM_INSERTION_MASK   GENMASK(17, 16)
 #define TDES3_CHECKSUM_INSERTION_SHIFT  16
 #define TDES3_TCP_PKT_PAYLOAD_MASK      GENMASK(17, 0)
-#define TDES3_TCP_SEGMENTATION_ENABLE   BIT(18)
+#define TDES3_TCP_SEGMENTATION_ENABLE   BIT18
 #define TDES3_HDR_LEN_SHIFT             19
 #define TDES3_SLOT_NUMBER_MASK          GENMASK(22, 19)
 #define TDES3_SA_INSERT_CTRL_MASK       GENMASK(25, 23)
@@ -832,39 +892,39 @@
 #define TDES3_CRC_PAD_CTRL_MASK         GENMASK(27, 26)
 
 /* TDES3 (write back format) */
-#define TDES3_IP_HDR_ERROR              BIT(0)
-#define TDES3_DEFERRED                  BIT(1)
-#define TDES3_UNDERFLOW_ERROR           BIT(2)
-#define TDES3_EXCESSIVE_DEFERRAL        BIT(3)
+#define TDES3_IP_HDR_ERROR              BIT0
+#define TDES3_DEFERRED                  BIT1
+#define TDES3_UNDERFLOW_ERROR           BIT2
+#define TDES3_EXCESSIVE_DEFERRAL        BIT3
 #define TDES3_COLLISION_COUNT_MASK      GENMASK(7, 4)
 #define TDES3_COLLISION_COUNT_SHIFT     4
-#define TDES3_EXCESSIVE_COLLISION       BIT(8)
-#define TDES3_LATE_COLLISION            BIT(9)
-#define TDES3_NO_CARRIER                BIT(10)
-#define TDES3_LOSS_CARRIER              BIT(11)
-#define TDES3_PAYLOAD_ERROR             BIT(12)
-#define TDES3_PACKET_FLUSHED            BIT(13)
-#define TDES3_JABBER_TIMEOUT            BIT(14)
-#define TDES3_ERROR_SUMMARY             BIT(15)
-#define TDES3_TIMESTAMP_STATUS          BIT(17)
+#define TDES3_EXCESSIVE_COLLISION       BIT8
+#define TDES3_LATE_COLLISION            BIT9
+#define TDES3_NO_CARRIER                BIT10
+#define TDES3_LOSS_CARRIER              BIT11
+#define TDES3_PAYLOAD_ERROR             BIT12
+#define TDES3_PACKET_FLUSHED            BIT13
+#define TDES3_JABBER_TIMEOUT            BIT14
+#define TDES3_ERROR_SUMMARY             BIT15
+#define TDES3_TIMESTAMP_STATUS          BIT17
 #define TDES3_TIMESTAMP_STATUS_SHIFT    17
 
 /* TDES3 context */
-#define TDES3_CTXT_TCMSSV               BIT(26)
+#define TDES3_CTXT_TCMSSV               BIT26
 
 /* TDES3 Common */
-#define TDES3_RS1V                      BIT(26)
+#define TDES3_RS1V                      BIT26
 #define TDES3_RS1V_SHIFT                26
-#define TDES3_LAST_DESCRIPTOR           BIT(28)
+#define TDES3_LAST_DESCRIPTOR           BIT28
 #define TDES3_LAST_DESCRIPTOR_SHIFT     28
-#define TDES3_FIRST_DESCRIPTOR          BIT(29)
-#define TDES3_CONTEXT_TYPE              BIT(30)
+#define TDES3_FIRST_DESCRIPTOR          BIT29
+#define TDES3_CONTEXT_TYPE              BIT30
 #define TDES3_CONTEXT_TYPE_SHIFT        30
 
 //
 // TDS3 use for both format (read and write back)
 //
-#define TDES3_OWN                       BIT(31)
+#define TDES3_OWN                       BIT31
 #define TDES3_OWN_SHIFT                 31
 /* Normal receive descriptor defines (without split feature) */
 
@@ -873,58 +933,77 @@
 
 /* RDES1 (write back format) */
 #define RDES1_IP_PAYLOAD_TYPE_MASK      GENMASK(2, 0)
-#define RDES1_IP_HDR_ERROR              BIT(3)
-#define RDES1_IPV4_HEADER               BIT(4)
-#define RDES1_IPV6_HEADER               BIT(5)
-#define RDES1_IP_CSUM_BYPASSED          BIT(6)
-#define RDES1_IP_CSUM_ERROR             BIT(7)
+#define RDES1_IP_HDR_ERROR              BIT3
+#define RDES1_IPV4_HEADER               BIT4
+#define RDES1_IPV6_HEADER               BIT5
+#define RDES1_IP_CSUM_BYPASSED          BIT6
+#define RDES1_IP_CSUM_ERROR             BIT7
 #define RDES1_PTP_MSG_TYPE_MASK         GENMASK(11, 8)
-#define RDES1_PTP_PACKET_TYPE           BIT(12)
-#define RDES1_PTP_VER                   BIT(13)
-#define RDES1_TIMESTAMP_AVAILABLE       BIT(14)
+#define RDES1_PTP_PACKET_TYPE           BIT12
+#define RDES1_PTP_VER                   BIT13
+#define RDES1_TIMESTAMP_AVAILABLE       BIT14
 #define RDES1_TIMESTAMP_AVAILABLE_SHIFT 14
-#define RDES1_TIMESTAMP_DROPPED         BIT(15)
+#define RDES1_TIMESTAMP_DROPPED         BIT15
 #define RDES1_IP_TYPE1_CSUM_MASK        GENMASK(31, 16)
 
 /* RDES2 (write back format) */
 #define RDES2_L3_L4_HEADER_SIZE_MASK    GENMASK(9, 0)
-#define RDES2_VLAN_FILTER_STATUS        BIT(15)
-#define RDES2_SA_FILTER_FAIL            BIT(16)
-#define RDES2_DA_FILTER_FAIL            BIT(17)
-#define RDES2_HASH_FILTER_STATUS        BIT(18)
+#define RDES2_VLAN_FILTER_STATUS        BIT15
+#define RDES2_SA_FILTER_FAIL            BIT16
+#define RDES2_DA_FILTER_FAIL            BIT17
+#define RDES2_HASH_FILTER_STATUS        BIT18
 #define RDES2_MAC_ADDR_MATCH_MASK       GENMASK(26, 19)
 #define RDES2_HASH_VALUE_MATCH_MASK     GENMASK(26, 19)
-#define RDES2_L3_FILTER_MATCH           BIT(27)
-#define RDES2_L4_FILTER_MATCH           BIT(28)
+#define RDES2_L3_FILTER_MATCH           BIT27
+#define RDES2_L4_FILTER_MATCH           BIT28
 #define RDES2_L3_L4_FILT_NB_MATCH_MASK  GENMASK(27, 26)
 #define RDES2_L3_L4_FILT_NB_MATCH_SHIFT 26
 #define RDES2_HL                        GENMASK(9, 0)
 
 /* RDES3 (write back format) */
 #define RDES3_PACKET_SIZE_MASK          GENMASK(14, 0)
-#define RDES3_ERROR_SUMMARY             BIT(15)
+#define RDES3_ERROR_SUMMARY             BIT15
 #define RDES3_PACKET_LEN_TYPE_MASK      GENMASK(18, 16)
-#define RDES3_DRIBBLE_ERROR             BIT(19)
-#define RDES3_RECEIVE_ERROR             BIT(20)
-#define RDES3_OVERFLOW_ERROR            BIT(21)
-#define RDES3_RECEIVE_WATCHDOG          BIT(22)
-#define RDES3_GIANT_PACKET              BIT(23)
-#define RDES3_CRC_ERROR                 BIT(24)
-#define RDES3_RDES0_VALID               BIT(25)
-#define RDES3_RDES1_VALID               BIT(26)
-#define RDES3_RDES2_VALID               BIT(27)
-#define RDES3_LAST_DESCRIPTOR           BIT(28)
-#define RDES3_FIRST_DESCRIPTOR          BIT(29)
-#define RDES3_CONTEXT_DESCRIPTOR        BIT(30)
+#define RDES3_DRIBBLE_ERROR             BIT19
+#define RDES3_RECEIVE_ERROR             BIT20
+#define RDES3_OVERFLOW_ERROR            BIT21
+#define RDES3_RECEIVE_WATCHDOG          BIT22
+#define RDES3_GIANT_PACKET              BIT23
+#define RDES3_CRC_ERROR                 BIT24
+#define RDES3_RDES0_VALID               BIT25
+#define RDES3_RDES1_VALID               BIT26
+#define RDES3_RDES2_VALID               BIT27
+#define RDES3_LAST_DESCRIPTOR           BIT28
+#define RDES3_FIRST_DESCRIPTOR          BIT29
+#define RDES3_CONTEXT_DESCRIPTOR        BIT30
 #define RDES3_CONTEXT_DESCRIPTOR_SHIFT  30
 
 /* RDES3 (read format) */
-#define RDES3_BUFFER1_VALID_ADDR        BIT(24)
-#define RDES3_BUFFER2_VALID_ADDR        BIT(25)
-#define RDES3_INT_ON_COMPLETION_EN      BIT(30)
+#define RDES3_BUFFER1_VALID_ADDR        BIT24
+#define RDES3_BUFFER2_VALID_ADDR        BIT25
+#define RDES3_INT_ON_COMPLETION_EN      BIT30
 
 /* TDS3 use for both format (read and write back) */
-#define RDES3_OWN                       BIT(31)
+#define RDES3_OWN                       BIT31
+
+//
+// MTL algorithms identifiers.
+//
+#define MTL_TX_ALGORITHM_WRR    0x0
+#define MTL_TX_ALGORITHM_WFQ    0x1
+#define MTL_TX_ALGORITHM_DWRR   0x2
+#define MTL_TX_ALGORITHM_SP     0x3
+#define MTL_RX_ALGORITHM_SP     0x4
+#define MTL_RX_ALGORITHM_WSP    0x5
+
+//
+// RX/TX Queue Mode.
+//
+#define MTL_QUEUE_AVB           0x0
+#define MTL_QUEUE_DCB           0x1
+
+#define SF_DMA_MODE 1           /* DMA STORE-AND-FORWARD Operation Mode */
+
 /*
  * DMA descriptor (in physical memory).
  */
@@ -941,8 +1020,8 @@ typedef struct {
   UINT32 Des1;
   UINT32 Des2;
   UINT32 Des3;
-  UINT32 DmaMacAddr;
-  UINT32 DmaMacNext;
+  UINT64 DmaMacAddr;
+  UINT64 DmaMacNext;
 } DMA_DESCRIPTOR;
 
 typedef struct {
@@ -951,8 +1030,8 @@ typedef struct {
 } MAP_INFO;
 
 typedef struct {
-  DMA_DESC          *TxDescRing[TX_DESC_NUM];
-  DMA_DESC          *RxDescRing[RX_DESC_NUM];
+  DMA_DESCRIPTOR    *TxDescRing[TX_DESC_NUM];
+  DMA_DESCRIPTOR    *RxDescRing[RX_DESC_NUM];
   CHAR8             TxBuffer[TX_TOTAL_BUFFER_SIZE];
   CHAR8             RxBuffer[RX_TOTAL_BUFFER_SIZE];
   MAP_INFO          TxDescRingMap[TX_DESC_NUM];
@@ -966,9 +1045,25 @@ typedef struct {
 
 VOID
 EFIAPI
-StmmacSetMacAddress (
-  IN  EFI_MAC_ADDRESS         *MacAddress,
-  IN  UINTN                   MacBaseAddress
+StmmacSetUmacAddr (
+  IN  EFI_MAC_ADDRESS   *MacAddress,
+  IN  UINTN             MacBaseAddress,
+  IN  UINTN             RegN
+  );
+
+VOID
+EFIAPI
+StmmacGetMacAddr (
+  OUT  EFI_MAC_ADDRESS   *MacAddress,
+  IN   UINTN             MacBaseAddress,
+  IN   UINTN             RegN
+  );
+
+VOID
+EFIAPI
+StmmacSetMac (
+  IN UINTN   MacBaseAddress,
+  IN BOOLEAN Enable
   );
 
 VOID
@@ -1060,6 +1155,25 @@ EFIAPI
 StmmacGetStatistic (
   IN  EFI_NETWORK_STATISTICS *Stats,
   IN  UINTN                  MacBaseAddress
+  );
+
+VOID
+EFIAPI
+StmmacStartAllDma (
+  IN UINTN MacBaseAddress
+  );
+
+VOID
+EFIAPI
+StmmacStopAllDma (
+  IN UINTN MacBaseAddress
+  );
+
+EFI_STATUS
+EFIAPI
+StmmacInitDmaEngine (
+  IN STMMAC_DRIVER   *StmmacDriver,
+  IN UINTN           MacBaseAddress
   );
 /*
 VOID

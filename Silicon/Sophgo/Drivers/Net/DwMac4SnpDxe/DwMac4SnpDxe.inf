@@ -16,20 +16,19 @@
   ENTRY_POINT                    = DwMac4SnpDxeEntry
 
 [Sources.common]
-  ComponentName.c
-  DriverBinding.c
   DwMac4SnpDxe.c
   DwMac4DxeUtil.c
-  PhyDxeUtil.c
   DwMac4SnpDxe.h
   DwMac4DxeUtil.h
-  PhyDxeUtil.h
+  ComponentName.c
+  DriverBinding.c
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   NetworkPkg/NetworkPkg.dec
+  Silicon/Sophgo/Sophgo.dec
 
 [LibraryClasses]
   BaseLib
@@ -49,4 +48,7 @@
   gEfiDriverBindingProtocolGuid
   gEfiMetronomeArchProtocolGuid
   gEfiSimpleNetworkProtocolGuid
+  gSophgoPhyProtocolGuid
 
+[Depex]
+  TRUE

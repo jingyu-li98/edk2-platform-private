@@ -24,8 +24,7 @@
 #include <Protocol/NonDiscoverableDevice.h>
 
 #include <Library/UefiLib.h>
-
-#include "PhyDxeUtil.h"
+#include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
 
 /*------------------------------------------------------------------------------
@@ -35,7 +34,7 @@
 typedef struct {
   MAC_ADDR_DEVICE_PATH                   MacAddrDP;
   EFI_DEVICE_PATH_PROTOCOL               End;
-} SIMPLE_NETWORK_DEVICE_PATH;
+} SOPHGO_SIMPLE_NETWORK_DEVICE_PATH;
 
 typedef struct {
   // Driver signature
@@ -50,7 +49,8 @@ typedef struct {
   EFI_NETWORK_STATISTICS                 Stats;
 
   STMMAC_DRIVER                          MacDriver;
-  PHY_DRIVER                             PhyDriver;
+  PHY_DEVICE                             *PhyDev;
+  SOPHGO_PHY_PROTOCOL                    *Phy;
 
   NON_DISCOVERABLE_DEVICE                *Dev;
 
@@ -70,17 +70,15 @@ typedef struct {
   // For TX buffer DmaUnmap
   VOID                                   *MappingTxbuf;
 
-} SIMPLE_NETWORK_DRIVER;
+} SOPHGO_SIMPLE_NETWORK_DRIVER;
 
 extern EFI_COMPONENT_NAME_PROTOCOL       gSnpComponentName;
 extern EFI_COMPONENT_NAME2_PROTOCOL      gSnpComponentName2;
 
 #define SNP_DRIVER_SIGNATURE             SIGNATURE_32('A', 'S', 'N', 'P')
-#define INSTANCE_FROM_SNP_THIS(a)        CR(a, SIMPLE_NETWORK_DRIVER, Snp, SNP_DRIVER_SIGNATURE)
+#define INSTANCE_FROM_SNP_THIS(a)        CR(a, SOPHGO_SIMPLE_NETWORK_DRIVER, Snp, SNP_DRIVER_SIGNATURE)
 #define SNP_TX_BUFFER_INCREASE           32
 #define SNP_MAX_TX_BUFFER_NUM            65536
-#define DESC_NUM                         10
-#define ETH_BUFSIZE                      0x800
 /*---------------------------------------------------------------------------------------------------------------------
 
   UEFI-Compliant functions for EFI_SIMPLE_NETWORK_PROTOCOL
@@ -130,7 +128,7 @@ SnpReceiveFilters (
   IN       UINT32                      Disable,
   IN       BOOLEAN                     ResetMCastFilter,
   IN       UINTN                       MCastFilterCnt  OPTIONAL,
-  IN       EFI_MAC_ADDRESS             *MCastFilter  OPTIONAL
+  IN       EFI_MAC_ADDRESS             *MCastFilter    OPTIONAL
   );
 
 EFI_STATUS
@@ -182,7 +180,7 @@ EFIAPI
 SnpTransmit (
   IN       EFI_SIMPLE_NETWORK_PROTOCOL *Snp,
   IN       UINTN                       HdrSize,
-  IN       UINTN                       BuffSize,
+  IN       UINTN                       BufferSize,
   IN       VOID                        *Data,
   IN       EFI_MAC_ADDRESS             *SrcAddr  OPTIONAL,
   IN       EFI_MAC_ADDRESS             *DstAddr  OPTIONAL,
@@ -194,7 +192,7 @@ EFIAPI
 SnpReceive (
   IN       EFI_SIMPLE_NETWORK_PROTOCOL *Snp,
       OUT  UINTN                       *HdrSize      OPTIONAL,
-  IN  OUT  UINTN                       *BuffSize,
+  IN  OUT  UINTN                       *BufferSize,
       OUT  VOID                        *Data,
       OUT  EFI_MAC_ADDRESS             *SrcAddr      OPTIONAL,
       OUT  EFI_MAC_ADDRESS             *DstAddr      OPTIONAL,

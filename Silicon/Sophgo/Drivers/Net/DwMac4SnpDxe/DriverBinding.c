@@ -2,18 +2,17 @@
 
   Copyright (c) 2011 - 2019, Intel Corporaton. All rights reserved.
   Copyright (c) 2020, Arm Limited. All rights reserved.<BR>
-  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
 
 #include "DwMac4SnpDxe.h"
 
+#include <Library/DmaLib.h>
+#include <Library/NetLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
-#include <Library/DmaLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/NetLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
 STATIC
@@ -55,19 +54,30 @@ EFI_DRIVER_BINDING_PROTOCOL mDriverBinding = {
 };
 
 STATIC
-SIMPLE_NETWORK_DEVICE_PATH PathTemplate = {
+SOPHGO_SIMPLE_NETWORK_DEVICE_PATH PathTemplate = {
   {
     {
-      MESSAGING_DEVICE_PATH, MSG_MAC_ADDR_DP,
-      {(UINT8)(sizeof (MAC_ADDR_DEVICE_PATH)), (UINT8)((sizeof (MAC_ADDR_DEVICE_PATH)) >> 8)}
+      MESSAGING_DEVICE_PATH,
+      MSG_MAC_ADDR_DP,
+      {
+        (UINT8)(sizeof (MAC_ADDR_DEVICE_PATH)),
+        (UINT8)((sizeof (MAC_ADDR_DEVICE_PATH)) >> 8)
+      }
     },
-    {{ 0 }},
+    {
+      {
+        0
+      }
+    },
     0
   },
   {
     END_DEVICE_PATH_TYPE,
     END_ENTIRE_DEVICE_PATH_SUBTYPE,
-    {sizeof (EFI_DEVICE_PATH_PROTOCOL), 0}
+    {
+      sizeof (EFI_DEVICE_PATH_PROTOCOL),
+      0
+    }
   }
 };
 
@@ -97,7 +107,7 @@ DriverSupported (
   }
 
   //
-  // Clean up
+  // Clean up.
   //
   gBS->CloseProtocol (Controller,
                       &gEdkiiNonDiscoverableDeviceProtocolGuid,
@@ -116,22 +126,22 @@ DriverStart (
   IN  EFI_DEVICE_PATH_PROTOCOL    *RemainingDevicePath
   )
 {
-  EFI_STATUS                       Status;
-  SIMPLE_NETWORK_DRIVER            *Snp;
-  EFI_SIMPLE_NETWORK_MODE          *SnpMode;
-  SIMPLE_NETWORK_DEVICE_PATH       *DevicePath;
-  UINT64                           DefaultMacAddress;
-  EFI_MAC_ADDRESS                  *SwapMacAddressPtr;
-  UINTN                            DescriptorSize;
-  UINTN                            BufferSize;
-  UINTN                            *RxBufferAddr;
-  EFI_PHYSICAL_ADDRESS             RxBufferAddrMap;
-  UINT32                           Index;
+  EFI_STATUS                        Status;
+  SOPHGO_SIMPLE_NETWORK_DRIVER      *Snp;
+  EFI_SIMPLE_NETWORK_MODE           *SnpMode;
+  SOPHGO_SIMPLE_NETWORK_DEVICE_PATH *DevicePath;
+  UINT64                            DefaultMacAddress;
+  EFI_MAC_ADDRESS                   *SwapMacAddressPtr;
+  UINTN                             DescriptorSize;
+  UINTN                             BufferSize;
+  UINTN                             *RxBufferAddr;
+  EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
+  UINT32                            Index;
 
   //
   // Allocate Resources
   //
-  Snp = AllocatePages (EFI_SIZE_TO_PAGES (sizeof (SIMPLE_NETWORK_DRIVER)));
+  Snp = AllocatePages (EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
   if (Snp == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
@@ -143,80 +153,103 @@ DriverStart (
                               Controller,
                               EFI_OPEN_PROTOCOL_BY_DRIVER);
 
+  DEBUG ((DEBUG_INFO, "%a[%d]: Enter success, Status=%r\n", __func__, __LINE__, Status));
   //
   // Size for descriptor
   //
-  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESC));
+  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR));
+  DEBUG ((DEBUG_INFO, "%a[%d]: DescriptorSize=0x%x\n", __func__, __LINE__, Status));
+
   //
   // Size for transmit and receive buffer
   //
-  BufferSize = ETH_BUFSIZE;
+  BufferSize = ETH_BUFFER_SIZE;
 
-  for (Index = 0; Index < DESC_NUM; Index++) {
+  for (Index = 0; Index < TX_DESC_NUM; Index++) {
     //
-    // DMA TxdescRing allocate buffer and map
-    //
-    Status = DmaAllocateBuffer (EfiBootServicesData,
-               EFI_SIZE_TO_PAGES (sizeof (DMA_DESC)), (VOID *)&Snp->MacDriver.TxDescRing[Index]);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-	"%a () for TxdescRing: %r\n",
-	__func__,
-	Status
-	));
-      return Status;
-    }
-
-    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.TxDescRing[Index],
-               &DescriptorSize, &Snp->MacDriver.TxDescRingMap[Index].AddrMap, &Snp->MacDriver.TxDescRingMap[Index].Mapping);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-	"%a () for TxdescRing: %r\n",
-	__func__,
-	Status
-	));
-      return Status;
-    }
-
-    //
-    // DMA RxdescRing allocte buffer and map
+    // DMA TxDescRing allocate buffer and map
     //
     Status = DmaAllocateBuffer (EfiBootServicesData,
-               EFI_SIZE_TO_PAGES (sizeof (DMA_DESC)), (VOID *)&Snp->MacDriver.RxDescRing[Index]);
+                                EFI_SIZE_TO_PAGES (sizeof (DMA_DESCRIPTOR)),
+	                        (VOID *)&Snp->MacDriver.TxDescRing[Index]
+				);
     if (EFI_ERROR (Status)) {
       DEBUG ((
-        DEBUG_ERROR,
-	"%a () for RxdescRing: %r\n",
+	DEBUG_ERROR,
+        "%a () for TxDescRing: %r\n",
 	__func__,
 	Status
 	));
       return Status;
     }
 
-    Status = DmaMap (MapOperationBusMasterCommonBuffer, Snp->MacDriver.RxDescRing[Index],
-               &DescriptorSize, &Snp->MacDriver.RxDescRingMap[Index].AddrMap, &Snp->MacDriver.RxDescRingMap[Index].Mapping);
+    DEBUG ((DEBUG_INFO, "%a[%d]: DmaTxDescRing-Allocate: Status=%r\n", __func__, __LINE__, Status));
+    Status = DmaMap (MapOperationBusMasterCommonBuffer,
+		     Snp->MacDriver.TxDescRing[Index],
+                     &DescriptorSize,
+	             &Snp->MacDriver.TxDescRingMap[Index].AddrMap,
+	             &Snp->MacDriver.TxDescRingMap[Index].Mapping
+	             );
     if (EFI_ERROR (Status)) {
       DEBUG ((
-        DEBUG_ERROR,
-	"%a () for RxdescRing: %r\n",
+	DEBUG_ERROR,
+        "%a () for TxDescRing: %r\n",
 	__func__,
 	Status
 	));
       return Status;
     }
+    DEBUG ((DEBUG_INFO, "%a[%d]: DmaTxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
 
+    //
+    // DMA RxDescRing allocte buffer and map
+    //
+    Status = DmaAllocateBuffer (EfiBootServicesData,
+                                EFI_SIZE_TO_PAGES (sizeof (DMA_DESCRIPTOR)),
+				(VOID *)&Snp->MacDriver.RxDescRing[Index]
+				);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for RxDescRing: %r\n",
+	__func__,
+	Status
+	));
+      return Status;
+    }
+    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Allocate: Status=%r\n", __func__, __LINE__, Status));
+
+    Status = DmaMap (MapOperationBusMasterCommonBuffer,
+		     Snp->MacDriver.RxDescRing[Index],
+                     &DescriptorSize,
+		     &Snp->MacDriver.RxDescRingMap[Index].AddrMap,
+		     &Snp->MacDriver.RxDescRingMap[Index].Mapping
+		     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a () for RxDescRing: %r\n",
+	 __func__,
+	 Status
+	 ));
+      return Status;
+    }
+
+    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
     //
     // DMA mapping for receive buffer
     //
     RxBufferAddr = (UINTN*)((UINTN)Snp->MacDriver.RxBuffer + (Index * BufferSize));
-    Status = DmaMap (MapOperationBusMasterWrite,  (VOID *) RxBufferAddr,
-               &BufferSize, &RxBufferAddrMap, &Snp->MacDriver.RxBufNum[Index].Mapping);
+    Status = DmaMap (MapOperationBusMasterWrite,
+		     (VOID *) RxBufferAddr,
+                     &BufferSize,
+		     &RxBufferAddrMap,
+		     &Snp->MacDriver.RxBufNum[Index].Mapping
+		     );
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
-	"%a () for Rxbuffer: %r\n",
+        "%a () for Rxbuffer: %r\n",
 	__func__,
 	Status
 	));
@@ -224,9 +257,16 @@ DriverStart (
     }
     Snp->MacDriver.RxBufNum[Index].AddrMap= RxBufferAddrMap;
   }
+    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
 
-  DevicePath = (SIMPLE_NETWORK_DEVICE_PATH*)AllocateCopyPool (sizeof (SIMPLE_NETWORK_DEVICE_PATH), &PathTemplate);
+  DevicePath = (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH*)AllocateCopyPool (sizeof (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH), &PathTemplate);
   if (DevicePath == NULL) {
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a () for DeivcePath is NULL!\n",
+      __func__
+      ));
     return EFI_OUT_OF_RESOURCES;
   }
 
@@ -251,21 +291,21 @@ DriverStart (
   //
   // Assign fields and func pointers
   //
-  Snp->Snp.Revision = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;
-  Snp->Snp.WaitForPacket = NULL;
-  Snp->Snp.Initialize = SnpInitialize;
-  Snp->Snp.Start = SnpStart;
-  Snp->Snp.Stop = SnpStop;
-  Snp->Snp.Reset = SnpReset;
-  Snp->Snp.Shutdown = SnpShutdown;
+  Snp->Snp.Revision       = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;
+  Snp->Snp.WaitForPacket  = NULL;
+  Snp->Snp.Initialize     = SnpInitialize;
+  Snp->Snp.Start          = SnpStart;
+  Snp->Snp.Stop           = SnpStop;
+  Snp->Snp.Reset          = SnpReset;
+  Snp->Snp.Shutdown       = SnpShutdown;
   Snp->Snp.ReceiveFilters = SnpReceiveFilters;
   Snp->Snp.StationAddress = SnpStationAddress;
-  Snp->Snp.Statistics = SnpStatistics;
-  Snp->Snp.MCastIpToMac = SnpMcastIptoMac;
-  Snp->Snp.NvData = SnpNvData;
-  Snp->Snp.GetStatus = SnpGetStatus;
-  Snp->Snp.Transmit = SnpTransmit;
-  Snp->Snp.Receive = SnpReceive;
+  Snp->Snp.Statistics     = SnpStatistics;
+  Snp->Snp.MCastIpToMac   = SnpMcastIptoMac;
+  Snp->Snp.NvData         = SnpNvData;
+  Snp->Snp.GetStatus      = SnpGetStatus;
+  Snp->Snp.Transmit       = SnpTransmit;
+  Snp->Snp.Receive        = SnpReceive;
 
   Snp->RecycledTxBuf = AllocatePool (sizeof (UINT64) * SNP_TX_BUFFER_INCREASE);
   if (Snp->RecycledTxBuf == NULL) {
@@ -336,6 +376,7 @@ DriverStart (
   // Set current address
   //
   DefaultMacAddress = Snp->Dev->Resources[1].AddrRangeMin;
+
   //
   // Swap PCD human readable form to correct endianess
   //
@@ -366,7 +407,7 @@ DriverStart (
                         This->DriverBindingHandle,
                         Controller);
 
-    FreePages (Snp, EFI_SIZE_TO_PAGES (sizeof (SIMPLE_NETWORK_DRIVER)));
+    FreePages (Snp, EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
   } else {
     Snp->ControllerHandle = Controller;
   }
@@ -386,13 +427,13 @@ DriverStop (
 {
   EFI_STATUS                   Status;
   EFI_SIMPLE_NETWORK_PROTOCOL  *SnpProtocol;
-  SIMPLE_NETWORK_DRIVER        *Snp;
+  SOPHGO_SIMPLE_NETWORK_DRIVER *Snp;
 
   Status = gBS->HandleProtocol (
                   Controller,
                   &gEfiSimpleNetworkProtocolGuid,
                   (VOID **)&SnpProtocol
-                );
+                  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -403,13 +444,14 @@ DriverStop (
     return Status;
   }
 
-  Snp = INSTANCE_FROM_SNP_THIS (SnpProtocol);
+  Snp = INSTANCE_FROM_SNP_THIS(SnpProtocol);
 
   Status = gBS->UninstallMultipleProtocolInterfaces (
                   Controller,
                   &gEfiSimpleNetworkProtocolGuid,
                   &Snp->Snp,
-                  NULL);
+                  NULL
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -421,7 +463,7 @@ DriverStop (
   }
 
   FreePool (Snp->RecycledTxBuf);
-  FreePages (Snp, EFI_SIZE_TO_PAGES (sizeof (SIMPLE_NETWORK_DRIVER)));
+  FreePages (Snp, EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
 
   return Status;
 }
@@ -441,7 +483,7 @@ DwMac4SnpDxeEntry (
   IN  EFI_SYSTEM_TABLE *SystemTable
   )
 {
-  EFI_STATUS        Status;
+  EFI_STATUS Status;
 
   Status = EfiLibInstallDriverBindingComponentName2 (
              ImageHandle,
@@ -452,5 +494,6 @@ DwMac4SnpDxeEntry (
              &gSnpComponentName2
              );
 
+  DEBUG ((DEBUG_INFO, "Enter %a success, Status=%r\n", __func__, Status));
   return Status;
 }

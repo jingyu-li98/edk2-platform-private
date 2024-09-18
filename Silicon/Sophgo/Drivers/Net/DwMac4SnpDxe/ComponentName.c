@@ -1,8 +1,22 @@
-/** @file ComponentName.c
- 
+/** @file
+  Copyright (c) 2011 - 2019, Intel Corporaton. All rights reserved.
   Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
+
+  The original software modules are licensed as follows:
+
+  Copyright (c) 2006 - 2007, Intel Corporation. All rights reserved.<BR>
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+Module Name:
+
+  ComponentName.c
+
+Abstract:
+
+
 **/
 
 #include "DwMac4SnpDxe.h"
@@ -159,7 +173,7 @@ GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME2_PROTOCOL gSnpComponentName2 = 
 GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE mSnpNameTable[] = {
   {
     "eng;en",
-    L"SNP DesignWare EMAC Driver"
+    L"SNP DesignWare GMAC4 Driver"
   },
   {
     NULL,

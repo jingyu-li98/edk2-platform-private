@@ -3,32 +3,32 @@
  *  STMMAC Ethernet Driver -- MDIO bus implementation
  *  Provides Bus interface for MII registers.
  *
+ *  linux/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+ *
  *  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
  **/
 
-#include <Protocol/BoardDesc.h>
-#include <Protocol/DriverBinding.h>
-#include <Protocol/Mdio.h>
-
-#include <Library/BaseLib.h>
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
 #include <Library/IoLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
-#include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+#include <Library/BaseLib.h>
+#include <Library/DebugLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Protocol/FdtClient.h>
 
+#include <Include/Mdio.h>
 #include "StmmacMdioDxe.h"
 
 STATIC
 EFI_STATUS
 MdioCheckParam (
  IN INTN  PhyAddr,
- IN INTN  RegOff
+ IN INTN  PhyReg
  )
 {
   if (PhyAddr > PHY_ADDR_MASK) {
@@ -41,11 +41,11 @@ MdioCheckParam (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (RegOff > PHY_REG_MASK) {
+  if (PhyReg > PHY_REG_MASK) {
     DEBUG ((
       DEBUG_ERROR,
       "Invalid register offset %d\n",
-      RegOff
+      PhyReg
       ));
 
     return EFI_INVALID_PARAMETER;
@@ -57,11 +57,12 @@ MdioCheckParam (
 STATIC
 EFI_STATUS
 MdioWaitReady (
-  IN UINTN  MdioBase
+  IN UINTN  MdioRegister,
+  IN UINTN  Busy
   )
 {
   UINT32  Timeout;
-  UINT32  MdioReg;
+  UINT32  Value;
 
   Timeout = STMMAC_MDIO_TIMEOUT;
 
@@ -72,7 +73,7 @@ MdioWaitReady (
     //
     // read MII register
     //
-    MdioReg = MmioRead32(MdioBase);
+    Value = MmioRead32(MdioRegister);
     if (Timeout-- == 100) {
       DEBUG ((
         DEBUG_ERROR,
@@ -81,33 +82,199 @@ MdioWaitReady (
 
       return EFI_TIMEOUT;
     }
-  } while (MdioReg & MII_BUSY);
+  } while (Value & Busy);
 
   return EFI_SUCCESS;
 }
 
+#if 0
+/*
+ * XGMAC
+ * Note:
+ * Clause 22 capable PHY is connected to MDIO.
+ */
+STATIC
+EFI_STATUS
+C22XGmacMdioOperation (
+  IN CONST SOPHGO_MDIO_PROTOCOL  *This,
+  IN UINT32                      PhyAddr,
+  IN UINT32                      PhyReg,
+  IN BOOLEAN                     Write,
+  IN OUT UINT32                  PhyData
+  )
+{
+  UINTN      MdioBase;
+  UINT32     MiiAddr;
+  UINT32     MiiData;
+  UINT32     MiiAddrShift;
+  UINT32     MiiAddrMask;
+  UINT32     MiiRegShift;
+  UINT32     MiiRegMask;
+  UINT32     MiiClkCsrShift;
+  UINT32     MiiClkCsrMask;
+  UINT32     Value;
+  UINT32     SynopsysId;
+  EFI_STATUS Status;
+
+  MdioBase       = This->BaseAddress;
+  MiiAddr        = This->MiiAddr;
+  MiiData        = This->MiiData;
+  MiiAddrShift   = This->MiiAddrShift;
+  MiiAddrMask    = This->MiiAddrMask;
+  MiiRegShift    = This->MiiRegShift;
+  MiiRegMask     = This->MiiRegMask;
+  MiiClkCsrShift = This->MiiClkCsrShift;
+  MiiClkCsrMask  = This->MiiClkCsrMask;
+
+  SynopsysId = MmioRead32((UINTN)(MdioBase + GMAC4_VERSION));
+
+  //
+  // Until ver 2.20 XGMAC does not support C22 addr >= 4
+  //
+  if (SynopsysId < DWXGMAC_CORE_2_20 && PhyAddr > MII_XGMAC_MAX_C22ADDR) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "StmmacMdioDxe: Not support C22 addr >= 4!\n"
+      ));
+
+    return EFI_UNSUPPORTED;
+  }
+
+  if (SynopsysId < DWXGMAC_CORE_2_20) {
+    //
+    // Until ver 2.20 XGMAC does not support C22 addr >= 4.
+    // Those bits above bit 3 of XGMAC_MDIO_C22P register are reserved.
+    //
+    Value = MmioRead32 ((UINTN)(MdioBase + XGMAC_MDIO_C22P));
+    Value &= ~MII_XGMAC_C22P_MASK;
+  }
+
+  //
+  // Set port as Clause 22
+  //
+  Value |=BIT(PhyAddr);
+  MmioWrite32 ((UINTN)(MdioBase + XGMAC_MDIO_C22P), Value);
+
+  Status = MdioCheckParam (PhyAddr, PhyReg);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "StmmacMdioDxe: wrong parameters\n"
+      ));
+
+    return Status;
+  }
+
+  //
+  // Wait until any existing MII operation is complete.
+  //
+  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "StmmacMdioDxe: MdioWaitReady error\n"
+      ));
+
+    return Status;
+  }
+
+  //
+  // CR = 0x10: CSR clock = 20-35 MHz; MDC clock = CSR clock/16
+  //
+  Value = ((0x10 << MiiClkCsrShift) & MiiClkCsrMask)
+	| MII_XGMAC_BUSY;
+
+  if (Write) {
+    Value |= MII_XGMAC_WRITE;
+    Value |= PhyData;
+  } else {
+    Value |= MII_XGMAC_READ;
+  }
+
+  //
+  // Wait until any existing MII operation is complete.
+  //
+  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "StmmacMdioDxe: MdioWaitReady error\n"
+      ));
+
+    return Status;
+  }
+
+  //
+  // Set the MII address register to write.
+  //
+  MmioWrite32 (MdioBase + MiiData, Value);
+  MmioWrite32 (MdioBase + MiiAddr, (PhyAddr << MII_XGMAC_PA_SHIFT) | (PhyReg & 0x1F));
+
+  //
+  // Wait until any existing MII operation is complete.
+  //
+  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "StmmacMdioDxe: MdioWaitReady error\n"
+      ));
+
+    return Status;
+  }
+
+  //
+  // Read the data from the MII data register.
+  //
+  if (!Write) {
+    PhyData = MmioRead32 (MdioBase + MiiData) & MII_DATA_MASK;
+  }
+
+  return EFI_SUCCESS;
+}
+#endif
+
+/*
+ * Note:
+ * Clause 22 capable PHY is connected to MDIO.
+ */
 STATIC
 EFI_STATUS
 MdioOperation (
   IN CONST SOPHGO_MDIO_PROTOCOL  *This,
   IN UINT32                      PhyAddr,
-  IN UINT32                      MdioIndex,
-  IN UINT32                      RegOff,
+  IN UINT32                      PhyReg,
   IN BOOLEAN                     Write,
-  IN OUT UINT32                  *Data
+  IN OUT UINT32                  *PhyData
   )
 {
   UINTN      MdioBase;
-  UINT32     MdioReg;
+  UINT32     MiiAddr;
+  UINT32     MiiData;
+  UINT32     MiiAddrShift;
+  UINT32     MiiAddrMask;
+  UINT32     MiiRegShift;
+  UINT32     MiiRegMask;
+  UINT32     MiiClkCsrShift;
+  UINT32     MiiClkCsrMask;
+  UINT32     Value;
   EFI_STATUS Status;
 
-  MdioBase = This->BaseAddresses[MdioIndex];
+  MdioBase       = This->BaseAddress;
+  MiiAddr        = This->MiiAddr;
+  MiiData        = This->MiiData;
+  MiiAddrShift   = This->MiiAddrShift;
+  MiiAddrMask    = This->MiiAddrMask;
+  MiiRegShift    = This->MiiRegShift;
+  MiiRegMask     = This->MiiRegMask;
+  MiiClkCsrShift = This->MiiClkCsrShift;
+  MiiClkCsrMask  = This->MiiClkCsrMask;
 
-  Status = MdioCheckParam (PhyAddr, RegOff);
+  Status = MdioCheckParam (PhyAddr, PhyReg);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "MdioDxe: wrong parameters\n"
+      "StmmacMdioDxe: wrong parameters\n"
       ));
 
     return Status;
@@ -116,78 +283,80 @@ MdioOperation (
   //
   // Wait until any existing MII operation is complete.
   //
-  Status = MdioWaitReady (MdioBase);
+  Status = MdioWaitReady (MdioBase + MiiAddr, MII_BUSY);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "MdioDxe: MdioWaitReady error\n"
+      "StmmacMdioDxe: MdGMAC4 ioWaitReady error\n"
       ));
 
     return Status;
   }
 
-  /* fill the phy addr and reg offset and write opcode and data */
-  MdioReg = (PhyAddr << MVEBU_SMI_DEV_ADDR_OFFS)
-      | (RegOff << MVEBU_SMI_REG_ADDR_OFFS);
+  //
+  // CR = 0x10: CSR clock = 20-35 MHz; MDC clock = CSR clock/16
+  //
+  Value = ((PhyAddr << MiiAddrShift) & MiiAddrMask)
+	| ((PhyReg << MiiRegShift) & MiiRegMask)
+        | ((0x10 << MiiClkCsrShift) & MiiClkCsrMask)
+	| MII_BUSY;
+
   if (Write) {
-    MdioReg &= ~MVEBU_SMI_OPCODE_READ;
-    MdioReg |= (*Data << MVEBU_SMI_DATA_OFFS);
+    Value |= MII_GMAC4_WRITE;
   } else {
-    MdioReg |= MVEBU_SMI_OPCODE_READ;
+    Value |= MII_GMAC4_READ;
   }
-  MiiConfig = ((Addr << MIIADDRSHIFT) & MII_ADDRMSK) |
-              ((Reg << MIIREGSHIFT) & MII_REGMSK)|
-               MII_WRITE |
-               MII_CLKRANGE_150_250M |
-               MII_BUSY;
 
   //
-  // Write the desired value to the register first
+  // Set the MII address register to write.
   //
-  MmioWrite32 (MdioBase + GMAC_MDIO_DATA, (Data & 0xFFFF));
-
-  //
-  // write this config to register
-  //
-  MmioWrite32 (MdioBase + GMAC_MDIO_ADDR, MiiConfig);
+  MmioWrite32 (MdioBase + MiiData, (*PhyData & MII_DATA_MASK));
+  MmioWrite32 (MdioBase + MiiAddr, Value);
 
   //
   // Wait until any existing MII operation is complete.
   //
-  Status = MdioWaitReady (MdioBase);
+  Status = MdioWaitReady (MdioBase + MiiAddr, MII_BUSY);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "MdioDxe: MdioWaitReady error\n"
+      "StmmacMdioDxe: MdioWaitReady error\n"
       ));
 
     return Status;
   }
 
+  //
+  // Read the data from the MII data register.
+  //
   if (!Write) {
-    *Data = MmioRead32 (MdioBase) & MII_DATA_MASK;
+    *PhyData = MmioRead32 (MdioBase + MiiData) & MII_DATA_MASK;
   }
 
   return EFI_SUCCESS;
 }
 
+/*
+ * Read data from the MII register from within the phy device.
+ * @PhyAddr: MII addr
+ * @PhyReg: MII reg
+ */
 STATIC
 EFI_STATUS
 StmmacMdioRead (
   IN CONST SOPHGO_MDIO_PROTOCOL  *This,
   IN UINT32                      PhyAddr,
-  IN UINT32                      MdioIndex,
-  IN UINT32                      RegOff,
+  IN UINT32                      PhyReg,
   IN UINT32                      *Data
   )
 {
   EFI_STATUS Status;
 
+  DEBUG ((DEBUG_INFO, "%a[%d]: PhyAddr=0x%lx\tPhyReg=0x%lx\n", __func__, __LINE__, PhyAddr, PhyReg));
   Status = MdioOperation (
             This,
             PhyAddr,
-            MdioIndex,
-            RegOff,
+            PhyReg,
             FALSE,
             Data
             );
@@ -195,20 +364,24 @@ StmmacMdioRead (
   return Status;
 }
 
+/*
+ * Write the data into the MII register from within the phy device.
+ * @PhyAddr: MII addr
+ * @PhyReg: MII reg
+ */
 EFI_STATUS
 StmmacMdioWrite (
   IN CONST SOPHGO_MDIO_PROTOCOL  *This,
   IN UINT32                      PhyAddr,
-  IN UINT32                      MdioIndex,
-  IN UINT32                      RegOff,
+  IN UINT32                      PhyReg,
   IN UINT32                      Data
   )
 {
+  DEBUG ((DEBUG_INFO, "%a[%d]: PhyAddr=0x%lx\tPhyReg=0x%lx\tData=0x%lx\n", __func__, __LINE__, PhyAddr, PhyReg, Data));
   return MdioOperation (
             This,
             PhyAddr,
-            MdioIndex,
-            RegOff,
+            PhyReg,
             TRUE,
             &Data
             );
@@ -221,9 +394,6 @@ MdioDxeInitialize (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  UINT8                       Index;
-  UINTN                       MdioDevCount;
-  UINTN                       Capacity;
   INT32                       Node;
   CONST VOID                  *Prop;
   UINT32                      PropSize;
@@ -233,9 +403,21 @@ MdioDxeInitialize (
   EFI_STATUS                  FindNodeStatus;
   EFI_HANDLE                  Handle;
 
-  Handle       = NULL;
-  MdioDevCount = 0;
-  Capacity     = 0;
+  Handle  = NULL;
+
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: Enter success\n",
+      __func__
+      ));
+  Mdio = AllocateZeroPool (sizeof (SOPHGO_MDIO_PROTOCOL));
+  if (Mdio == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "MdioDxe: Protocol allocation failed\n"
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
 
   //
   // Obtain base addresses of all possible controllers
@@ -247,75 +429,99 @@ MdioDxeInitialize (
       );
   ASSERT_EFI_ERROR (Status);
 
-  for (FindNodeStatus = FdtClient->FindCompatibleNode (
+  FindNodeStatus = FdtClient->FindCompatibleNode (
                                      FdtClient,
-                                     "bitmain,ethernet",
+                                     "sophgo,ethernet",
                                      &Node
                                      );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Find ethernet node (Status = %r)\n",
+      __func__,
+      Status
+      ));
 
-    !EFI_ERROR (FindNodeStatus);
+    return Status;
+  }
 
-    FindNodeStatus = FdtClient->FindNextCompatibleNode (
-                                     FdtClient,
-                                     "bitmain,ethernet",
-                                     Node,
-                                     &Node
-                                     ))
-  {
-    if (MdioDevNum >= Capacity) {
-      UINTN NewCapacity = Capacity == 0 ? 1 : ++Capacity;
-      UINTN *NewArray = NULL;
-
-      NewArray = AllocateZeroPool (NewCapacity * sizeof (UINTN));
-      if (!NewArray) {
-        DEBUG ((
-          DEBUG_ERROR,
-          "MdioDxe: Protocol allocation failed\n"
-          ));
-
-	if (Mdio->BaseAddresses) {
-          FreePool (Mdio->BaseAddresses);
-	}
-
-        return EFI_OUT_OF_RESOURCES;
-      }
-
-      if (Mdio->BaseAddresses != NULL) {
-        CopyMem (NewArray, Mdio->BaseAddresses, Size * sizeof (UINTN));
-
-        FreePool (Mdio->BaseAddresses);
-      }
-
-      Mdio->BaseAddresses = NewArray;
-      Capacity = NewCapacity;
-    }
-
-    Status = FdtClient->GetNodeProperty (
+  Status = FdtClient->GetNodeProperty (
                                 FdtClient,
                                 Node,
                                 "reg",
                                 &Prop,
                                 &PropSize
                                 );
-    if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a: Get reg failed (Status = %r)\n",
-        __func__,
-        Status
-        ));
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Get reg failed (Status = %r)\n",
+      __func__,
+      Status
+      ));
 
-      return Status;
-    }
-
-    Mdio->BaseAddresses[MdioDevNum] = SwapBytes64 (((CONST UINT64 *) Prop)[0]); 
-
-    if (Mdio->BaseAddresses[MdioDevNum] >= (1UL << 39)) {
-      break;
-    }
-    
-    MdioDevNum ++;
+    return Status;
   }
+
+  Mdio->BaseAddress = SwapBytes64 (((CONST UINT64 *) Prop)[0]);
+
+  Status = FdtClient->GetNodeProperty (
+		                FdtClient,
+				Node,
+				"sophgo,gmac",
+				&Prop,
+				NULL
+				);
+  if (EFI_ERROR (Status)) {
+    Status = FdtClient->GetNodeProperty (
+		                FdtClient,
+				Node,
+				"sophgo,xlgmac",
+				&Prop,
+				NULL
+				);
+    if (!EFI_ERROR (Status)) {
+        Mdio->MiiAddr = XGMAC_MDIO_ADDR;
+        Mdio->MiiData = XGMAC_MDIO_DATA;
+        Mdio->MiiAddrShift = 16;
+        Mdio->MiiAddrMask = GENMASK(20, 16);
+        Mdio->MiiRegShift = 0;
+        Mdio->MiiRegMask = GENMASK(15, 0);
+        Mdio->MiiClkCsrShift  = 19;
+        Mdio->MiiClkCsrMask = GENMASK(21, 19);
+    }
+  } else {
+    Mdio->MiiAddr = GMAC_MDIO_ADDR;
+    Mdio->MiiData = GMAC_MDIO_DATA;
+    Mdio->MiiAddrShift = 21;
+    Mdio->MiiAddrMask = GENMASK(25, 21);
+    Mdio->MiiRegShift = 16;
+    Mdio->MiiRegMask = GENMASK(20, 16);
+    Mdio->MiiClkCsrShift = 8;
+    Mdio->MiiClkCsrMask = GENMASK(11, 8);
+  }
+
+  DEBUG ((DEBUG_INFO, "%a[%d]: \n\
+			  Mdio->BaseAddress=0x%lx, \n\
+			  Mdio->MiiAddr=0x%x,\n\
+			  Mdio->MiiData=0x%x, \n\
+			  Mdio->MiiAddrShift=%d,\n\
+			  Mdio->MiiAddrMask=0x%x,\n\
+			  Mdio->MiiRegShift=%d, \n\
+			  Mdio->MiiRegMask=0x%x, \n\
+			  Mdio->MiiClkCsrShift=%d,\n\
+			  Mdio->MiiClkCsrMask=0x%lx\n",
+			  __func__, __LINE__,
+			  Mdio->BaseAddress,
+			  Mdio->MiiAddr,
+			  Mdio->MiiData,
+			  Mdio->MiiAddrShift,
+			  Mdio->MiiAddrMask,
+			  Mdio->MiiRegShift,
+			  Mdio->MiiRegMask,
+			  Mdio->MiiClkCsrShift,
+			  Mdio->MiiClkCsrMask
+			  ));
 
   Mdio = AllocateZeroPool (sizeof (SOPHGO_MDIO_PROTOCOL));
   if (Mdio == NULL) {
@@ -327,9 +533,8 @@ MdioDxeInitialize (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  Mdio->ControllerCount = MdioDevCount;
-  Mdio->Read            = StmmacMdioRead;
-  Mdio->Write           = StmmacMdioWrite;
+  Mdio->Read  = StmmacMdioRead;
+  Mdio->Write = StmmacMdioWrite;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &Handle,

@@ -17,8 +17,7 @@ EFI_STATUS
 (EFIAPI *SOPHGO_MDIO_READ) (
   IN CONST SOPHGO_MDIO_PROTOCOL  *This,
   IN UINT32                      PhyAddr,
-  IN UINT32                      MdioIndex,
-  IN UINT32                      RegOff,
+  IN UINT32                      PhyReg,
   IN UINT32                      *Data
   );
 
@@ -27,16 +26,22 @@ EFI_STATUS
 (EFIAPI *SOPHGO_MDIO_WRITE) (
   IN CONST SOPHGO_MDIO_PROTOCOL  *This,
   IN UINT32                      PhyAddr,
-  IN UINT32                      MdioIndex,
-  IN UINT32                      RegOff,
+  IN UINT32                      PhyReg,
   IN UINT32                      Data
   );
 
 struct _SOPHGO_MDIO_PROTOCOL {
   SOPHGO_MDIO_READ               Read;
   SOPHGO_MDIO_WRITE              Write;
-  UINTN                          *BaseAddresses;
-  UINTN                          ControllerCount;
+  UINTN                          BaseAddress;
+  UINT32                         MiiAddr; /* MII Address */
+  UINT32                         MiiData; /* MII Data */
+  UINT32                         MiiAddrShift; /* MII address shift */
+  UINT32                         MiiAddrMask; /* MII address mask */
+  UINT32                         MiiRegShift; /* MII reg shift */
+  UINT32                         MiiRegMask; /* MII reg mask */
+  UINT32                         MiiClkCsrShift;
+  UINT32                         MiiClkCsrMask;
 };
 
 extern EFI_GUID gSophgoMdioProtocolGuid;
