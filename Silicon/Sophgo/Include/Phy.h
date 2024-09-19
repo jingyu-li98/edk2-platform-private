@@ -6,12 +6,37 @@
  *
  **/
 
-#ifndef __RTL_PHY_H__
-#define __RTL_PHY_H__
+#ifndef __ETH_PHY_H__
+#define __ETH_PHY_H__
 
 #define SOPHGO_PHY_PROTOCOL_GUID { 0x9A94120C, 0xE250, 0x48B5, { 0x8B, 0x53, 0x1B, 0x7E, 0x2F, 0x64, 0x13, 0x3F } }
 
 typedef struct _SOPHGO_PHY_PROTOCOL SOPHGO_PHY_PROTOCOL;
+
+/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE. */
+#define SPEED_10                10
+#define SPEED_100               100
+#define SPEED_1000              1000
+#define SPEED_2500              2500
+#define SPEED_5000              5000
+#define SPEED_10000             10000
+#define SPEED_14000             14000
+#define SPEED_20000             20000
+#define SPEED_25000             25000
+#define SPEED_40000             40000
+#define SPEED_50000             50000
+#define SPEED_56000             56000
+#define SPEED_100000            100000
+#define SPEED_200000            200000
+#define SPEED_400000            400000
+#define SPEED_800000            800000
+
+#define SPEED_UNKNOWN           -1
+
+/* Duplex, half or full. */
+#define DUPLEX_HALF             0x00
+#define DUPLEX_FULL             0x01
+#define DUPLEX_UNKNOWN          0xff
 
 /**
  * enum PHY_INTERFACE - Interface Mode definitions
@@ -94,18 +119,9 @@ typedef enum {
   PHY_INTERFACE_MODE_MAX,
 } PHY_INTERFACE;
 
-typedef enum {
-  NO_SPEED,
-  SPEED_10,
-  SPEED_100,
-  SPEED_1000,
-  SPEED_2500,
-  SPEED_10000
-} PHY_SPEED;
-
 /*
- * struct phy_device - An instance of a PHY
- * @state: State of the PHY for management purposes
+ * struct PHY_DEVICE - An instance of a PHY
+ * @State: State of the PHY for management purposes
  * @Speed: Current link speed
  * @Duplex: Current duplex
  * @Interface: enum PHY_INTERFACE value
@@ -115,10 +131,9 @@ typedef struct {
   UINT32          CurrentLink;
   UINT32          PhyOldLink;
   BOOLEAN         LinkUp;
-  BOOLEAN         FullDuplex;
   UINT32          Duplex;
   BOOLEAN         AutoNegotiation;
-  PHY_SPEED       Speed;
+  UINT32          Speed;
   PHY_INTERFACE   Interface;
   UINT32          RxInternalDelayPs;
   UINT32          TxInternalDelayPs;
@@ -157,4 +172,4 @@ struct _SOPHGO_PHY_PROTOCOL {
 
 extern EFI_GUID gSophgoPhyProtocolGuid;
 
-#endif // __RTL_PHY_H__
+#endif // __ETH_PHY_H__

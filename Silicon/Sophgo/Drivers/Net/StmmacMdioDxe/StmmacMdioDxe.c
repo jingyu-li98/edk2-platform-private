@@ -34,7 +34,8 @@ MdioCheckParam (
   if (PhyAddr > PHY_ADDR_MASK) {
     DEBUG ((
       DEBUG_ERROR,
-      "Invalid PHY address %d\n",
+      "%a(): Invalid PHY address 0x%x\n",
+      __func__,
       PhyAddr
       ));
 
@@ -44,7 +45,8 @@ MdioCheckParam (
   if (PhyReg > PHY_REG_MASK) {
     DEBUG ((
       DEBUG_ERROR,
-      "Invalid register offset %d\n",
+      "%a(): Invalid register offset 0x%x\n",
+      __func__,
       PhyReg
       ));
 
@@ -270,10 +272,6 @@ MdioOperation (
   MiiClkCsrShift = This->MiiClkCsrShift;
   MiiClkCsrMask  = This->MiiClkCsrMask;
 
-    DEBUG ((
-      DEBUG_INFO,
-      "%a: Start MdioCheckParam\n", __func__
-      ));
   Status = MdioCheckParam (PhyAddr, PhyReg);
   if (EFI_ERROR (Status)) {
     DEBUG ((
@@ -287,10 +285,6 @@ MdioOperation (
   //
   // Wait until any existing MII operation is complete.
   //
-    DEBUG ((
-      DEBUG_INFO,
-      "%a: wait until any existing MII operation is complete: Addr=0x%lx\n", __func__, MdioBase+MiiAddr
-      ));
   Status = MdioWaitReady (MdioBase + MiiAddr, MII_BUSY);
   if (EFI_ERROR (Status)) {
     DEBUG ((
@@ -360,7 +354,13 @@ StmmacMdioRead (
 {
   EFI_STATUS Status;
 
-  DEBUG ((DEBUG_INFO, "%a[%d]: PhyAddr=0x%lx\tPhyReg=0x%lx\n", __func__, __LINE__, PhyAddr, PhyReg));
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "%a(): PhyAddr=0x%lx\tPhyReg=0x%lx\n",
+    __func__,
+    PhyAddr,
+    PhyReg
+    ));
   Status = MdioOperation (
             This,
             PhyAddr,
@@ -385,7 +385,14 @@ StmmacMdioWrite (
   IN UINT32                      Data
   )
 {
-  DEBUG ((DEBUG_INFO, "%a[%d]: PhyAddr=0x%lx\tPhyReg=0x%lx\tData=0x%lx\n", __func__, __LINE__, PhyAddr, PhyReg, Data));
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "%a(): PhyAddr=0x%lx\tPhyReg=0x%lx\tData=0x%lx\n",
+    __func__,
+    PhyAddr,
+    PhyReg,
+    Data
+    ));
   return MdioOperation (
             This,
             PhyAddr,
@@ -413,11 +420,6 @@ MdioDxeInitialize (
 
   Handle  = NULL;
 
-    DEBUG ((
-      DEBUG_INFO,
-      "%a: Enter success\n",
-      __func__
-      ));
   Mdio = AllocateZeroPool (sizeof (SOPHGO_MDIO_PROTOCOL));
   if (Mdio == NULL) {
     DEBUG ((
@@ -445,7 +447,7 @@ MdioDxeInitialize (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a: Find ethernet node (Status = %r)\n",
+      "%a(): Find ethernet node (Status = %r)\n",
       __func__,
       Status
       ));
@@ -463,7 +465,7 @@ MdioDxeInitialize (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a: Get reg failed (Status = %r)\n",
+      "%a(): Get reg failed (Status = %r)\n",
       __func__,
       Status
       ));
@@ -509,7 +511,7 @@ MdioDxeInitialize (
     Mdio->MiiClkCsrMask = GENMASK(11, 8);
   }
 
-  DEBUG ((DEBUG_INFO, "%a[%d]: \n\
+  DEBUG ((DEBUG_INFO, "%a(): \n\
 			  Mdio->BaseAddress=0x%lx, \n\
 			  Mdio->MiiAddr=0x%x,\n\
 			  Mdio->MiiData=0x%x, \n\
@@ -519,7 +521,7 @@ MdioDxeInitialize (
 			  Mdio->MiiRegMask=0x%x, \n\
 			  Mdio->MiiClkCsrShift=%d,\n\
 			  Mdio->MiiClkCsrMask=0x%lx\n",
-			  __func__, __LINE__,
+			  __func__,
 			  Mdio->BaseAddress,
 			  Mdio->MiiAddr,
 			  Mdio->MiiData,
@@ -531,22 +533,13 @@ MdioDxeInitialize (
 			  Mdio->MiiClkCsrMask
 			  ));
 
-  Mdio = AllocateZeroPool (sizeof (SOPHGO_MDIO_PROTOCOL));
-  if (Mdio == NULL) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "MdioDxe: Protocol allocation failed\n"
-      ));
-
-    return EFI_OUT_OF_RESOURCES;
-  }
-
   Mdio->Read  = StmmacMdioRead;
   Mdio->Write = StmmacMdioWrite;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &Handle,
-                  &gSophgoMdioProtocolGuid, Mdio,
+                  &gSophgoMdioProtocolGuid,
+		  Mdio,
                   NULL
                   );
 

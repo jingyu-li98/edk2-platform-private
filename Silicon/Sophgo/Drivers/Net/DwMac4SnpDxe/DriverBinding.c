@@ -154,7 +154,7 @@ DriverStart (
   if (Snp == NULL) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a () for Snp is NULL!\n",
+      "%a() for Snp is NULL!\n",
       __func__
       ));
     return EFI_OUT_OF_RESOURCES;
@@ -190,7 +190,7 @@ DriverStart (
     if (EFI_ERROR (Status)) {
       DEBUG ((
 	DEBUG_ERROR,
-        "%a () for TxDescRing: %r\n",
+        "%a() for TxDescRing: %r\n",
 	__func__,
 	Status
 	));
@@ -206,7 +206,7 @@ DriverStart (
     if (EFI_ERROR (Status)) {
       DEBUG ((
 	DEBUG_ERROR,
-        "%a () for TxDescRing: %r\n",
+        "%a() for TxDescRing: %r\n",
 	__func__,
 	Status
 	));
@@ -223,7 +223,7 @@ DriverStart (
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
-	"%a () for RxDescRing: %r\n",
+	"%a() for RxDescRing: %r\n",
 	__func__,
 	Status
 	));
@@ -239,7 +239,7 @@ DriverStart (
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
-	"%a () for RxDescRing: %r\n",
+	"%a() for RxDescRing: %r\n",
 	 __func__,
 	 Status
 	 ));
@@ -259,7 +259,7 @@ DriverStart (
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
-        "%a () for Rxbuffer: %r\n",
+        "%a() for Rxbuffer: %r\n",
 	__func__,
 	Status
 	));
@@ -272,7 +272,7 @@ DriverStart (
   if (DevicePath == NULL) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a () for DeivcePath is NULL!\n",
+      "%a() for DeivcePath is NULL!\n",
       __func__
       ));
     return EFI_OUT_OF_RESOURCES;
@@ -446,7 +446,7 @@ DriverStop (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): HandleProtocol: %r\n",
+      "%a(): HandleProtocol: %r\n",
       __func__,
       Status
       ));
@@ -464,7 +464,7 @@ DriverStop (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): UninstallMultipleProtocolInterfaces: %r\n",
+      "%a(): UninstallMultipleProtocolInterfaces: %r\n",
       __func__,
       Status
       ));

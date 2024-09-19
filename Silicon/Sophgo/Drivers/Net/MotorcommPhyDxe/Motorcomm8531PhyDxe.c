@@ -109,9 +109,8 @@ YtPhyGetDelayRegValue (
 
   DEBUG ((
     DEBUG_WARN,
-    "%a[%d] Unsupported value %d using default (%u)\n",
+    "%a() Unsupported value %d using default (%u)\n",
     __func__,
-    __LINE__,
     InternalDelayPs,
     DefaultValue
     ));
@@ -155,17 +154,12 @@ YtPhyModifyExtendedRegister (
   UINT32     OldValue;
   UINT32     NewValue;
 
-  DEBUG ((DEBUG_INFO,
-    "%a (): Start Mdio->Write\n",
-    __func__
-    ));
   Status = Mdio->Write (Mdio, PhyDev->PhyAddr, YTPHY_PAGE_SELECT, RegNum);
   if (EFI_ERROR(Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Write PAGE_SELECT failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Write PAGE_SELECT failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -174,9 +168,8 @@ YtPhyModifyExtendedRegister (
   if (EFI_ERROR(Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Read PAGE_DATA failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Read PAGE_DATA failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -190,9 +183,8 @@ YtPhyModifyExtendedRegister (
   if (EFI_ERROR(Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Write PAGE_DATA failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Write PAGE_DATA failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -221,21 +213,12 @@ YtPhyModifyExtendedRegisterWithLock (
   IN UINT16      Set
   )
 {
-  EFI_STATUS Status;
   EFI_TPL    SavedTpl;
+  EFI_STATUS Status;
 
   SavedTpl = gBS->RaiseTPL (TPL_HIGH_LEVEL);
 
-  DEBUG ((DEBUG_INFO,
-    "%a (): phy modify extended register\n",
-    __func__
-    ));
   Status = YtPhyModifyExtendedRegister (PhyDev, RegNum, Mask, Set);
-  DEBUG ((DEBUG_INFO,
-    "%a (): Status=%r, end phy modify extended register\n",
-    __func__,
-    Status
-    ));
 
   gBS->RestoreTPL (SavedTpl);
 
@@ -295,9 +278,8 @@ YtPhyRgmiiClkDelayConfigWithLock (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Enable RGMII clk 2ns delay failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Enable RGMII clk 2ns delay failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -311,9 +293,8 @@ YtPhyRgmiiClkDelayConfigWithLock (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: RGMII rx and tx clk delay train confiuration failed!\n",
-      __func__,
-      __LINE__
+      "%a(): RGMII rx and tx clk delay train confiuration failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -347,9 +328,8 @@ Yt8531SetDriveStrength (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Set RGMII rx clk drive strength failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Set RGMII rx clk drive strength failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -395,9 +375,8 @@ Yt8531ConfigInit (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: RGMII clock delay config failed!\n",
-      __func__,
-      __LINE__
+      "%a(): RGMII clock delay config failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -413,9 +392,8 @@ Yt8531ConfigInit (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Disable auto sleep failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Disable auto sleep failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -431,9 +409,8 @@ Yt8531ConfigInit (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Enable RXC clock when no wire plug failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Enable RXC clock when no wire plug failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -442,9 +419,8 @@ Yt8531ConfigInit (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Set drive strength failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Set drive strength failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -459,19 +435,17 @@ Yt8531PhyParseStatus (
   IN PHY_DEVICE                *PhyDev
   )
 {
-  UINT32     Value;
-  UINT32     Speed;
-  UINT32     SpeedMode;
-  EFI_STATUS Status;
+  UINT32      Value;
+  UINT32      Speed;
+  UINT32      SpeedMode;
+  EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_INFO, "%a[%d] Enter success\n", __func__, __LINE__));
   Status = Mdio->Read (Mdio, PhyDev->PhyAddr, YTPHY_SPECIFIC_STATUS_REG, &Value);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Read SPECIFIC_STATUS_REG failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Read SPECIFIC_STATUS_REG(0x11) failed!\n",
+      __func__
       ));
      return Status;
   }
@@ -492,6 +466,16 @@ Yt8531PhyParseStatus (
 
   PhyDev->Speed = Speed;
   PhyDev->Duplex = (Value & YTPHY_SSR_DUPLEX) >> YTPHY_SSR_DUPLEX_OFFSET;
+  PhyDev->LinkUp = !!(Value & YTPHY_SSR_LINK);
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a(): Speed=%d Mbps, %s-duplex, Link %s!\n",
+    __func__,
+    PhyDev->Speed,
+    PhyDev->Duplex == DUPLEX_HALF ? L"Half" : L"Full",
+    PhyDev->LinkUp == 0 ? L"Down" : L"Up"
+    ));
 
   return EFI_SUCCESS;
 }
@@ -513,14 +497,14 @@ Yt8531PhyInitialize (
   PHY_DEVICE   *PhyDev;
 
   Status = gBS->LocateProtocol (
-      &gSophgoMdioProtocolGuid,
-      NULL,
-      (VOID **) &Mdio
-      );
+               &gSophgoMdioProtocolGuid,
+               NULL,
+               (VOID **) &Mdio
+               );
   if (EFI_ERROR(Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): Locate SOPHGO_MDIO_PROTOCOL failed (Status=%r)\n",
+      "%a(): Locate SOPHGO_MDIO_PROTOCOL failed (Status=%r)\n",
       __func__,
       Status
       ));
@@ -529,11 +513,15 @@ Yt8531PhyInitialize (
 
   PhyDev = AllocateZeroPool (sizeof (PHY_DEVICE));
   PhyDev->Interface = PhyInterface;
+  //
+  // ------------
+  // todo: why phyaddr=0
+  // ------------
   PhyDev->PhyAddr = 0;
   *OutPhyDev = PhyDev;
   DEBUG ((
     DEBUG_INFO,
-    "%a (): PhyAddr is %d, interface %d\n",
+    "%a(): PhyAddr is %d, interface %d\n",
     __func__,
     PhyDev->PhyAddr,
     PhyInterface
@@ -545,26 +533,16 @@ Yt8531PhyInitialize (
   Mask = YT8531_SCR_SYNCE_ENABLE;
   Value = 0;
 
-  DEBUG ((DEBUG_INFO,
-    "%a (): Start Enable sync e clock output\n",
-    __func__
-    ));
   Status = YtPhyModifyExtendedRegisterWithLock (PhyDev,
 		                                YTPHY_SYNCE_CFG_REG,
 						Mask,
 					        Value
 						);
-  DEBUG ((DEBUG_INFO,
-    "%a (): Status=%r, End Enable sync e clock output\n",
-    __func__,
-    Status
-    ));
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Enable sync e clock output failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Enable sync e clock output failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -572,22 +550,12 @@ Yt8531PhyInitialize (
   //
   // Initialize the PHY
   //
-  DEBUG ((DEBUG_INFO,
-    "%a (): Initialize the PHY\n",
-    __func__
-    ));
   Status = Yt8531ConfigInit (PhyDev);
-  DEBUG ((DEBUG_INFO,
-    "%a (): Status=%r, End initialize the PHY\n",
-    __func__,
-    Status
-    ));
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Initialize the PHY failed!\n",
-      __func__,
-      __LINE__
+      "%a(): Initialize the PHY failed!\n",
+      __func__
       ));
     return Status;
   }

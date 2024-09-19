@@ -25,13 +25,6 @@
 #define GMAC4_VERSION           0x00000110      /* GMAC4+ CORE Version */
 
 //
-// Common MAC defines
-//
-#define MAC_CTRL_REG            0x00000000      /* MAC Control */
-#define MAC_ENABLE_TX           0x00000008      /* Transmitter Enable */
-#define MAC_ENABLE_RX           0x00000004      /* Receiver Enable */
-
-//
 // MAC registers
 //
 #define GMAC_CONFIG			0x00000000
@@ -582,29 +575,9 @@
 #define GMAC_PHYIF_CTRLSTATUS_FALSECARDET	BIT21
 
 //
-// LNKMOD
-//
-#define GMAC_PHYIF_CTRLSTATUS_LNKMOD_MASK	0x1
-
-//
-// LNKSPEED
-//
-#define GMAC_PHYIF_CTRLSTATUS_SPEED_125		0x2
-#define GMAC_PHYIF_CTRLSTATUS_SPEED_25		0x1
-#define GMAC_PHYIF_CTRLSTATUS_SPEED_2_5		0x0
-
-//
 // Most common CRC32 Polynomial for little endian machines
 //
 #define CRC_POLYNOMIAL                                            0xEDB88320
-
-//
-// emac config phy interface setting
-//
-#define PHY_INTERFACE_MODE_GMII                                     0
-#define PHY_INTERFACE_MODE_MII                                      1
-#define PHY_INTERFACE_MODE_RGMII                                    2
-#define PHY_INTERFACE_MODE_RMII                                     3
 
 //
 // DMA CRS Control and Status Register Mapping
@@ -1004,16 +977,6 @@
 
 #define SF_DMA_MODE 1           /* DMA STORE-AND-FORWARD Operation Mode */
 
-/*
- * DMA descriptor (in physical memory).
- */
-typedef struct {
-  UINT32 Control;                    /* Control. use DMAD_* */
-  UINT32 CurrentAddress;             /* Current Address. */
-  UINT32 DeviceControlStatus;        /* Device control and status. */
-  UINT32 Link;                       /* Next descriptor in chain. */
-} DMA_DESC;
-
 /* Basic descriptor structure for normal and alternate descriptors */
 typedef struct {
   UINT32 Des0;
@@ -1046,24 +1009,17 @@ typedef struct {
 VOID
 EFIAPI
 StmmacSetUmacAddr (
-  IN  EFI_MAC_ADDRESS   *MacAddress,
-  IN  UINTN             MacBaseAddress,
-  IN  UINTN             RegN
+  IN  EFI_MAC_ADDRESS         *MacAddress,
+  IN  UINTN                   MacBaseAddress,
+  IN  UINTN                   RegN
   );
 
 VOID
 EFIAPI
 StmmacGetMacAddr (
-  OUT  EFI_MAC_ADDRESS   *MacAddress,
-  IN   UINTN             MacBaseAddress,
-  IN   UINTN             RegN
-  );
-
-VOID
-EFIAPI
-StmmacSetMac (
-  IN UINTN   MacBaseAddress,
-  IN BOOLEAN Enable
+  OUT  EFI_MAC_ADDRESS        *MacAddress,
+  IN   UINTN                  MacBaseAddress,
+  IN   UINTN                  RegN
   );
 
 VOID
@@ -1160,28 +1116,28 @@ StmmacGetStatistic (
 VOID
 EFIAPI
 StmmacStartAllDma (
-  IN UINTN MacBaseAddress
+  IN UINTN                   MacBaseAddress
   );
 
 VOID
 EFIAPI
 StmmacStopAllDma (
-  IN UINTN MacBaseAddress
+  IN UINTN                   MacBaseAddress
   );
 
 EFI_STATUS
 EFIAPI
 StmmacInitDmaEngine (
-  IN STMMAC_DRIVER   *StmmacDriver,
-  IN UINTN           MacBaseAddress
+  IN STMMAC_DRIVER           *StmmacDriver,
+  IN UINTN                   MacBaseAddress
   );
-/*
+
 VOID
 EFIAPI
-StmmacConfigAdjust (
+StmmacMacLinkUp (
   IN  UINT32                 Speed,
   IN  UINT32                 Duplex,
   IN  UINTN                  MacBaseAddress
   );
-*/
+
 #endif // STMMAC_DXE_UTIL_H__

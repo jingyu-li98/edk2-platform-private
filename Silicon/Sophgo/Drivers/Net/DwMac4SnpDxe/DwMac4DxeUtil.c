@@ -9,16 +9,18 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
-#include "DwMac4DxeUtil.h"
-//#include "PhyDxeUtil.h"
-
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
 #include <Library/IoLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/NetLib.h>
+#include <Library/DebugLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/MemoryAllocationLib.h>
+
+#include <Include/Phy.h>
+#include "DwMac4DxeUtil.h"
+
 #define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
 #define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
+
 struct StmmacRxRouting {
   UINT32 RegMask;
   UINT32 RegShift;
@@ -26,6 +28,7 @@ struct StmmacRxRouting {
 
 UINT32 RxChannelsCount = 1;
 UINT32 TxChannelsCount = 1;
+
 /*
  * linux/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
  */
@@ -37,12 +40,6 @@ StmmacSetUmacAddr (
   IN  UINTN             RegN
   )
 {
-  DEBUG ((
-    DEBUG_INFO,
-    "SNP:MAC: %a ()\r\n",
-    __func__
-    ));
-
   //
   // Note: This MAC_ADDR0 registers programming sequence cannot be swap:
   // Must program HIGH Offset first before LOW Offset
@@ -65,15 +62,17 @@ StmmacSetUmacAddr (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:MAC: GMAC_ADDR_LOW(%d)  = 0x%08X \r\n",
-    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN))),
-    RegN
+    "%a(): GMAC_ADDR_LOW(%d)  = 0x%08X \r\n",
+    __func__,
+    RegN,
+    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN)))
     ));
   DEBUG ((
     DEBUG_INFO,
-    "SNP:MAC: GMAC_ADDR_HIGH(%d)  = 0x%08X \r\n",
-    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN))),
-    RegN
+    "%a(): GMAC_ADDR_HIGH(%d)  = 0x%08X \r\n",
+    __func__,
+    RegN,
+    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN)))
     ));
 }
 
@@ -87,12 +86,6 @@ StmmacGetMacAddr (
 {
   UINT32 MacAddrHighValue;
   UINT32 MacAddrLowValue;
-
-  DEBUG ((
-    DEBUG_INFO,
-    "SNP:MAC: %a ()\r\n",
-    __func__
-    ));
 
   //
   // Read the Mac Addr high register
@@ -114,7 +107,8 @@ StmmacGetMacAddr (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:MAC: MAC Address = %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+    "%a(): MAC Address = %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+    __func__,
     MacAddress->Addr[0],
     MacAddress->Addr[1],
     MacAddress->Addr[2],
@@ -124,32 +118,6 @@ StmmacGetMacAddr (
   ));
 }
 
-/*
- * Enable disable MAC RX/TX.
- */
-VOID
-EFIAPI
-StmmacSetMac (
-  IN UINTN   MacBaseAddress,
-  IN BOOLEAN Enable
-  )
-{
-  UINT32 OldValue;
-  UINT32 Value;
-
-  OldValue = MmioRead32 ((UINTN)(MacBaseAddress + MAC_CTRL_REG));
-  Value = OldValue;
-
-  if (Enable) {
-    Value |= MAC_ENABLE_RX | MAC_ENABLE_TX;
-  } else {
-    Value &= ~(MAC_ENABLE_TX | MAC_ENABLE_RX);
-  }
-
-  if (Value != OldValue) {
-    MmioWrite32 ((UINTN)(MacBaseAddress + MAC_CTRL_REG), Value);
-  }
-}
 #if 0
 VOID
 DwMacDmaFlushTxFifo (
@@ -180,8 +148,9 @@ DwMac4DmaAxi (
 
   DEBUG ((
     DEBUG_INFO,
-    "dwmac4: Master AXI performs %s burst length\n",
-    (Value & DMA_SYS_BUS_FB) ? "fixed" : "any"
+    "%a(): Master AXI performs %s burst length\n",
+    __func__,
+    (Value & DMA_SYS_BUS_FB) ? L"fixed" : L"any"
     ));
 
   Value &= ~DMA_AXI_WR_OSR_LMT;
@@ -347,7 +316,8 @@ DwMac4DmaReset (
     if (Timeout-- == 10000) {
       DEBUG ((
         DEBUG_ERROR,
-        "Bus software reset timeout\n"
+        "%a(): Bus software reset timeout\n",
+	__func__
         ));
 
       return EFI_TIMEOUT;
@@ -566,13 +536,15 @@ DwMac4DmaRxChanOpMode (
   if (Mode == SF_DMA_MODE) {
     DEBUG ((
       DEBUG_INFO,
-      "GMAC: enable RX store and forward mode\n"
+      "%a(): enable RX store and forward mode\n",
+      __func__
       ));
     MtlRxOp |= MTL_OP_MODE_RSF;
   } else {
     DEBUG ((
       DEBUG_INFO,
-      "GMAC: disable RX SF mode (threshold %d)\n",
+      "%a(): disable RX SF mode (threshold %d)\n",
+      __func__,
       Mode
       ));
 
@@ -651,7 +623,8 @@ DwMac4DmaTxChanOpMode (
  if (Mode == SF_DMA_MODE) {
     DEBUG ((
       DEBUG_INFO,
-      "GMAC: enable TX store and forward mode\n"
+      "%a(): enable TX store and forward mode\n",
+      __func__
       ));
     //
     // Transmit COE type 2 cannot be done in cut-through mode.
@@ -660,7 +633,8 @@ DwMac4DmaTxChanOpMode (
   } else {
     DEBUG ((
       DEBUG_INFO,
-      "GMAC: disabling TX SF (threshold %d)\n",
+      "%a(): disabling TX SF (threshold %d)\n",
+      __func__,
       Mode
       ));
     MtlTxOp &= ~MTL_OP_MODE_TSF;
@@ -858,8 +832,9 @@ StmmacInitDmaEngine (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:MAC: %a ()\r\n",
-    __func__
+    "%a(): MacBaseAddress=0x%lx\r\n",
+    __func__,
+    MacBaseAddress
     ));
 
   DmaCsrCh = MAX (RxChannelsCount, TxChannelsCount);
@@ -874,7 +849,8 @@ StmmacInitDmaEngine (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "Failed to reset the dma\n"
+      "%a(): Reset the dma failed!\n",
+      __func__
       ));
     return Status;
   }
@@ -1388,7 +1364,8 @@ StmmacGetDmaStatus (
       if (DmaStatus & DMA_CHAN_STATUS_TPS) {
         DEBUG ((
           DEBUG_INFO,
-	  "SNP:MAC: Transmit process stopped\n"
+	  "%a(): Transmit process stopped\n",
+	  __func__
 	  ));
         Mask |= DMA_CHAN_STATUS_TPS;
       }
@@ -1406,7 +1383,8 @@ StmmacGetDmaStatus (
       if (DmaStatus & DMA_CHAN_STATUS_RPS) {
         DEBUG ((
           DEBUG_INFO,
-	  "SNP:MAC: Receive process stop\n"
+	  "%a(): Receive process stop\n",
+	  __func__
 	  ));
         Mask |= DMA_CHAN_STATUS_RPS;
       }
@@ -1417,7 +1395,8 @@ StmmacGetDmaStatus (
       if (DmaStatus & DMA_CHAN_STATUS_RWT) {
         DEBUG ((
 	  DEBUG_INFO,
-          "SNP:MAC: Receive watchdog timeout\n"
+          "%a(): Receive watchdog timeout\n",
+	  __func__
 	  ));
         Mask |= DMA_CHAN_STATUS_RWT;
       }
@@ -1435,7 +1414,8 @@ StmmacGetDmaStatus (
       if (DmaStatus & DMA_CHAN_STATUS_FBE) {
         DEBUG ((
           DEBUG_INFO,
-	  "SNP:MAC: Fatal bus error:\n"
+	  "%a(): Fatal bus error:\n",
+	  __func__
 	  ));
         Mask |= DMA_CHAN_STATUS_FBE;
 
@@ -1444,29 +1424,36 @@ StmmacGetDmaStatus (
         case DMA_TX_WRITE_DATA_BUFFER_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	   "SNP:MAC: Tx DMA write buffer error\n"
+	    "%a(): Tx DMA write buffer error\n",
+	    __func__
 	   ));
           break;
         case DMA_TX_WRITE_DESCRIPTOR_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Tx DMA write descriptor error\n"));
+	    "%a(): Tx DMA write descriptor error\n",
+	    __func__
+	    ));
           break;
         case DMA_TX_READ_DATA_BUFFER_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Tx DMA read buffer error\n"
+	    "%a(): Tx DMA read buffer error\n",
+	    __func__
 	    ));
           break;
         case DMA_TX_READ_DESCRIPTOR_ERROR:
           DEBUG ((
             DEBUG_INFO,
-	    "SNP:MAC: Tx DMA read descriptor error\n"));
+	    "%a(): Tx DMA read descriptor error\n",
+	    __func__
+	    ));
           break;
         default:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Undefined error\n"
+	    "%a(): Undefined error\n",
+	    __func__
 	    ));
           break;
         }
@@ -1476,29 +1463,36 @@ StmmacGetDmaStatus (
         case DMA_RX_WRITE_DATA_BUFFER_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Rx DMA write buffer error\n"
+	    "%a(): Rx DMA write buffer error\n",
+	    __func__
 	    ));
           break;
         case DMA_RX_WRITE_DESCRIPTOR_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Rx DMA write descriptor error\n"));
+	    "%a(): Rx DMA write descriptor error\n",
+	    __func__
+	    ));
           break;
         case DMA_RX_READ_DATA_BUFFER_ERROR:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Rx DMA read buffer error\n"
+	    "%a(): Rx DMA read buffer error\n",
+	    __func__
 	    ));
           break;
         case DMA_RX_READ_DESCRIPTOR_ERROR:
           DEBUG ((
             DEBUG_INFO,
-	    "SNP:MAC: Rx DMA read descriptor error\n"));
+	    "%a(): Rx DMA read descriptor error\n",
+	    __func__
+	    ));
           break;
         default:
           DEBUG ((
 	    DEBUG_INFO,
-	    "SNP:MAC: Undefined error\n"
+	    "%a(): Undefined error\n",
+	    __func__
 	    ));
           break;
         }
@@ -1523,7 +1517,7 @@ StmmacGetStatistic (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:MAC: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -1563,34 +1557,44 @@ StmmacGetStatistic (
   CopyMem (Statistic, Stats, sizeof (EFI_NETWORK_STATISTICS));
 }
 
-#if 0
 VOID
 EFIAPI
-StmmacConfigAdjust (
+StmmacMacLinkUp (
   IN  UINT32   Speed,
   IN  UINT32   Duplex,
   IN  UINTN    MacBaseAddress
   )
 {
-  UINT32   Config;
+  UINT32 OldValue;
+  UINT32 Value;
 
-  Config = 0;
-  if (Speed != SPEED_1000) {
-   Config |= DW_EMAC_GMACGRP_MAC_CONFIGURATION_PS_SET_MSK;
+  OldValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_CONFIG));
+
+  Value = OldValue & ~(GMAC_CONFIG_FES | GMAC_CONFIG_PS);
+
+  switch (Speed) {
+  case SPEED_10:
+    Value |= GMAC_CONFIG_PS;
+    break;
+  case SPEED_100:
+    Value |= GMAC_CONFIG_FES | GMAC_CONFIG_PS;
+    break;
+  case SPEED_1000:
+    Value |= 0;
+    break;
+  case SPEED_2500:
+    Value |= GMAC_CONFIG_FES;
+    break;
+  default:
+    break;
   }
-  if (Speed == SPEED_100) {
-    Config |= DW_EMAC_GMACGRP_MAC_CONFIGURATION_FES_SET_MSK;
-  }
+
   if (Duplex == DUPLEX_FULL) {
-    Config |= DW_EMAC_GMACGRP_MAC_CONFIGURATION_DM_SET_MSK;
+    Value |= GMAC_CONFIG_DM;
   }
-  MmioOr32 (MacBaseAddress +
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_OFST,
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_BE_SET_MSK |
-            DW_EMAC_GMACGRP_MAC_CONFIGURATION_DO_SET_MSK |
-            Config);
 
+  if (Value != OldValue) {
+    MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+  }
 }
-
-#endif
 

@@ -395,24 +395,6 @@
  * it was foced up into this mode or autonegotiated.
  */
 
-/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE. */
-#define SPEED_10                10
-#define SPEED_100               100
-#define SPEED_1000              1000
-#define SPEED_2500              2500
-#define SPEED_10000             10000
-#define SPEED_14000             14000
-#define SPEED_20000             20000
-#define SPEED_25000             25000
-#define SPEED_40000             40000
-#define SPEED_50000             50000
-#define SPEED_56000             56000
-#define SPEED_100000            100000
-#define SPEED_200000            200000
-
-/* Duplex, half or full. */
-#define DUPLEX_HALF             0x00
-#define DUPLEX_FULL             0x01
 
 #define PHY_MAX_ADDR 32
 

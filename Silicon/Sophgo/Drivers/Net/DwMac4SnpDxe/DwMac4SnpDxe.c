@@ -53,7 +53,7 @@ SnpStart (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -81,17 +81,15 @@ SnpStart (
   case EfiSimpleNetworkInitialized:
     DEBUG ((
       DEBUG_WARN,
-      "%a[%d]: Driver already started\n",
-      __func__,
-      __LINE__
+      "%a(): Driver already started\n",
+      __func__
       ));
     ReturnUnlock (EFI_ALREADY_STARTED);
   default:
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Driver in an invalid state: %u\n",
+      "%a(): Driver in an invalid state: %u\n",
       __func__,
-      __LINE__,
       (UINTN)Snp->SnpMode.State));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
@@ -143,7 +141,7 @@ SnpStop (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -171,31 +169,24 @@ SnpStop (
   case EfiSimpleNetworkStopped:
     DEBUG ((
       DEBUG_WARN,
-      "%a[%d]: Driver not started\n",
-      __func__,
-      __LINE__
+      "%a(): Driver not started\n",
+      __func__
       ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
     DEBUG ((
       DEBUG_ERROR,
-      "%a[%d]: Driver in an invalid state: %u\n",
+      "%a(): Driver in an invalid state: %u\n",
       __func__,
-      __LINE__,
       (UINTN)Snp->SnpMode.State
       ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
-  // stop all RX and TX DMA channels
+  // Stop all RX and TX DMA channels
   //
   StmmacStopAllDma (Snp->MacBase);
-
-  //
-  // Disable the MAC Rx/Tx
-  //
-  StmmacSetMac (Snp->MacBase, FALSE);
 
   //
   // Change the state
@@ -258,7 +249,7 @@ SnpInitialize (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -285,21 +276,21 @@ SnpInitialize (
   case EfiSimpleNetworkInitialized:
     DEBUG ((
       DEBUG_WARN,
-      "%a (): Driver already initialized\n",
+      "%a(): Driver already initialized\n",
       __func__
       ));
     ReturnUnlock (EFI_SUCCESS);
   case EfiSimpleNetworkStopped:
     DEBUG ((
       DEBUG_WARN,
-      "%a (): Driver not started\n",
+      "%a(): Driver not started\n",
       __func__
       ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): Driver in an invalid state: %u\n",
+      "%a(): Driver in an invalid state: %u\n",
       __func__,
       (UINTN)Snp->SnpMode.State
       ));
@@ -309,11 +300,6 @@ SnpInitialize (
   //
   // Init PHY
   //
-  DEBUG ((
-    DEBUG_INFO,
-    "%a (): Init PHY\n",
-    __func__
-    ));
   Status = gBS->LocateProtocol (
 		  &gSophgoPhyProtocolGuid,
 		  NULL,
@@ -322,46 +308,46 @@ SnpInitialize (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): Locate SOPHGO_PHY_PROTOCOL failed (Status=%r)\n",
+      "%a(): Locate SOPHGO_PHY_PROTOCOL failed (Status=%r)\n",
       __func__,
       Status
       ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
-  DEBUG ((
-    DEBUG_INFO,
-    "%a (): Start Phy init\n",
-    __func__
-    ));
+  // ------------------------
+  // todo: PhyDev->Interface
+  // ------------------------
   Status = Snp->Phy->Init (Snp->Phy,
-		 // Snp->PhyDev->Interface,
 		 PHY_INTERFACE_MODE_RGMII_ID,
 		  &Snp->PhyDev
 		  );
-  if (EFI_ERROR(Status) && Status != EFI_TIMEOUT) {
+  if (EFI_ERROR (Status) && Status != EFI_TIMEOUT) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): PHY initialization failed (Status=%r)\n",
+      "%a(): PHY initialization failed (Status=%r)\n",
       __func__,
       Status
       ));
+    ReturnUnlock (EFI_DEVICE_ERROR);
+  }
+
+  //
+  // Get Phy Status
+  //
+  Status = Snp->Phy->Status (Snp->Phy, Snp->PhyDev);
+  if (EFI_ERROR (Status)) {
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
   // DMA initialization and SW reset
   //
-  DEBUG ((
-    DEBUG_INFO,
-    "%a (): DMA initialization and SW reset\n",
-    __func__
-    ));
   Status = StmmacInitDmaEngine (&Snp->MacDriver, Snp->MacBase);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a (): DMA initialization failed (Status=%r)\n",
+      "%a(): DMA initialization failed (Status=%r)\n",
       __func__,
       Status
       ));
@@ -371,22 +357,12 @@ SnpInitialize (
   //
   // Copy the MAC addr into the HW
   //
-  DEBUG ((
-    DEBUG_INFO,
-    "%a (): Copy the MAC addr into the HW\n",
-    __func__
-    ));
   StmmacSetUmacAddr (&Snp->SnpMode.CurrentAddress, Snp->MacBase, 0);
   StmmacGetMacAddr (&Snp->SnpMode.CurrentAddress, Snp->MacBase, 0);
 
   //
   // Declare the driver as initialized
   //
-  DEBUG ((
-    DEBUG_INFO,
-    "%a (): Declare the driver as initialized\n",
-    __func__
-    ));
   Snp->SnpMode.State = EfiSimpleNetworkInitialized;
   Status = EFI_SUCCESS;
 
@@ -438,7 +414,7 @@ SnpReset (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -461,14 +437,26 @@ SnpReset (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 #if 0
@@ -519,7 +507,7 @@ SnpShutdown (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a ()\r\n",
     __func__
     ));
 
@@ -544,26 +532,33 @@ SnpShutdown (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver in stopped state\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver in stopped state\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
-  // stop all RX and TX DMA channels
+  // Stop all RX and TX DMA channels
   //
   StmmacStopAllDma (Snp->MacBase);
-
-  //
-  // Disable the MAC Rx/Tx
-  //
-  StmmacSetMac (Snp->MacBase, FALSE);
 
   Snp->SnpMode.State = EfiSimpleNetworkStopped;
 
@@ -708,14 +703,26 @@ SnpReceiveFilters (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
@@ -854,7 +861,7 @@ SnpStatistics (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -877,14 +884,26 @@ SnpStatistics (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
@@ -971,7 +990,7 @@ SnpMcastIptoMac (
 
   DEBUG ((
     DEBUG_INFO,
-    "SNP:DXE: %a ()\r\n",
+    "%a()\r\n",
     __func__
     ));
 
@@ -1178,27 +1197,48 @@ SnpGetStatus (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
-#if 0
+
   //
   // Update the media status
   //
-  Status = PhyLinkAdjustEmacConfig (&Snp->PhyDev, Snp->MacBase);
-  if (EFI_ERROR(Status)) {
-    Snp->SnpMode.MediaPresent = FALSE;
-  } else {
+  Status = Snp->Phy->Status (Snp->Phy, Snp->PhyDev);
+  if (Snp->PhyDev->LinkUp) {
+    DEBUG ((
+      DEBUG_INFO,
+      "Link is up - Network Cable is Plugged\r\n"
+      )); 
+    StmmacMacLinkUp (Snp->PhyDev->Speed, Snp->PhyDev->Duplex, Snp->MacBase); 
     Snp->SnpMode.MediaPresent = TRUE;
+  } else {
+    DEBUG ((
+      DEBUG_INFO,
+      "Link is Down - Network Cable is Unplugged?\r\n"
+      ));
+    Snp->SnpMode.MediaPresent = FALSE;
   }
-#endif
+
   //
   // TxBuff
   //
@@ -1206,7 +1246,7 @@ SnpGetStatus (
     //
     // Get a recycled buf from Snp->RecycledTxBuf
     //
-    if (Snp->RecycledTxBufCount == 0) {
+   if (Snp->RecycledTxBufCount == 0) {
       *TxBuff = NULL;
     } else {
       Snp->RecycledTxBufCount--;
@@ -1347,14 +1387,26 @@ SnpTransmit (
   case EfiSimpleNetworkInitialized:
     break;
   case EfiSimpleNetworkStarted:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not yet initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not yet initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a(): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
@@ -1415,7 +1467,7 @@ SnpTransmit (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a () for Txbuffer: %r\n",
+      "%a() for Txbuffer: %r\n",
       __func__,
       Status
       ));
@@ -1475,7 +1527,7 @@ SnpTransmit (
 #endif
   DEBUG ((
     DEBUG_ERROR,
-    "%a: TX timeout\n",
+    "%a(): TX timeout\n",
     __func__
     ));
 
@@ -1559,18 +1611,18 @@ SnpReceive (
   )
 {
   SOPHGO_SIMPLE_NETWORK_DRIVER      *Snp;
-  EFI_MAC_ADDRESS            Dst;
-  EFI_MAC_ADDRESS            Src;
-  UINT32                     Length;
-  UINT32                     RxDescriptorStatus;
-  UINT8                      *RawData;
-  UINT32                     RxDescIndex;
-  DMA_DESCRIPTOR                   *RxDescriptor;
-  DMA_DESCRIPTOR                   *RxDescriptorMap;
-  UINTN                      BufferSizeBuf;
-  UINTN                      *RxBufferAddr;
-  EFI_PHYSICAL_ADDRESS       RxBufferAddrMap;
-  EFI_STATUS                 Status;
+  EFI_MAC_ADDRESS                   Dst;
+  EFI_MAC_ADDRESS                   Src;
+  UINT32                            Length;
+  UINT32                            RxDescriptorStatus;
+  UINT8                             *RawData;
+  UINT32                            RxDescIndex;
+  DMA_DESCRIPTOR                    *RxDescriptor;
+  DMA_DESCRIPTOR                    *RxDescriptorMap;
+  UINTN                             BufferSizeBuf;
+  UINTN                             *RxBufferAddr;
+  EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
+  EFI_STATUS                        Status;
 
   BufferSizeBuf = ETH_BUFFER_SIZE;
 
@@ -1593,6 +1645,8 @@ SnpReceive (
 
   Snp->MacDriver.RxCurrentDescriptorNum = Snp->MacDriver.RxNextDescriptorNum;
   RxDescIndex = Snp->MacDriver.RxCurrentDescriptorNum;
+  DEBUG ((DEBUG_INFO, "RxCurrentDescriptorNum=%d\n", Snp->MacDriver.RxNextDescriptorNum));
+  DEBUG ((DEBUG_INFO, "RxDescIndex=%d\n", Snp->MacDriver.RxCurrentDescriptorNum));
   RxDescriptor = Snp->MacDriver.RxDescRing[RxDescIndex];
   RxBufferAddr = (UINTN*)((UINTN)Snp->MacDriver.RxBuffer +
                           (RxDescIndex * BufferSizeBuf));
@@ -1615,42 +1669,48 @@ SnpReceive (
     if (RxDescriptorStatus & RDES3_CRC_ERROR) {
       DEBUG ((
        DEBUG_WARN,
-       "SNP:DXE: Rx decritpor Status Error: CRC Error\n"
+       "%a(): Rx decritpor Status Error: CRC Error\n",
+       __func__
        ));
     }
 
     if (RxDescriptorStatus & RDES3_DRIBBLE_ERROR) {
       DEBUG ((
        DEBUG_WARN,
-       "SNP:DXE: Rx decritpor Status Error: Dribble Bit Error\n"
+       "%a(): Rx decritpor Status Error: Dribble Bit Error\n",
+       __func__
        ));
     }
 
     if (RxDescriptorStatus & RDES3_RECEIVE_ERROR) {
       DEBUG ((
 	DEBUG_WARN,
-        "SNP:DXE: Rx decritpor Status Error: Receive Error\n"
+        "%a(): Rx decritpor Status Error: Receive Error\n",
+	__func__
 	));
     }
 
     if (RxDescriptorStatus & RDES3_RECEIVE_WATCHDOG) {
       DEBUG ((
         DEBUG_WARN,
-	"SNP:DXE: Rx decritpor Status Error: Watchdog Timeout\n"
+	"%a(): Rx decritpor Status Error: Watchdog Timeout\n",
+	__func__
 	));
     }
 
     if (RxDescriptorStatus & RDES3_OVERFLOW_ERROR) {
       DEBUG ((
         DEBUG_WARN,
-	"SNP:DXE: Rx decritpor Status Error: Overflow Error\n"
+	"%a(): Rx decritpor Status Error: Overflow Error\n",
+	__func__
 	));
     }
 
     if (RxDescriptorStatus & RDES3_GIANT_PACKET) {
       DEBUG ((
         DEBUG_WARN,
-	"SNP:DXE: Rx decritpor Status Error: Giant Packet\n"
+	"%a(): Rx decritpor Status Error: Giant Packet\n",
+	__func__
 	));
     }
 
@@ -1661,7 +1721,8 @@ SnpReceive (
   if (!Length) {
     DEBUG ((
       DEBUG_WARN,
-      "SNP:DXE: Error: Invalid Frame Packet length \r\n"
+      "%a(): Error: Invalid Frame Packet length \r\n",
+      __func__
       ));
     return EFI_NOT_READY;
   }
@@ -1672,7 +1733,8 @@ SnpReceive (
   if (*BufferSize < Length) {
     DEBUG ((
       DEBUG_WARN,
-      "SNP:DXE: Error: Buffer size is too small\n"
+      "%a(): Error: Buffer size is too small\n",
+      __func__
       ));
     return EFI_BUFFER_TOO_SMALL;
   }
@@ -1698,7 +1760,8 @@ SnpReceive (
     CopyMem (DstAddr, &Dst, NET_ETHER_ADDR_LEN);
     DEBUG ((
       DEBUG_INFO,
-      "received from source address %x %x\r\n",
+      "%a(): Received from source address %x %x\r\n",
+      __func__,
       DstAddr,
       &Dst
       ));
@@ -1717,7 +1780,8 @@ SnpReceive (
 
     DEBUG ((
       DEBUG_INFO,
-      "received from source address %x %x\r\n",
+      "%a(): Received from source address %x %x\r\n",
+      __func__,
       SrcAddr,
       &Src
       ));
@@ -1746,7 +1810,7 @@ SnpReceive (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a () for Rxbuffer: %r\n",
+      "%a() for Rxbuffer: %r\n",
       __func__,
       Status
       ));
@@ -1776,7 +1840,7 @@ ReleaseLock:
   EfiReleaseLock (&Snp->Lock);
   DEBUG ((
     DEBUG_ERROR,
-    "%a: RX packet not available\n",
+    "%a(): RX packet not available!\n",
     __func__
     ));
 
