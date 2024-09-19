@@ -270,6 +270,10 @@ MdioOperation (
   MiiClkCsrShift = This->MiiClkCsrShift;
   MiiClkCsrMask  = This->MiiClkCsrMask;
 
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: Start MdioCheckParam\n", __func__
+      ));
   Status = MdioCheckParam (PhyAddr, PhyReg);
   if (EFI_ERROR (Status)) {
     DEBUG ((
@@ -283,11 +287,15 @@ MdioOperation (
   //
   // Wait until any existing MII operation is complete.
   //
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: wait until any existing MII operation is complete: Addr=0x%lx\n", __func__, MdioBase+MiiAddr
+      ));
   Status = MdioWaitReady (MdioBase + MiiAddr, MII_BUSY);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "StmmacMdioDxe: MdGMAC4 ioWaitReady error\n"
+      "StmmacMdioDxe: MdioWaitReady error\n"
       ));
 
     return Status;

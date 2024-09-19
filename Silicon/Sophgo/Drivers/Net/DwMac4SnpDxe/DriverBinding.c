@@ -90,6 +90,7 @@ DriverSupported (
   IN  EFI_DEVICE_PATH_PROTOCOL    *RemainingDevicePath
   )
 {
+#if 0
   NON_DISCOVERABLE_DEVICE    *Dev;
   EFI_STATUS                 Status;
 
@@ -103,6 +104,11 @@ DriverSupported (
                               Controller,
                               EFI_OPEN_PROTOCOL_BY_DRIVER);
   if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a() not support gEdkiiNonDiscoverableDeviceProtocolGuid!\n",
+      __func__
+      ));
     return Status;
   }
 
@@ -115,6 +121,9 @@ DriverSupported (
                       Controller);
 
   return Status;
+#else
+  return EFI_SUCCESS;
+#endif
 }
 
 STATIC
@@ -143,9 +152,14 @@ DriverStart (
   //
   Snp = AllocatePages (EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
   if (Snp == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a () for Snp is NULL!\n",
+      __func__
+      ));
     return EFI_OUT_OF_RESOURCES;
   }
-
+#if 0
   Status = gBS->OpenProtocol (Controller,
                               &gEdkiiNonDiscoverableDeviceProtocolGuid,
                               (VOID **)&Snp->Dev,
@@ -154,11 +168,11 @@ DriverStart (
                               EFI_OPEN_PROTOCOL_BY_DRIVER);
 
   DEBUG ((DEBUG_INFO, "%a[%d]: Enter success, Status=%r\n", __func__, __LINE__, Status));
+#endif
   //
   // Size for descriptor
   //
   DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR));
-  DEBUG ((DEBUG_INFO, "%a[%d]: DescriptorSize=0x%x\n", __func__, __LINE__, Status));
 
   //
   // Size for transmit and receive buffer
@@ -183,7 +197,6 @@ DriverStart (
       return Status;
     }
 
-    DEBUG ((DEBUG_INFO, "%a[%d]: DmaTxDescRing-Allocate: Status=%r\n", __func__, __LINE__, Status));
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     Snp->MacDriver.TxDescRing[Index],
                      &DescriptorSize,
@@ -199,7 +212,6 @@ DriverStart (
 	));
       return Status;
     }
-    DEBUG ((DEBUG_INFO, "%a[%d]: DmaTxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
 
     //
     // DMA RxDescRing allocte buffer and map
@@ -217,7 +229,6 @@ DriverStart (
 	));
       return Status;
     }
-    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Allocate: Status=%r\n", __func__, __LINE__, Status));
 
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     Snp->MacDriver.RxDescRing[Index],
@@ -235,7 +246,6 @@ DriverStart (
       return Status;
     }
 
-    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
     //
     // DMA mapping for receive buffer
     //
@@ -255,13 +265,11 @@ DriverStart (
 	));
       return Status;
     }
-    Snp->MacDriver.RxBufNum[Index].AddrMap= RxBufferAddrMap;
+    Snp->MacDriver.RxBufNum[Index].AddrMap = RxBufferAddrMap;
   }
-    DEBUG ((DEBUG_INFO, "%a[%d]: DmaRxDescRing-Map: Status=%r\n", __func__, __LINE__, Status));
 
   DevicePath = (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH*)AllocateCopyPool (sizeof (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH), &PathTemplate);
   if (DevicePath == NULL) {
-
     DEBUG ((
       DEBUG_ERROR,
       "%a () for DeivcePath is NULL!\n",
@@ -286,7 +294,7 @@ DriverStart (
   //
   // Get MAC controller base address
   //
-  Snp->MacBase = (UINTN)Snp->Dev->Resources[0].AddrRangeMin;
+  Snp->MacBase = 0x7030006000;
 
   //
   // Assign fields and func pointers
@@ -340,7 +348,7 @@ DriverStart (
   SnpMode->ReceiveFilterSetting = 0;
 
   //
-  // EMAC has 64bit hash table, can filter 64 MCast MAC Addresses
+  // GMAC has 64bit hash table, can filter 64 MCast MAC Addresses
   //
   SnpMode->MaxMCastFilterCount = MAX_MCAST_FILTER_CNT;
   SnpMode->MCastFilterCount = 0;
@@ -375,7 +383,7 @@ DriverStart (
   //
   // Set current address
   //
-  DefaultMacAddress = Snp->Dev->Resources[1].AddrRangeMin;
+  DefaultMacAddress = 0x7030006000;
 
   //
   // Swap PCD human readable form to correct endianess
@@ -402,11 +410,12 @@ DriverStart (
                   );
 
   if (EFI_ERROR(Status)) {
+	#if 0
     gBS->CloseProtocol (Controller,
                         &gEdkiiNonDiscoverableDeviceProtocolGuid,
                         This->DriverBindingHandle,
                         Controller);
-
+#endif
     FreePages (Snp, EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
   } else {
     Snp->ControllerHandle = Controller;
@@ -494,6 +503,5 @@ DwMac4SnpDxeEntry (
              &gSnpComponentName2
              );
 
-  DEBUG ((DEBUG_INFO, "Enter %a success, Status=%r\n", __func__, Status));
   return Status;
 }

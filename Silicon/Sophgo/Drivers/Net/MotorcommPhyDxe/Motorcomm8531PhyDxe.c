@@ -155,6 +155,10 @@ YtPhyModifyExtendedRegister (
   UINT32     OldValue;
   UINT32     NewValue;
 
+  DEBUG ((DEBUG_INFO,
+    "%a (): Start Mdio->Write\n",
+    __func__
+    ));
   Status = Mdio->Write (Mdio, PhyDev->PhyAddr, YTPHY_PAGE_SELECT, RegNum);
   if (EFI_ERROR(Status)) {
     DEBUG ((
@@ -222,7 +226,16 @@ YtPhyModifyExtendedRegisterWithLock (
 
   SavedTpl = gBS->RaiseTPL (TPL_HIGH_LEVEL);
 
+  DEBUG ((DEBUG_INFO,
+    "%a (): phy modify extended register\n",
+    __func__
+    ));
   Status = YtPhyModifyExtendedRegister (PhyDev, RegNum, Mask, Set);
+  DEBUG ((DEBUG_INFO,
+    "%a (): Status=%r, end phy modify extended register\n",
+    __func__,
+    Status
+    ));
 
   gBS->RestoreTPL (SavedTpl);
 
@@ -370,7 +383,6 @@ Yt8531SetDriveStrength (
   return EFI_SUCCESS;
 }
 
-
 STATIC
 EFI_STATUS
 Yt8531ConfigInit (
@@ -492,14 +504,40 @@ EFI_STATUS
 Yt8531PhyInitialize (
   IN CONST SOPHGO_PHY_PROTOCOL *This,
   IN PHY_INTERFACE             PhyInterface,
-  IN PHY_DEVICE                *PhyDev
+  IN PHY_DEVICE                **OutPhyDev
   )
 {
-  UINT16     Mask;
-  UINT16     Value;
-  EFI_STATUS Status;
+  UINT16       Mask;
+  UINT16       Value;
+  EFI_STATUS   Status;
+  PHY_DEVICE   *PhyDev;
 
-  DEBUG ((DEBUG_INFO, "%a[%d] PhyInterface=%d\n", __func__, __LINE__, PhyInterface));
+  Status = gBS->LocateProtocol (
+      &gSophgoMdioProtocolGuid,
+      NULL,
+      (VOID **) &Mdio
+      );
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): Locate SOPHGO_MDIO_PROTOCOL failed (Status=%r)\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  PhyDev = AllocateZeroPool (sizeof (PHY_DEVICE));
+  PhyDev->Interface = PhyInterface;
+  PhyDev->PhyAddr = 0;
+  *OutPhyDev = PhyDev;
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): PhyAddr is %d, interface %d\n",
+    __func__,
+    PhyDev->PhyAddr,
+    PhyInterface
+    ));
 
   //
   // Enable sync e clock output.
@@ -507,11 +545,20 @@ Yt8531PhyInitialize (
   Mask = YT8531_SCR_SYNCE_ENABLE;
   Value = 0;
 
+  DEBUG ((DEBUG_INFO,
+    "%a (): Start Enable sync e clock output\n",
+    __func__
+    ));
   Status = YtPhyModifyExtendedRegisterWithLock (PhyDev,
 		                                YTPHY_SYNCE_CFG_REG,
 						Mask,
 					        Value
 						);
+  DEBUG ((DEBUG_INFO,
+    "%a (): Status=%r, End Enable sync e clock output\n",
+    __func__,
+    Status
+    ));
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -525,7 +572,16 @@ Yt8531PhyInitialize (
   //
   // Initialize the PHY
   //
+  DEBUG ((DEBUG_INFO,
+    "%a (): Initialize the PHY\n",
+    __func__
+    ));
   Status = Yt8531ConfigInit (PhyDev);
+  DEBUG ((DEBUG_INFO,
+    "%a (): Status=%r, End initialize the PHY\n",
+    __func__,
+    Status
+    ));
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -548,7 +604,9 @@ Yt8531PhyDxeEntryPoint (
 {
   SOPHGO_PHY_PROTOCOL *Phy;
   EFI_STATUS          Status;
-  EFI_HANDLE          Handle = NULL;
+  EFI_HANDLE          Handle;
+
+  Handle = NULL;
 
   Phy = AllocateZeroPool (sizeof (SOPHGO_PHY_PROTOCOL));
   if (Phy == NULL) {

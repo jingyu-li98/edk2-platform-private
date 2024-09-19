@@ -252,8 +252,8 @@ SnpInitialize (
   IN  UINTN                         ExtraTxBufferSize OPTIONAL
   )
 {
-  EFI_TPL                     SavedTpl;
-  EFI_STATUS                  Status;
+  EFI_TPL                            SavedTpl;
+  EFI_STATUS                         Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER       *Snp;
 
   DEBUG ((
@@ -283,54 +283,110 @@ SnpInitialize (
   case EfiSimpleNetworkStarted:
     break;
   case EfiSimpleNetworkInitialized:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver already initialized\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a (): Driver already initialized\n",
+      __func__
+      ));
     ReturnUnlock (EFI_SUCCESS);
   case EfiSimpleNetworkStopped:
-    DEBUG ((DEBUG_WARN, "DwMac4SnpDxe: Driver not started\n"));
+    DEBUG ((
+      DEBUG_WARN,
+      "%a (): Driver not started\n",
+      __func__
+      ));
     ReturnUnlock (EFI_NOT_STARTED);
   default:
-    DEBUG ((DEBUG_ERROR, "DwMac4SnpDxe: Driver in an invalid state: %u\n",
-          (UINTN)Snp->SnpMode.State));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): Driver in an invalid state: %u\n",
+      __func__,
+      (UINTN)Snp->SnpMode.State
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
   // Init PHY
   //
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): Init PHY\n",
+    __func__
+    ));
   Status = gBS->LocateProtocol (
 		  &gSophgoPhyProtocolGuid,
 		  NULL,
-		  (VOID **) &Snp->PhyDev
+		  (VOID **) &Snp->Phy
 		  );
   if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): Locate SOPHGO_PHY_PROTOCOL failed (Status=%r)\n",
+      __func__,
+      Status
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): Start Phy init\n",
+    __func__
+    ));
   Status = Snp->Phy->Init (Snp->Phy,
-		  Snp->PhyDev->Interface,
-		  Snp->PhyDev
+		 // Snp->PhyDev->Interface,
+		 PHY_INTERFACE_MODE_RGMII_ID,
+		  &Snp->PhyDev
 		  );
   if (EFI_ERROR(Status) && Status != EFI_TIMEOUT) {
-    return Status;
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): PHY initialization failed (Status=%r)\n",
+      __func__,
+      Status
+      ));
+    ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
   // DMA initialization and SW reset
   //
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): DMA initialization and SW reset\n",
+    __func__
+    ));
   Status = StmmacInitDmaEngine (&Snp->MacDriver, Snp->MacBase);
   if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a (): DMA initialization failed (Status=%r)\n",
+      __func__,
+      Status
+      ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
   //
   // Copy the MAC addr into the HW
   //
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): Copy the MAC addr into the HW\n",
+    __func__
+    ));
   StmmacSetUmacAddr (&Snp->SnpMode.CurrentAddress, Snp->MacBase, 0);
   StmmacGetMacAddr (&Snp->SnpMode.CurrentAddress, Snp->MacBase, 0);
 
   //
   // Declare the driver as initialized
   //
+  DEBUG ((
+    DEBUG_INFO,
+    "%a (): Declare the driver as initialized\n",
+    __func__
+    ));
   Snp->SnpMode.State = EfiSimpleNetworkInitialized;
   Status = EFI_SUCCESS;
 

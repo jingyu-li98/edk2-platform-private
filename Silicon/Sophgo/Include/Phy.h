@@ -112,7 +112,6 @@ typedef enum {
  */
 typedef struct {
   UINT32          PhyAddr;
-  UINT8           MdioIndex;
   UINT32          CurrentLink;
   UINT32          PhyOldLink;
   BOOLEAN         LinkUp;
@@ -148,7 +147,7 @@ EFI_STATUS
 (EFIAPI *SOPHGO_PHY_INIT) (
   IN CONST SOPHGO_PHY_PROTOCOL  *This,
   IN PHY_INTERFACE              PhyInterface,
-  IN PHY_DEVICE                 *PhyDev
+  IN OUT PHY_DEVICE             **PhyDev
   );
 
 struct _SOPHGO_PHY_PROTOCOL {
