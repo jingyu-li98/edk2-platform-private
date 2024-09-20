@@ -17,13 +17,13 @@
 #ifndef DWMAC4_SNP_DXE_H__
 #define DWMAC4_SNP_DXE_H__
 
+//
 // Protocols used by this driver
-#include <Protocol/SimpleNetwork.h>
-#include <Protocol/ComponentName2.h>
+//
 #include <Protocol/DevicePath.h>
-#include <Protocol/NonDiscoverableDevice.h>
-
+#include <Protocol/SimpleNetwork.h>
 #include <Library/UefiLib.h>
+
 #include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
 
@@ -52,8 +52,6 @@ typedef struct {
   PHY_DEVICE                             *PhyDev;
   SOPHGO_PHY_PROTOCOL                    *Phy;
 
-  NON_DISCOVERABLE_DEVICE                *Dev;
-
   EFI_LOCK                               Lock;
 
   UINTN                                  MacBase;
@@ -71,9 +69,6 @@ typedef struct {
   VOID                                   *MappingTxbuf;
 
 } SOPHGO_SIMPLE_NETWORK_DRIVER;
-
-extern EFI_COMPONENT_NAME_PROTOCOL       gSnpComponentName;
-extern EFI_COMPONENT_NAME2_PROTOCOL      gSnpComponentName2;
 
 #define SNP_DRIVER_SIGNATURE             SIGNATURE_32('A', 'S', 'N', 'P')
 #define INSTANCE_FROM_SNP_THIS(a)        CR(a, SOPHGO_SIMPLE_NETWORK_DRIVER, Snp, SNP_DRIVER_SIGNATURE)

@@ -371,6 +371,11 @@
 
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency|50000000
 
+  #
+  # DW MAC4 default mac address
+  #
+  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x161822242628
+
 [PcdsFixedAtBuild.common]
   gSophgoTokenSpaceGuid.PcdSDIOBase|0x703000B000
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7001000000
@@ -587,7 +592,6 @@
   MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 
-  #
   #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem
   #

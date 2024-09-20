@@ -1,6 +1,6 @@
 /** @file
-  DW EMAC SNP DXE driver
   DW Mac4 SNP driver.
+
   Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -25,6 +25,36 @@
 
 #define ReturnUnlock(s) do { Status = (s); goto exit_unlock; } while(0)
 
+//STATIC EFI_MAC_ADDRESS mZeroMac = { { 0 } };
+
+STATIC
+SOPHGO_SIMPLE_NETWORK_DEVICE_PATH PathTemplate = {
+  {
+    {
+      MESSAGING_DEVICE_PATH,
+      MSG_MAC_ADDR_DP,
+      {
+        (UINT8)(sizeof (MAC_ADDR_DEVICE_PATH)),
+        (UINT8)((sizeof (MAC_ADDR_DEVICE_PATH)) >> 8)
+      }
+    },
+    {
+      {
+        0
+      }
+    },
+    0
+  },
+  {
+    END_DEVICE_PATH_TYPE,
+    END_ENTIRE_DEVICE_PATH_SUBTYPE,
+    {
+      sizeof (EFI_DEVICE_PATH_PROTOCOL),
+      0
+    }
+  }
+};
+
 /**
   Change the state of a network interface from "stopped" to "started."
 
@@ -47,9 +77,9 @@ SnpStart (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL   *This
  )
 {
+  EFI_TPL                         SavedTpl;
+  EFI_STATUS                      Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER    *Snp;
-  EFI_TPL                  SavedTpl;
-  EFI_STATUS               Status;
 
   DEBUG ((
     DEBUG_INFO,
@@ -135,9 +165,9 @@ SnpStop (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL*   This
   )
 {
+  EFI_TPL                         SavedTpl;
+  EFI_STATUS                      Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER    *Snp;
-  EFI_TPL                  SavedTpl;
-  EFI_STATUS               Status;
 
   DEBUG ((
     DEBUG_INFO,
@@ -406,8 +436,8 @@ SnpReset (
   IN  BOOLEAN                       ExtendedVerification
   )
 {
-  EFI_TPL                     SavedTpl;
-  EFI_STATUS                  Status;
+  EFI_TPL                            SavedTpl;
+  EFI_STATUS                         Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER       *Snp;
 
   Snp = INSTANCE_FROM_SNP_THIS (This);
@@ -501,8 +531,8 @@ SnpShutdown (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL*   This
   )
 {
-  EFI_TPL                   SavedTpl;
-  EFI_STATUS                Status;
+  EFI_TPL                          SavedTpl;
+  EFI_STATUS                       Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER     *Snp;
 
   DEBUG ((
@@ -792,10 +822,72 @@ SnpStationAddress (
   IN  EFI_MAC_ADDRESS               *NewMac
   )
 {
+	DEBUG ((DEBUG_INFO, "%a()\n\n", __func__));
   return EFI_UNSUPPORTED;
+#if 0
+  UINT32 Count;
+  UINT8  PermAddr[NET_ETHER_ADDR_LEN];
+
+  DEBUG ((DEBUG_NET, "SnpStationAddress()\n"));
+
+  // Check Snp instance
+  if (Snp == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  // Check that driver was started and initialised
+  if (Snp->Mode->State == EfiSimpleNetworkStarted) {
+    DEBUG ((EFI_D_WARN, "Warning: LAN9118 Driver not initialized\n"));
+    return EFI_DEVICE_ERROR;
+  } else if (Snp->Mode->State == EfiSimpleNetworkStopped) {
+    DEBUG ((EFI_D_WARN, "Warning: LAN9118 Driver in stopped state\n"));
+    return EFI_NOT_STARTED;
+  }
+
+  // Get the Permanent MAC address if need reset
+  if (Reset) {
+    // Try using EEPROM first. Read the first byte of data from EEPROM at the address 0x0
+    if ((IndirectEEPROMRead32 (0) & 0xFF) == EEPROM_EXTERNAL_SERIAL_EEPROM) {
+      for (Count = 0; Count < NET_ETHER_ADDR_LEN; Count++) {
+        PermAddr[Count] = IndirectEEPROMRead32 (Count + 1);
+      }
+      New = (EFI_MAC_ADDRESS *) PermAddr;
+      Lan9118SetMacAddress ((EFI_MAC_ADDRESS *) PermAddr, Snp);
+    } else {
+      DEBUG ((EFI_D_ERROR, "LAN9118: Warning: No valid MAC address in EEPROM, using fallback\n"));
+      New = (EFI_MAC_ADDRESS*) (FixedPcdGet64 (PcdLan9118DefaultMacAddress));
+    }
+  } else {
+    // Otherwise use the specified new MAC address
+    if (New == NULL) {
+      return EFI_INVALID_PARAMETER;
+    }
+    //
+    // If it is a multicast address, it is not valid.
+    //
+    if (New->Addr[0] & 0x01) {
+      return EFI_INVALID_PARAMETER;
+    }
+  }
+
+  CopyMem (&Snp->Mode->CurrentAddress, New, NET_ETHER_ADDR_LEN);
+
+  //
+  // If packet reception is currently activated, stop and reset it,
+  // set the new ethernet address and restart the packet reception.
+  // Otherwise, nothing to do, the MAC address will be updated in
+  // SnpReceiveFilters() when the UNICAST packet reception will be
+  // activated.
+  //
+  if (Snp->Mode->ReceiveFilterSetting  != 0) {
+    StopRx (STOP_RX_CLEAR, Snp);
+    Lan9118SetMacAddress (New, Snp);
+    StartRx (0, Snp);
+  }
+
+  return EFI_SUCCESS;
+#endif
 }
-
-
 
 /**
   Resets or collects the statistics on a network interface.
@@ -853,8 +945,8 @@ SnpStatistics (
       OUT  EFI_NETWORK_STATISTICS        *Statistics
   )
 {
-  EFI_STATUS                     Status;
   EFI_TPL                        SavedTpl;
+  EFI_STATUS                     Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER   *Snp;
 
   Snp = INSTANCE_FROM_SNP_THIS (This);
@@ -1172,9 +1264,9 @@ SnpGetStatus (
   OUT  VOID                          **TxBuff  OPTIONAL
   )
 {
+  EFI_TPL                           SavedTpl;
   EFI_STATUS                        Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER      *Snp;
-  EFI_TPL                           SavedTpl;
 
   //
   // Check preliminaries
@@ -1228,8 +1320,8 @@ SnpGetStatus (
     DEBUG ((
       DEBUG_INFO,
       "Link is up - Network Cable is Plugged\r\n"
-      )); 
-    StmmacMacLinkUp (Snp->PhyDev->Speed, Snp->PhyDev->Duplex, Snp->MacBase); 
+      ));
+    StmmacMacLinkUp (Snp->PhyDev->Speed, Snp->PhyDev->Duplex, Snp->MacBase);
     Snp->SnpMode.MediaPresent = TRUE;
   } else {
     DEBUG ((
@@ -1349,6 +1441,8 @@ SnpTransmit (
   // UINTN                             TxTailAddr;
   EFI_TPL                           SavedTpl;
 
+  DEBUG ((DEBUG_INFO, "%a()\n", __func__));
+
   //
   // Setup DMA descriptor
   //
@@ -1433,6 +1527,8 @@ SnpTransmit (
   Snp->MacDriver.TxCurrentDescriptorNum = Snp->MacDriver.TxNextDescriptorNum;
   TxDescIndex = Snp->MacDriver.TxCurrentDescriptorNum;
 
+  DEBUG ((DEBUG_INFO, "TxCurrentDescriptorNum=%d\n", Snp->MacDriver.TxNextDescriptorNum));
+  DEBUG ((DEBUG_INFO, "TxDescIndex=%d\n", Snp->MacDriver.TxCurrentDescriptorNum));
   TxDescriptor = Snp->MacDriver.TxDescRing[TxDescIndex];
   TxDescriptorMap = (VOID *)(UINTN)Snp->MacDriver.TxDescRingMap[TxDescIndex].AddrMap;
 
@@ -1628,6 +1724,7 @@ SnpReceive (
 
   Snp = INSTANCE_FROM_SNP_THIS (This);
 
+  DEBUG ((DEBUG_INFO, "%a()\n", __func__));
   //
   // Check preliminaries
   //
@@ -1643,6 +1740,9 @@ SnpReceive (
     return EFI_ACCESS_DENIED;
   }
 
+  //
+  // Get Rx descriptor
+  //
   Snp->MacDriver.RxCurrentDescriptorNum = Snp->MacDriver.RxNextDescriptorNum;
   RxDescIndex = Snp->MacDriver.RxCurrentDescriptorNum;
   DEBUG ((DEBUG_INFO, "RxCurrentDescriptorNum=%d\n", Snp->MacDriver.RxNextDescriptorNum));
@@ -1650,6 +1750,7 @@ SnpReceive (
   RxDescriptor = Snp->MacDriver.RxDescRing[RxDescIndex];
   RxBufferAddr = (UINTN*)((UINTN)Snp->MacDriver.RxBuffer +
                           (RxDescIndex * BufferSizeBuf));
+  DEBUG ((DEBUG_INFO, "*RxBufferAddr=0x%lx\n", *RxBufferAddr));
   RxDescriptorMap = (VOID *)(UINTN)Snp->MacDriver.RxDescRingMap[RxDescIndex].AddrMap;
 
   RawData = (UINT8 *) Data;
@@ -1658,6 +1759,7 @@ SnpReceive (
   // Write-Back: Get Rx Status
   //
   RxDescriptorStatus = RxDescriptor->Des3;
+  DEBUG ((DEBUG_INFO, "%a[%d] RxDescriptorStatus=0x%lx\n", __func__, __LINE__, RxDescriptorStatus));
   if (RxDescriptorStatus & RDES3_OWN) {
     goto ReleaseLock;
   }
@@ -1845,4 +1947,321 @@ ReleaseLock:
     ));
 
   return EFI_NOT_READY;
+}
+
+/*
+ * Entry point for DwMac4 driver.
+ */
+EFI_STATUS
+EFIAPI
+DwMac4SnpDxeEntry (
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
+  )
+{
+  EFI_STATUS                        Status;
+  SOPHGO_SIMPLE_NETWORK_DRIVER      *DwMac4Driver;
+  EFI_SIMPLE_NETWORK_PROTOCOL       *Snp;
+  EFI_SIMPLE_NETWORK_MODE           *SnpMode;
+  SOPHGO_SIMPLE_NETWORK_DEVICE_PATH *DevicePath;
+  UINT64                            DefaultMacAddress;
+  EFI_MAC_ADDRESS                   *SwapMacAddressPtr;
+  UINTN                             DescriptorSize;
+  UINTN                             BufferSize;
+  UINTN                             *RxBufferAddr;
+  EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
+  UINT32                            Index;
+  EFI_HANDLE                        Handle;
+
+  Handle = NULL;
+
+  //
+  // Allocate Resources
+  //
+  DwMac4Driver = AllocatePages (EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
+  if (DwMac4Driver == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a() for Snp is NULL!\n",
+      __func__
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  DevicePath = (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH*)AllocateCopyPool (sizeof (SOPHGO_SIMPLE_NETWORK_DEVICE_PATH), &PathTemplate);
+  if (DevicePath == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a() for DeivcePath is NULL!\n",
+      __func__
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Size for descriptor
+  //
+  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR));
+  DEBUG ((DEBUG_INFO, "%a[%d] DescriptorSize=0x%lx", __func__, __LINE__, DescriptorSize));
+
+  //
+  // Size for transmit and receive buffer
+  //
+  BufferSize = ETH_BUFFER_SIZE;
+  DEBUG ((DEBUG_INFO, "%a[%d] BufferSize=0x%lx", __func__, __LINE__, BufferSize));
+
+  for (Index = 0; Index < TX_DESC_NUM; Index++) {
+    //
+    // DMA TxDescRing allocate buffer and map
+    //
+    Status = DmaAllocateBuffer (EfiBootServicesData,
+                                EFI_SIZE_TO_PAGES (sizeof (DMA_DESCRIPTOR)),
+	                        (VOID *)&DwMac4Driver->MacDriver.TxDescRing[Index]
+				);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+	DEBUG_ERROR,
+        "%a() for TxDescRing: %r\n",
+	__func__,
+	Status
+	));
+      return Status;
+    }
+
+    Status = DmaMap (MapOperationBusMasterCommonBuffer,
+		     DwMac4Driver->MacDriver.TxDescRing[Index],
+                     &DescriptorSize,
+	             &DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap,
+	             &DwMac4Driver->MacDriver.TxDescRingMap[Index].Mapping
+	             );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+	DEBUG_ERROR,
+        "%a() for TxDescRing: %r\n",
+	__func__,
+	Status
+	));
+      return Status;
+    }
+
+    //
+    // DMA RxDescRing allocte buffer and map
+    //
+    Status = DmaAllocateBuffer (EfiBootServicesData,
+                                EFI_SIZE_TO_PAGES (sizeof (DMA_DESCRIPTOR)),
+				(VOID *)&DwMac4Driver->MacDriver.RxDescRing[Index]
+				);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a() for RxDescRing: %r\n",
+	__func__,
+	Status
+	));
+      return Status;
+    }
+
+    Status = DmaMap (MapOperationBusMasterCommonBuffer,
+		     DwMac4Driver->MacDriver.RxDescRing[Index],
+                     &DescriptorSize,
+		     &DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap,
+		     &DwMac4Driver->MacDriver.RxDescRingMap[Index].Mapping
+		     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+	"%a() for RxDescRing: %r\n",
+	 __func__,
+	 Status
+	 ));
+      return Status;
+    }
+
+    //
+    // DMA mapping for receive buffer
+    //
+    RxBufferAddr = (UINTN*)((UINTN)DwMac4Driver->MacDriver.RxBuffer + (Index * BufferSize));
+    Status = DmaMap (MapOperationBusMasterWrite,
+		     (VOID *) RxBufferAddr,
+                     &BufferSize,
+		     &RxBufferAddrMap,
+		     &DwMac4Driver->MacDriver.RxBufNum[Index].Mapping
+		     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a() for Rxbuffer: %r\n",
+	__func__,
+	Status
+	));
+      return Status;
+    }
+    DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap = RxBufferAddrMap;
+  }
+
+  //
+  // Initialized signature (used by INSTANCE_FROM_SNP_THIS macro)
+  //
+  DwMac4Driver->Signature = SNP_DRIVER_SIGNATURE;
+
+  EfiInitializeLock (&DwMac4Driver->Lock, TPL_CALLBACK);
+
+  //
+  // Initialize pointers
+  //
+  Snp = &DwMac4Driver->Snp;
+  SnpMode = &DwMac4Driver->SnpMode;
+  Snp->Mode = SnpMode;
+
+  //
+  // Get MAC controller base address
+  //
+  DwMac4Driver->MacBase = 0x7030006000;
+
+  //
+  // Assign fields and func pointers
+  //
+  Snp->Revision       = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;
+  Snp->WaitForPacket  = NULL;
+  Snp->Initialize     = SnpInitialize;
+  Snp->Start          = SnpStart;
+  Snp->Stop           = SnpStop;
+  Snp->Reset          = SnpReset;
+  Snp->Shutdown       = SnpShutdown;
+  Snp->ReceiveFilters = SnpReceiveFilters;
+  Snp->StationAddress = SnpStationAddress;
+  Snp->Statistics     = SnpStatistics;
+  Snp->MCastIpToMac   = SnpMcastIptoMac;
+  Snp->NvData         = SnpNvData;
+  Snp->GetStatus      = SnpGetStatus;
+  Snp->Transmit       = SnpTransmit;
+  Snp->Receive        = SnpReceive;
+
+  DwMac4Driver->RecycledTxBuf = AllocatePool (sizeof (UINT64) * SNP_TX_BUFFER_INCREASE);
+  if (DwMac4Driver->RecycledTxBuf == NULL) {
+    Status = EFI_OUT_OF_RESOURCES;
+  }
+
+  DwMac4Driver->MaxRecycledTxBuf = SNP_TX_BUFFER_INCREASE;
+  DwMac4Driver->RecycledTxBufCount = 0;
+
+  //
+  // Start completing simple network mode structure
+  //
+  SnpMode->State           = EfiSimpleNetworkStopped;
+  SnpMode->HwAddressSize   = NET_ETHER_ADDR_LEN;    // HW address is 6 bytes
+  SnpMode->MediaHeaderSize = sizeof (ETHER_HEAD);
+  SnpMode->MaxPacketSize   = EFI_PAGE_SIZE;         // Preamble + SOF + Ether Frame (with VLAN tag +4bytes)
+  SnpMode->NvRamSize       = 0;                     // No NVRAM with this device
+  SnpMode->NvRamAccessSize = 0;                     // No NVRAM with this device
+
+  //
+  // Update network mode information
+  //
+  SnpMode->ReceiveFilterMask = EFI_SIMPLE_NETWORK_RECEIVE_UNICAST     |
+                               EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST   |
+                               EFI_SIMPLE_NETWORK_RECEIVE_BROADCAST   |
+                               EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS |
+                               EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS_MULTICAST;
+
+  //
+  // We do not intend to receive anything for the time being.
+  //
+  SnpMode->ReceiveFilterSetting = 0;
+
+  //
+  // GMAC has 64bit hash table, can filter 64 MCast MAC Addresses
+  //
+  SnpMode->MaxMCastFilterCount = MAX_MCAST_FILTER_CNT;
+  SnpMode->MCastFilterCount    = 0;
+  ZeroMem (&SnpMode->MCastFilter, MAX_MCAST_FILTER_CNT * sizeof (EFI_MAC_ADDRESS));
+
+  //
+  // Set the interface type (1: Ethernet or 6: IEEE 802 Networks)
+  //
+  SnpMode->IfType = NET_IFTYPE_ETHERNET;
+
+  //
+  // Mac address is changeable as it is loaded from erasable memory
+  //
+  SnpMode->MacAddressChangeable = TRUE;
+
+  //
+  // Can only transmit one packet at a time
+  //
+  SnpMode->MultipleTxSupported = FALSE;
+
+  //
+  // MediaPresent checks for cable connection and partner link
+  //
+  SnpMode->MediaPresentSupported = TRUE;
+  SnpMode->MediaPresent = FALSE;
+
+  //
+  // Set broadcast address
+  //
+  SetMem (&SnpMode->BroadcastAddress, sizeof (EFI_MAC_ADDRESS), 0xFF);
+
+ #if 0
+  //
+  // Set current address
+  //
+  DefaultMacAddress = 0x7030006000;
+
+#endif
+  //
+  // If we had an address before (set by StationAddress), continue to use it
+  //
+ // if (CompareMem (&Snp->Mode->CurrentAddress, &mZeroMac, NET_ETHER_ADDR_LEN)) {
+ //   StmmacSetUmacAddr (&Snp->Mode->CurrentAddress, DwMac4Driver->MacBase, 0);
+ // } else {
+      //
+      // If there are no cached addresses, then fall back to a default
+      //
+    DEBUG ((
+      DEBUG_WARN,
+      "%a() Warning: using driver-default MAC address\n",
+      __func__
+      ));
+    DefaultMacAddress = FixedPcdGet64 (PcdDwMac4DefaultMacAddress);
+    StmmacSetUmacAddr (&Snp->Mode->CurrentAddress, DwMac4Driver->MacBase, 0);
+    CopyMem (&Snp->Mode->CurrentAddress, &DefaultMacAddress, NET_ETHER_ADDR_LEN);
+ // }
+
+  //
+  // Swap PCD human readable form to correct endianess
+  //
+  SwapMacAddressPtr = (EFI_MAC_ADDRESS *) &DefaultMacAddress;
+  SnpMode->CurrentAddress.Addr[0] = SwapMacAddressPtr->Addr[5];
+  SnpMode->CurrentAddress.Addr[1] = SwapMacAddressPtr->Addr[4];
+  SnpMode->CurrentAddress.Addr[2] = SwapMacAddressPtr->Addr[3];
+  SnpMode->CurrentAddress.Addr[3] = SwapMacAddressPtr->Addr[2];
+  SnpMode->CurrentAddress.Addr[4] = SwapMacAddressPtr->Addr[1];
+  SnpMode->CurrentAddress.Addr[5] = SwapMacAddressPtr->Addr[0];
+
+  //
+  // Assign fields for device path
+  //
+  CopyMem (&DevicePath->MacAddrDP.MacAddress, &Snp->Mode->CurrentAddress, NET_ETHER_ADDR_LEN);
+  DevicePath->MacAddrDP.IfType = Snp->Mode->IfType;
+
+  Status = gBS->InstallMultipleProtocolInterfaces (
+                  &Handle,
+                  &gEfiSimpleNetworkProtocolGuid,
+		  Snp,
+                  &gEfiDevicePathProtocolGuid,
+		  DevicePath,
+                  NULL
+                  );
+
+  if (EFI_ERROR(Status)) {
+    FreePages (DwMac4Driver, EFI_SIZE_TO_PAGES (sizeof (SOPHGO_SIMPLE_NETWORK_DRIVER)));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Install SIMPLE_NETWORK_PROTOCOL failed!\n",
+      __func__
+      ));
+  }
+
+  return Status;
 }

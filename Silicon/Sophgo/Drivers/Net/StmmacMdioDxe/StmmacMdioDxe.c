@@ -437,7 +437,16 @@ MdioDxeInitialize (
       NULL,
       (VOID **) &FdtClient
       );
-  ASSERT_EFI_ERROR (Status);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Locate FDT_CLIENT_PROTOCOL failed (Status = %r)\n",
+      __func__,
+      Status
+      ));
+
+    goto ErrorInstallProto;
+  }
 
   FindNodeStatus = FdtClient->FindCompatibleNode (
                                      FdtClient,
@@ -452,7 +461,7 @@ MdioDxeInitialize (
       Status
       ));
 
-    return Status;
+    goto ErrorInstallProto;
   }
 
   Status = FdtClient->GetNodeProperty (
@@ -470,7 +479,7 @@ MdioDxeInitialize (
       Status
       ));
 
-    return Status;
+    goto ErrorInstallProto;
   }
 
   Mdio->BaseAddress = SwapBytes64 (((CONST UINT64 *) Prop)[0]);
@@ -549,8 +558,13 @@ MdioDxeInitialize (
       "Failed to install interfaces\n"
       ));
 
-    return Status;
+    goto ErrorInstallProto;
   }
 
   return EFI_SUCCESS;
+
+ErrorInstallProto:
+  FreePool (Mdio);
+
+  return Status;
 }

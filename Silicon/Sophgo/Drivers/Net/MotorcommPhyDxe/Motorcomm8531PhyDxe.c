@@ -594,8 +594,11 @@ Yt8531PhyDxeEntryPoint (
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "Failed to install interfaces.\n"
+      "%a(): Failed to install interfaces.\n",
+      __func__
       ));
+
+    FreePool (Phy);
 
     return Status;
   }

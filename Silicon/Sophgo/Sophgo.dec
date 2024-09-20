@@ -31,6 +31,7 @@
   gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x0|UINT64|0x00001002
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x0|UINT64|0x00001003
   gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x0|UINT64|0x00001004
+  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x0|UINT64|0x00001005
 
 ## In the PcdsFixedAtBuild.RISCV64.
 [PcdsFixedAtBuild.RISCV64]

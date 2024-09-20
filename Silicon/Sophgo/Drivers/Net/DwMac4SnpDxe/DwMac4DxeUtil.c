@@ -490,7 +490,7 @@ DwMac4SetupTxDescriptor (
 
     TxDescriptor->Des0 = LOWER_32_BITS(TxDescriptor->DmaMacAddr);
     TxDescriptor->Des1 = UPPER_32_BITS(TxDescriptor->DmaMacAddr);
-    //TxDescriptor->Des2 = Length & TDES2_BUFFER1_SIZE_MASK;
+    //TxDescriptor->Des2 = Length;
     TxDescriptor->Des2 = 0;
     TxDescriptor->Des3 = TDES3_OWN | TDES3_PACKET_SIZE_MASK;
   }
