@@ -590,6 +590,30 @@
 #define DMA_DEBUG_STATUS_2              0x00001014
 #define DMA_AXI_BUS_MODE                0x00001028
 #define DMA_TBS_CTRL                    0x00001050
+
+#define DMA_DEBUG_STATUS_0_AXWHSTS      BIT0
+#define DMA_DEBUG_STATUS_0_AXRHSTS      BIT1
+#define DMA_DEBUG_STATUS_0_RPS0_SHIFT   8
+#define DMA_DEBUG_STATUS_0_RPS0_MASK    GENMASK(11, 8)
+#define DMA_DEBUG_RPS0_STOP             0
+#define DMA_DEBUG_RPS0_RUN_FRTD         1
+#define DMA_DEBUG_RPS0_RSVD             2
+#define DMA_DEBUG_RPS0_RUN_WRP          3
+#define DMA_DEBUG_RPS0_SUSPND           4
+#define DMA_DEBUG_RPS0_RUN_CRD          5
+#define DMA_DEBUG_RPS0_TSTMP            6
+#define DMA_DEBUG_RPS0_RUN_TRP          7
+#define DMA_DEBUG_STATUS_0_TPS0_SHIFT   12
+#define DMA_DEBUG_STATUS_0_TPS0_MASK    GENMASK(15, 12)
+#define DMA_DEBUG_TPS0_STOP             0
+#define DMA_DEBUG_TPS0_RUN_FTTD         1
+#define DMA_DEBUG_TPS0_RUN_WS           2
+#define DMA_DEBUG_TPS0_RUN_RDS          3
+#define DMA_DEBUG_TPS0_TSTMP_WS         4
+#define DMA_DEBUG_TPS0_RSVD             5
+#define DMA_DEBUG_TPS0_SUSPND           6
+#define DMA_DEBUG_TPS0_RUN_CTD          7
+
 //
 // DMA Bus Mode bitmap
 //
@@ -981,12 +1005,15 @@
 typedef struct {
   UINT32 Des0;
   UINT32 Des1;
+#if 1
   UINT32 Des2;
   UINT32 Des3;
+#else
   UINT64 DmaMacAddr;
   UINT64 DmaMacNext;
+#endif
 } DMA_DESCRIPTOR;
-
+#if 0
 typedef struct {
   EFI_PHYSICAL_ADDRESS        AddrMap;
   void                        *Mapping;
@@ -1005,7 +1032,18 @@ typedef struct {
   UINT32            RxCurrentDescriptorNum;
   UINT32            RxNextDescriptorNum;
 } STMMAC_DRIVER;
-
+#else
+typedef struct {
+  DMA_DESCRIPTOR    *TxDescRing[TX_DESC_NUM];
+  DMA_DESCRIPTOR    *RxDescRing[RX_DESC_NUM];
+  CHAR8             TxBuffer[TX_TOTAL_BUFFER_SIZE];
+  CHAR8             RxBuffer[RX_TOTAL_BUFFER_SIZE];
+  UINT32            TxCurrentDescriptorNum;
+  UINT32            TxNextDescriptorNum;
+  UINT32            RxCurrentDescriptorNum;
+  UINT32            RxNextDescriptorNum;
+} STMMAC_DRIVER;
+#endif
 VOID
 EFIAPI
 StmmacSetUmacAddr (
@@ -1140,4 +1178,9 @@ StmmacMacLinkUp (
   IN  UINTN                  MacBaseAddress
   );
 
+VOID
+EFIAPI
+StmmacDebug (
+  IN UINTN MacBaseAddress
+  );
 #endif // STMMAC_DXE_UTIL_H__

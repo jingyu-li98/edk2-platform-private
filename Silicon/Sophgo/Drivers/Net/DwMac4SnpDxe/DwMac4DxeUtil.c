@@ -420,7 +420,7 @@ DwMac4DmaInitTxChan (
 
   MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
 }
-
+#if 1
 VOID
 DwMac4SetupRxDescriptor (
   IN  STMMAC_DRIVER  *StmmacDriver,
@@ -437,8 +437,10 @@ DwMac4SetupRxDescriptor (
     RxDescriptor = (VOID *)(UINTN)StmmacDriver->RxDescRingMap[Index].AddrMap;
     RxDescriptor->DmaMacAddr = StmmacDriver->RxBufNum[Index].AddrMap;
 
+    DEBUG ((DEBUG_INFO, "[%d] RxDescriptor->DmaMacAddr=0x%lx\n", Index, RxDescriptor->DmaMacAddr));
     if (Index < RX_DESC_NUM - 1) {
       RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[Index + 1].AddrMap;
+    DEBUG ((DEBUG_INFO, "[%d]RxDescriptor->DmaMacNext=0x%lx\n", Index, RxDescriptor->DmaMacNext));
     }
 
     RxDescriptor->Des0 = LOWER_32_BITS(RxDescriptor->DmaMacAddr);
@@ -452,6 +454,7 @@ DwMac4SetupRxDescriptor (
   //
   RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[0].AddrMap;
 
+    DEBUG ((DEBUG_INFO, "RxDescriptor->DmaMacNext=0x%lx\n", RxDescriptor->DmaMacNext));
   //
   // Write the address of Rx descriptor list
   //
@@ -484,8 +487,10 @@ DwMac4SetupTxDescriptor (
     TxDescriptor = (VOID *)(UINTN)StmmacDriver->TxDescRingMap[Index].AddrMap;
     TxDescriptor->DmaMacAddr = (UINTN)&StmmacDriver->TxBuffer[Index * ETH_BUFFER_SIZE];
 
+    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
     if (Index < TX_DESC_NUM - 1) {
       TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[Index + 1].AddrMap;
+    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
     }
 
     TxDescriptor->Des0 = LOWER_32_BITS(TxDescriptor->DmaMacAddr);
@@ -493,12 +498,18 @@ DwMac4SetupTxDescriptor (
     //TxDescriptor->Des2 = Length;
     TxDescriptor->Des2 = 0;
     TxDescriptor->Des3 = TDES3_OWN | TDES3_PACKET_SIZE_MASK;
+    if (Index == (TX_DESC_NUM - 1)) {
+      TxDescriptor->Des3 |= TDES3_LAST_DESCRIPTOR;
+    } else {
+      TxDescriptor->Des3 &= ~TDES3_LAST_DESCRIPTOR;
+    }
   }
 
   //
   // Correcting the last pointer of the chain
   //
   TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[0].AddrMap;
+  DEBUG ((DEBUG_INFO, "TxDescriptor->DmaMacNext=0x%lx\n", TxDescriptor->DmaMacNext));
 
   //
   // Write the address of tx descriptor list
@@ -515,7 +526,103 @@ DwMac4SetupTxDescriptor (
   StmmacDriver->TxCurrentDescriptorNum = 0;
   StmmacDriver->TxNextDescriptorNum = 0;
 }
+#else
+VOID
+DwMac4SetupRxDescriptor (
+  IN  STMMAC_DRIVER  *StmmacDriver,
+  IN  UINTN          MacBaseAddress
+  )
+{
+  UINT32           Index;
+  DMA_DESCRIPTOR   *RxDescriptor;
+  UINT32           Channel;
 
+  Channel = 0;
+
+  for (Index = 0; Index < RX_DESC_NUM; Index++) {
+    RxDescriptor = (VOID *)(UINTN)StmmacDriver->RxDescRingMap[Index].AddrMap;
+    RxDescriptor->DmaMacAddr = StmmacDriver->RxBufNum[Index].AddrMap;
+
+    DEBUG ((DEBUG_INFO, "[%d] RxDescriptor->DmaMacAddr=0x%lx\n", Index, RxDescriptor->DmaMacAddr));
+    if (Index < RX_DESC_NUM - 1) {
+      RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[Index + 1].AddrMap;
+    DEBUG ((DEBUG_INFO, "[%d]RxDescriptor->DmaMacNext=0x%lx\n", Index, RxDescriptor->DmaMacNext));
+    }
+
+    RxDescriptor->Des0 = RDES3_OWN;
+    RxDescriptor->Des1 = RDES1_CHAINED | RX_MAX_PACKET;
+  }
+
+  //
+  // Correcting the last pointer of the chain
+  //
+  RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[0].AddrMap;
+
+    DEBUG ((DEBUG_INFO, "RxDescriptor->DmaMacNext=0x%lx\n", RxDescriptor->DmaMacNext));
+  //
+  // Write the address of Rx descriptor list
+  //
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR_HI(Channel)),
+		    UPPER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR(Channel)),
+		    LOWER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
+
+  //
+  // Initialize the descriptor number
+  //
+  StmmacDriver->RxCurrentDescriptorNum = 0;
+  StmmacDriver->RxNextDescriptorNum = 0;
+}
+
+VOID
+DwMac4SetupTxDescriptor (
+  IN  STMMAC_DRIVER  *StmmacDriver,
+  IN  UINTN          MacBaseAddress
+  )
+{
+  UINT32          Index;
+  DMA_DESCRIPTOR  *TxDescriptor;
+  UINT32          Channel;
+
+  Channel = 0;
+
+  for (Index = 0; Index < TX_DESC_NUM; Index++) {
+    TxDescriptor = (VOID *)(UINTN)StmmacDriver->TxDescRingMap[Index].AddrMap;
+    TxDescriptor->DmaMacAddr = (UINTN)&StmmacDriver->TxBuffer[Index * ETH_BUFFER_SIZE];
+
+    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
+    if (Index < TX_DESC_NUM - 1) {
+      TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[Index + 1].AddrMap;
+    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
+    }
+
+    TxDescriptor->Des0 = TDES0_TXCHAIN;
+    TxDescriptor->Des1 = 0;
+  }
+
+  //
+  // Correcting the last pointer of the chain
+  //
+  TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[0].AddrMap;
+  DEBUG ((DEBUG_INFO, "TxDescriptor->DmaMacNext=0x%lx\n", TxDescriptor->DmaMacNext));
+
+  //
+  // Write the address of tx descriptor list
+  //
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
+		    UPPER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
+		    LOWER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+
+  //
+  // Initialize the descriptor number
+  //
+  StmmacDriver->TxCurrentDescriptorNum = 0;
+  StmmacDriver->TxNextDescriptorNum = 0;
+}
+#endif
 VOID
 DwMac4DmaRxChanOpMode (
   IN  UINTN          MacBaseAddress,
@@ -1314,6 +1421,8 @@ StmmacGetDmaStatus (
     DmaStatus = MmioRead32 ((UINTN)MacBaseAddress + DMA_CHAN_STATUS(Channel));
     IntrEnable = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Channel)));
 
+    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
+    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
     //
     // TX/RX NORMAL interrupts.
     //
@@ -1323,6 +1432,11 @@ StmmacGetDmaStatus (
       // Rx interrupt.
       //
       if (DmaStatus & DMA_CHAN_STATUS_RI) {
+        DEBUG ((
+          DEBUG_INFO,
+	  "%a(): Rx interrupt enabled\n",
+	  __func__
+	  ));
         if (IrqStat != NULL) {
           *IrqStat |= EFI_SIMPLE_NETWORK_RECEIVE_INTERRUPT;
           Mask |= DMA_CHAN_STATUS_RI;
@@ -1333,6 +1447,11 @@ StmmacGetDmaStatus (
       // Tx interrupt.
       //
       if (DmaStatus & DMA_CHAN_STATUS_TI) {
+        DEBUG ((
+          DEBUG_INFO,
+	  "%a(): Tx interrupt enabled\n",
+	  __func__
+	  ));
         if (IrqStat != NULL) {
           *IrqStat |= EFI_SIMPLE_NETWORK_TRANSMIT_INTERRUPT;
           Mask |= DMA_CHAN_STATUS_TI;
@@ -1591,6 +1710,11 @@ StmmacMacLinkUp (
 
   if (Duplex == DUPLEX_FULL) {
     Value |= GMAC_CONFIG_DM;
+    //
+    // Debug: config Loopback mode.
+    //
+    Value |= GMAC_CONFIG_LM;
+    DEBUG ((DEBUG_INFO, "\n\n%a[%d] Loopback mode config\n\n", __func__, __LINE__));
   }
 
   if (Value != OldValue) {
@@ -1598,3 +1722,139 @@ StmmacMacLinkUp (
   }
 }
 
+VOID
+EFIAPI
+StmmacDebug (
+  IN UINTN MacBaseAddress
+  )
+{
+  UINT32 Value;
+  UINT32 TfcStatus;
+  UINT32 Rps0;
+  UINT32 Tps0;
+
+  //
+  // GMAC debug
+  //
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_DEBUG));
+
+  if (Value & GMAC_DEBUG_TFCSTS_MASK) {
+    TfcStatus = (Value & GMAC_DEBUG_TFCSTS_MASK) >> GMAC_DEBUG_TFCSTS_SHIFT;
+    switch (TfcStatus) {
+    case GMAC_DEBUG_TFCSTS_XFER:
+      DEBUG ((DEBUG_INFO, "%a(): Transferring input packet for transmission.\n", __func__));
+      break;
+    case GMAC_DEBUG_TFCSTS_GEN_PAUSE:
+      DEBUG ((DEBUG_INFO, "%a(): Generating and transmitting a Pause control packet (in full-duplex mode).\n", __func__));
+      break;
+    case GMAC_DEBUG_TFCSTS_WAIT:
+      DEBUG ((DEBUG_INFO, "%a(): Waiting for one of the following: Status of the previous packet OR IPG or back off period to be over.\n", __func__));
+      break;
+    case GMAC_DEBUG_TFCSTS_IDLE:
+      DEBUG ((DEBUG_INFO, "%a(): Idle State.\n", __func__));
+      break;
+    default:
+      break;
+    }
+  }
+
+  if (Value & GMAC_DEBUG_TPESTS) {
+      DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Transmit Protocol Engine Status detected\n", __func__));
+  } else {
+      DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Transmit Protocol Engine Status NOT detected\n", __func__));
+  }
+
+  if (Value & GMAC_DEBUG_RFCFCSTS_MASK) {
+    DEBUG ((DEBUG_INFO, "%a(): MAC Receive Packet Controller FIFO Status=0x%x\n", __func__,
+			    (Value & GMAC_DEBUG_RFCFCSTS_MASK) >> GMAC_DEBUG_RFCFCSTS_SHIFT));
+  }
+
+  if (Value & GMAC_DEBUG_RPESTS) {
+      DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Receive Protocol Engine Status detected\n", __func__));
+  } else {
+      DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Receive Protocol Engine Status NOT detected\n", __func__));
+  }
+
+  //
+  // DMA debug
+  //
+  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_DEBUG_STATUS_0));
+
+  if (Value & DMA_DEBUG_STATUS_0_AXWHSTS) {
+      DEBUG ((DEBUG_INFO, "%a(): AXI Master Write Channel or AHB Master Status detected\n", __func__));
+  } else {
+      DEBUG ((DEBUG_INFO, "%a(): AXI Master Write Channel or AHB Master Status NOT detected\n", __func__));
+  }
+
+  if (Value & DMA_DEBUG_STATUS_0_AXRHSTS) {
+      DEBUG ((DEBUG_INFO, "%a(): AXI Master Read Channel Status detected\n", __func__));
+  } else {
+      DEBUG ((DEBUG_INFO, "%a(): AXI Master Read Channel Status NOT detected\n", __func__));
+  }
+
+  if (Value & DMA_DEBUG_STATUS_0_RPS0_MASK) {
+    Rps0 = (Value & DMA_DEBUG_STATUS_0_RPS0_MASK) >> DMA_DEBUG_STATUS_0_RPS0_SHIFT;
+    DEBUG ((DEBUG_INFO, "%a(): Channel0 Receive Process Status:\n", __func__));
+    switch (Rps0) {
+    case DMA_DEBUG_RPS0_STOP:
+      DEBUG ((DEBUG_INFO, "  Stopped (Reset or Stop Receive Command issued).\n"));
+      break;
+    case DMA_DEBUG_RPS0_RUN_FRTD:
+      DEBUG ((DEBUG_INFO, "  Running (Fetching Rx Transfer Descriptor).\n"));
+      break;
+    case DMA_DEBUG_RPS0_RSVD:
+      DEBUG ((DEBUG_INFO, "  Reserved for future use.\n"));
+      break;
+    case DMA_DEBUG_RPS0_RUN_WRP:
+      DEBUG ((DEBUG_INFO, "  Running (Waiting for Rx packet).\n"));
+      break;
+    case DMA_DEBUG_RPS0_SUSPND:
+      DEBUG ((DEBUG_INFO, "  Suspended (Rx Descriptor Unavailable).\n"));
+      break;
+    case DMA_DEBUG_RPS0_RUN_CRD:
+      DEBUG ((DEBUG_INFO, "  Running (Closing the Rx Descriptor).\n"));
+      break;
+    case DMA_DEBUG_RPS0_TSTMP:
+      DEBUG ((DEBUG_INFO, "  Timestamp write state.\n"));
+      break;
+    case DMA_DEBUG_RPS0_RUN_TRP:
+      DEBUG ((DEBUG_INFO, "  Running (Transferring the received packet data from the Rx buffer to the system memory).\n"));
+      break;
+    default:
+      break;
+    }
+  }
+
+  if (Value & DMA_DEBUG_STATUS_0_TPS0_MASK) {
+    Tps0 = (Value & DMA_DEBUG_STATUS_0_TPS0_MASK) >> DMA_DEBUG_STATUS_0_TPS0_SHIFT;
+    DEBUG ((DEBUG_INFO, "%a(): Channel0 Transmit Process Status:\n", __func__));
+    switch (Tps0) {
+    case DMA_DEBUG_TPS0_STOP:
+      DEBUG ((DEBUG_INFO, "  Stopped (Reset or Stop Transmit Command issued).\n"));
+      break;
+    case DMA_DEBUG_TPS0_RUN_FTTD:
+      DEBUG ((DEBUG_INFO, "  Running (Fetching Tx Transfer Descriptor).\n"));
+      break;
+    case DMA_DEBUG_TPS0_RUN_WS:
+      DEBUG ((DEBUG_INFO, "  Running (Waiting for status).\n"));
+      break;
+    case DMA_DEBUG_TPS0_RUN_RDS:
+      DEBUG ((DEBUG_INFO, "  Running (Reading Data from system memory buffer and queuing it to the Tx buffer (Tx FIFO)).\n"));
+      break;
+    case DMA_DEBUG_TPS0_TSTMP_WS:
+      DEBUG ((DEBUG_INFO, "  Timestamp write state.\n"));
+      break;
+    case DMA_DEBUG_TPS0_RSVD:
+      DEBUG ((DEBUG_INFO, "  Reserved for future use.\n"));
+      break;
+    case DMA_DEBUG_TPS0_SUSPND:
+      DEBUG ((DEBUG_INFO, "  Suspended (Tx Descriptor Unavailable or Tx Buffer Underflow).\n"));
+      break;
+    case DMA_DEBUG_TPS0_RUN_CTD:
+      DEBUG ((DEBUG_INFO, "  Running (Closing Tx Descriptor).\n"));
+      break;
+    default:
+      break;
+    }
+  }
+}
