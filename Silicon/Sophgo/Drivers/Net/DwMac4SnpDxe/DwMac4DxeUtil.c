@@ -61,14 +61,14 @@ StmmacSetUmacAddr (
                     );
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "%a(): GMAC_ADDR_LOW(%d)  = 0x%08X \r\n",
     __func__,
     RegN,
     MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN)))
     ));
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "%a(): GMAC_ADDR_HIGH(%d)  = 0x%08X \r\n",
     __func__,
     RegN,
@@ -165,7 +165,7 @@ DwMac4DmaAxi (
 }
 
 VOID
-DwMac4SetRxTailPtr (
+StmmacSetRxTailPtr (
   IN UINTN  MacBaseAddress,
   IN UINT32 TailPtr,
   IN UINT32 Channel
@@ -175,7 +175,7 @@ DwMac4SetRxTailPtr (
 }
 
 VOID
-DwMac4SetTxTailPtr (
+StmmacSetTxTailPtr (
   IN UINTN  MacBaseAddress,
   IN UINT32 TailPtr,
   IN UINT32 Channel
@@ -420,7 +420,7 @@ DwMac4DmaInitTxChan (
 
   MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
 }
-#if 1
+
 VOID
 DwMac4SetupRxDescriptor (
   IN  STMMAC_DRIVER  *StmmacDriver,
@@ -435,29 +435,20 @@ DwMac4SetupRxDescriptor (
 
   for (Index = 0; Index < RX_DESC_NUM; Index++) {
     RxDescriptor = (VOID *)(UINTN)StmmacDriver->RxDescRingMap[Index].AddrMap;
-    RxDescriptor->DmaMacAddr = StmmacDriver->RxBufNum[Index].AddrMap;
 
-    DEBUG ((DEBUG_INFO, "[%d] RxDescriptor->DmaMacAddr=0x%lx\n", Index, RxDescriptor->DmaMacAddr));
-    if (Index < RX_DESC_NUM - 1) {
-      RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[Index + 1].AddrMap;
-    DEBUG ((DEBUG_INFO, "[%d]RxDescriptor->DmaMacNext=0x%lx\n", Index, RxDescriptor->DmaMacNext));
-    }
 
-    RxDescriptor->Des0 = LOWER_32_BITS(RxDescriptor->DmaMacAddr);
-    RxDescriptor->Des1 = UPPER_32_BITS(RxDescriptor->DmaMacAddr);
+    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]->Des0/Des1 (RxBuffer) =0x%lx\n", Index, StmmacDriver->RxBufNum[Index].AddrMap));
+
+    RxDescriptor->Des0 = LOWER_32_BITS(StmmacDriver->RxBufNum[Index].AddrMap);
+    RxDescriptor->Des1 = UPPER_32_BITS(StmmacDriver->RxBufNum[Index].AddrMap);
     RxDescriptor->Des2 = 0;
     RxDescriptor->Des3 = RDES3_OWN | RDES3_BUFFER1_VALID_ADDR;
   }
 
   //
-  // Correcting the last pointer of the chain
-  //
-  RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[0].AddrMap;
-
-    DEBUG ((DEBUG_INFO, "RxDescriptor->DmaMacNext=0x%lx\n", RxDescriptor->DmaMacNext));
-  //
   // Write the address of Rx descriptor list
   //
+  DEBUG ((DEBUG_INFO, "RxDescriptor[0] Address=0x%lx\n", StmmacDriver->RxDescRingMap[0].AddrMap));
   MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR_HI(Channel)),
 		    UPPER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
 
@@ -485,6 +476,7 @@ DwMac4SetupTxDescriptor (
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
     TxDescriptor = (VOID *)(UINTN)StmmacDriver->TxDescRingMap[Index].AddrMap;
+#if 0
     TxDescriptor->DmaMacAddr = (UINTN)&StmmacDriver->TxBuffer[Index * ETH_BUFFER_SIZE];
 
     DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
@@ -503,126 +495,26 @@ DwMac4SetupTxDescriptor (
     } else {
       TxDescriptor->Des3 &= ~TDES3_LAST_DESCRIPTOR;
     }
-  }
-
-  //
-  // Correcting the last pointer of the chain
-  //
-  TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[0].AddrMap;
-  DEBUG ((DEBUG_INFO, "TxDescriptor->DmaMacNext=0x%lx\n", TxDescriptor->DmaMacNext));
-
-  //
-  // Write the address of tx descriptor list
-  //
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
-		    UPPER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
-
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
-		    LOWER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
-
-  //
-  // Initialize the descriptor number
-  //
-  StmmacDriver->TxCurrentDescriptorNum = 0;
-  StmmacDriver->TxNextDescriptorNum = 0;
-}
-#else
-VOID
-DwMac4SetupRxDescriptor (
-  IN  STMMAC_DRIVER  *StmmacDriver,
-  IN  UINTN          MacBaseAddress
-  )
-{
-  UINT32           Index;
-  DMA_DESCRIPTOR   *RxDescriptor;
-  UINT32           Channel;
-
-  Channel = 0;
-
-  for (Index = 0; Index < RX_DESC_NUM; Index++) {
-    RxDescriptor = (VOID *)(UINTN)StmmacDriver->RxDescRingMap[Index].AddrMap;
-    RxDescriptor->DmaMacAddr = StmmacDriver->RxBufNum[Index].AddrMap;
-
-    DEBUG ((DEBUG_INFO, "[%d] RxDescriptor->DmaMacAddr=0x%lx\n", Index, RxDescriptor->DmaMacAddr));
-    if (Index < RX_DESC_NUM - 1) {
-      RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[Index + 1].AddrMap;
-    DEBUG ((DEBUG_INFO, "[%d]RxDescriptor->DmaMacNext=0x%lx\n", Index, RxDescriptor->DmaMacNext));
-    }
-
-    RxDescriptor->Des0 = RDES3_OWN;
-    RxDescriptor->Des1 = RDES1_CHAINED | RX_MAX_PACKET;
-  }
-
-  //
-  // Correcting the last pointer of the chain
-  //
-  RxDescriptor->DmaMacNext = (UINTN)StmmacDriver->RxDescRingMap[0].AddrMap;
-
-    DEBUG ((DEBUG_INFO, "RxDescriptor->DmaMacNext=0x%lx\n", RxDescriptor->DmaMacNext));
-  //
-  // Write the address of Rx descriptor list
-  //
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR_HI(Channel)),
-		    UPPER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
-
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR(Channel)),
-		    LOWER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
-
-  //
-  // Initialize the descriptor number
-  //
-  StmmacDriver->RxCurrentDescriptorNum = 0;
-  StmmacDriver->RxNextDescriptorNum = 0;
-}
-
-VOID
-DwMac4SetupTxDescriptor (
-  IN  STMMAC_DRIVER  *StmmacDriver,
-  IN  UINTN          MacBaseAddress
-  )
-{
-  UINT32          Index;
-  DMA_DESCRIPTOR  *TxDescriptor;
-  UINT32          Channel;
-
-  Channel = 0;
-
-  for (Index = 0; Index < TX_DESC_NUM; Index++) {
-    TxDescriptor = (VOID *)(UINTN)StmmacDriver->TxDescRingMap[Index].AddrMap;
-    TxDescriptor->DmaMacAddr = (UINTN)&StmmacDriver->TxBuffer[Index * ETH_BUFFER_SIZE];
-
-    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
-    if (Index < TX_DESC_NUM - 1) {
-      TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[Index + 1].AddrMap;
-    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
-    }
-
-    TxDescriptor->Des0 = TDES0_TXCHAIN;
-    TxDescriptor->Des1 = 0;
-  }
-
-  //
-  // Correcting the last pointer of the chain
-  //
-  TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[0].AddrMap;
-  DEBUG ((DEBUG_INFO, "TxDescriptor->DmaMacNext=0x%lx\n", TxDescriptor->DmaMacNext));
-
-  //
-  // Write the address of tx descriptor list
-  //
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
-		    UPPER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
-
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
-		    LOWER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
-
-  //
-  // Initialize the descriptor number
-  //
-  StmmacDriver->TxCurrentDescriptorNum = 0;
-  StmmacDriver->TxNextDescriptorNum = 0;
-}
 #endif
+  }
+
+  //
+  // Write the address of tx descriptor list
+  //
+  DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", StmmacDriver->TxDescRingMap[0].AddrMap));
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
+		    UPPER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+
+  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
+		    LOWER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+
+  //
+  // Initialize the descriptor number
+  //
+  StmmacDriver->TxCurrentDescriptorNum = 0;
+  StmmacDriver->TxNextDescriptorNum = 0;
+}
+
 VOID
 DwMac4DmaRxChanOpMode (
   IN  UINTN          MacBaseAddress,
@@ -1014,14 +906,15 @@ StmmacInitDmaEngine (
   // like maximum burst-length (PBL) initiated by DMA, descriptor skip lengths,
   // OSP in case of Tx DMA, RBSZ in case of Rx DMA, and so on.
   //
-  for (Channel = -1; Channel < DmaCsrCh; Channel++) {
+  for (Channel = 0; Channel < DmaCsrCh; Channel++) {
     DwMac4InitChannel (MacBaseAddress, Channel);
   }
 
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
     DwMac4DmaInitRxChan (MacBaseAddress, Channel);
 
-    DwMac4SetRxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
+    DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&StmmacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
+    StmmacSetRxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
   }
 
   //
@@ -1030,7 +923,8 @@ StmmacInitDmaEngine (
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
     DwMac4DmaInitTxChan (MacBaseAddress, Channel);
 
-    DwMac4SetTxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
+    DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&StmmacDriver->TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
+    StmmacSetTxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
   }
 
   //
@@ -1710,11 +1604,13 @@ StmmacMacLinkUp (
 
   if (Duplex == DUPLEX_FULL) {
     Value |= GMAC_CONFIG_DM;
+#if 0
     //
     // Debug: config Loopback mode.
     //
     Value |= GMAC_CONFIG_LM;
     DEBUG ((DEBUG_INFO, "\n\n%a[%d] Loopback mode config\n\n", __func__, __LINE__));
+#endif
   }
 
   if (Value != OldValue) {

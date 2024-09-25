@@ -851,8 +851,8 @@
 #define MMC_RX_OVERSIZE_G         0x700 + 0xa8
 #define MMC_RX_UNICAST_G          0x700 + 0xc4
 
-#define TX_DESC_NUM               16
-#define RX_DESC_NUM               16
+#define TX_DESC_NUM               4
+#define RX_DESC_NUM               4
 #define ETH_BUFFER_SIZE           2048 // 2KiB
 #define TX_TOTAL_BUFFER_SIZE      (TX_DESC_NUM * ETH_BUFFER_SIZE)
 #define RX_TOTAL_BUFFER_SIZE      (RX_DESC_NUM * ETH_BUFFER_SIZE)
@@ -1005,45 +1005,29 @@
 typedef struct {
   UINT32 Des0;
   UINT32 Des1;
-#if 1
   UINT32 Des2;
   UINT32 Des3;
-#else
-  UINT64 DmaMacAddr;
-  UINT64 DmaMacNext;
-#endif
 } DMA_DESCRIPTOR;
-#if 0
+
 typedef struct {
   EFI_PHYSICAL_ADDRESS        AddrMap;
   void                        *Mapping;
 } MAP_INFO;
 
 typedef struct {
-  DMA_DESCRIPTOR    *TxDescRing[TX_DESC_NUM];
-  DMA_DESCRIPTOR    *RxDescRing[RX_DESC_NUM];
-  CHAR8             TxBuffer[TX_TOTAL_BUFFER_SIZE];
-  CHAR8             RxBuffer[RX_TOTAL_BUFFER_SIZE];
-  MAP_INFO          TxDescRingMap[TX_DESC_NUM];
-  MAP_INFO          RxDescRingMap[RX_DESC_NUM];
-  MAP_INFO          RxBufNum[TX_DESC_NUM];
-  UINT32            TxCurrentDescriptorNum;
-  UINT32            TxNextDescriptorNum;
-  UINT32            RxCurrentDescriptorNum;
-  UINT32            RxNextDescriptorNum;
+  DMA_DESCRIPTOR              *TxDescRing[TX_DESC_NUM];
+  DMA_DESCRIPTOR              *RxDescRing[RX_DESC_NUM];
+  CHAR8                       TxBuffer[TX_TOTAL_BUFFER_SIZE];
+  CHAR8                       RxBuffer[RX_TOTAL_BUFFER_SIZE];
+  MAP_INFO                    TxDescRingMap[TX_DESC_NUM];
+  MAP_INFO                    RxDescRingMap[RX_DESC_NUM];
+  MAP_INFO                    RxBufNum[RX_DESC_NUM];
+  UINT32                      TxCurrentDescriptorNum;
+  UINT32                      TxNextDescriptorNum;
+  UINT32                      RxCurrentDescriptorNum;
+  UINT32                      RxNextDescriptorNum;
 } STMMAC_DRIVER;
-#else
-typedef struct {
-  DMA_DESCRIPTOR    *TxDescRing[TX_DESC_NUM];
-  DMA_DESCRIPTOR    *RxDescRing[RX_DESC_NUM];
-  CHAR8             TxBuffer[TX_TOTAL_BUFFER_SIZE];
-  CHAR8             RxBuffer[RX_TOTAL_BUFFER_SIZE];
-  UINT32            TxCurrentDescriptorNum;
-  UINT32            TxNextDescriptorNum;
-  UINT32            RxCurrentDescriptorNum;
-  UINT32            RxNextDescriptorNum;
-} STMMAC_DRIVER;
-#endif
+
 VOID
 EFIAPI
 StmmacSetUmacAddr (
@@ -1181,6 +1165,20 @@ StmmacMacLinkUp (
 VOID
 EFIAPI
 StmmacDebug (
-  IN UINTN MacBaseAddress
+  IN UINTN                   MacBaseAddress
+  );
+
+VOID
+StmmacSetRxTailPtr (
+  IN UINTN                   MacBaseAddress,
+  IN UINT32                  TailPtr,
+  IN UINT32                  Channel
+  );
+
+VOID
+StmmacSetTxTailPtr (
+  IN UINTN                   MacBaseAddress,
+  IN UINT32                  TailPtr,
+  IN UINT32                  Channel
   );
 #endif // STMMAC_DXE_UTIL_H__

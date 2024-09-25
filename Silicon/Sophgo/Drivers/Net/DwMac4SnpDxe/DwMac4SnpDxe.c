@@ -344,7 +344,7 @@ SnpInitialize (
       ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
-#if 0
+#if 1
   // ------------------------
   // todo: PhyDev->Interface
   // ------------------------
@@ -369,8 +369,9 @@ SnpInitialize (
   if (EFI_ERROR (Status)) {
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
+#else
+  StmmacMacLinkUp (PHY_INTERFACE_MODE_RGMII_ID, DUPLEX_FULL, DwMac4Driver->MacBase);
 #endif
-   StmmacMacLinkUp (PHY_INTERFACE_MODE_RGMII_ID, DUPLEX_FULL, DwMac4Driver->MacBase);
   //
   // DMA initialization and SW reset
   //
@@ -1356,7 +1357,7 @@ SnpGetStatus (
       ));
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
-#if 0
+#if 1
   //
   // Update the media status
   //
@@ -1481,18 +1482,17 @@ SnpTransmit (
   UINT8                             *EthernetPacket;
   UINT64                            *Tmp;
   EFI_STATUS                        Status;
-  UINTN                             BufferSizeBuf;
   EFI_PHYSICAL_ADDRESS              TxBufferAddrMap;
-  //UINT32                            Index;
-  // UINTN                             TxTailAddr;
+  UINT32                            Index;
+  UINTN                             TxTailAddr;
   EFI_TPL                           SavedTpl;
+  UINTN               DmaNumberOfBytes;
 
   DEBUG ((DEBUG_INFO, "%a()\n", __func__));
 
   //
   // Setup DMA descriptor
   //
-  BufferSizeBuf = ETH_BUFFER_SIZE;
   EthernetPacket = Data;
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
@@ -1597,12 +1597,12 @@ SnpTransmit (
     EthernetPacket[12] = (*Protocol & 0xFF00) >> 8;
   }
 
-  CopyMem ((VOID *)(UINTN)TxDescriptor->DmaMacAddr, EthernetPacket, BufferSize);
-
+  DmaNumberOfBytes = BufferSize;
+  DEBUG ((DEBUG_INFO, "%a(): Packet=0x%p, Length=0x%x\n", __func__, EthernetPacket, BufferSize));
   Status = DmaMap (
 		  MapOperationBusMasterRead,
-		  (VOID *)(UINTN)TxDescriptor->DmaMacAddr,
-                  &BufferSizeBuf,
+		  (VOID *)(UINTN)EthernetPacket,
+                  &DmaNumberOfBytes,
 		  &TxBufferAddrMap,
 		  &DwMac4Driver->MappingTxbuf
 		  );
@@ -1614,13 +1614,15 @@ SnpTransmit (
       Status
       ));
 
-    return Status;
+    ReturnUnlock (Status);
   }
 
-  TxDescriptorMap->DmaMacAddr = TxBufferAddrMap;
-
+  //
+  // Increase Descriptor number
+  //
+  TxDescIndex++;
   TxDescIndex %= TX_DESC_NUM;
-
+  
   TxDescriptor->Des0 = TxBufferAddrMap;
   TxDescriptor->Des1 = TxBufferAddrMap >> 32;
   TxDescriptor->Des2 = BufferSize;
@@ -1633,10 +1635,6 @@ SnpTransmit (
 	               TDES3_FIRST_DESCRIPTOR |
 		       TDES3_LAST_DESCRIPTOR |
 		       BufferSize;
-  //
-  // Increase Descriptor number
-  //
-  TxDescIndex++;
 
   if (TxDescIndex >= TX_DESC_NUM) {
     TxDescIndex = 0;
@@ -1657,7 +1655,7 @@ SnpTransmit (
     DwMac4Driver->RecycledTxBuf = Tmp;
     DwMac4Driver->MaxRecycledTxBuf += TX_DESC_NUM;
   }
-#if 0
+
   TxTailAddr = TxDescIndex * sizeof(DMA_DESCRIPTOR);
   StmmacSetTxTailPtr (DwMac4Driver->MacBase, TxTailAddr, 0);
   for (Index = 0; Index < 1000000; Index++) {
@@ -1665,8 +1663,8 @@ SnpTransmit (
       return 0;
     }
      gBS->Stall(1);
-   }
-#endif
+  }
+
   DEBUG ((
     DEBUG_ERROR,
     "%a(): TX timeout\n",
@@ -1674,11 +1672,6 @@ SnpTransmit (
     ));
 
   return EFI_TIMEOUT;
-
-  //
-  // Start the transmission
-  //
-  StmmacStartAllDma (DwMac4Driver->MacBase);
 
   DmaUnmap (DwMac4Driver->MappingTxbuf);
 
@@ -1968,7 +1961,7 @@ SnpReceive (
   }
 
   DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap = RxBufferAddrMap;
-  RxDescriptorMap->DmaMacAddr = DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap;
+  //RxDescriptorMap->DmaMacAddr = DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap;
 
   RxDescriptor->Des3 |= (UINT32)RDES3_OWN;
 
