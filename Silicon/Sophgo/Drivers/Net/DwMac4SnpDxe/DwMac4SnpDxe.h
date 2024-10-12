@@ -22,7 +22,6 @@
 //
 #include <Protocol/DevicePath.h>
 #include <Protocol/SimpleNetwork.h>
-#include <Library/UefiLib.h>
 
 #include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
@@ -36,44 +35,6 @@ typedef struct {
   EFI_DEVICE_PATH_PROTOCOL               End;
 } SOPHGO_SIMPLE_NETWORK_DEVICE_PATH;
 
-typedef struct {
-  // Driver signature
-  UINT32                                 Signature;
-  EFI_HANDLE                             ControllerHandle;
-
-  // EFI SNP protocol instances
-  EFI_SIMPLE_NETWORK_PROTOCOL            Snp;
-  EFI_SIMPLE_NETWORK_MODE                SnpMode;
-
-  // EFI Snp statistics instance
-  EFI_NETWORK_STATISTICS                 Stats;
-
-  STMMAC_DRIVER                          MacDriver;
-  PHY_DEVICE                             *PhyDev;
-  SOPHGO_PHY_PROTOCOL                    *Phy;
-
-  EFI_LOCK                               Lock;
-
-  UINTN                                  MacBase;
-
-  // Array of the recycled transmit buffer address
-  UINT64                                 *RecycledTxBuf;
-
-  // The maximum number of recycled buffer pointers in RecycledTxBuf
-  UINT32                                 MaxRecycledTxBuf;
-
-  // Current number of recycled buffer pointers in RecycledTxBuf
-  UINT32                                 RecycledTxBufCount;
-
-  // For TX buffer DmaUnmap
-  VOID                                   *MappingTxbuf;
-
-} SOPHGO_SIMPLE_NETWORK_DRIVER;
-
-#define SNP_DRIVER_SIGNATURE             SIGNATURE_32('A', 'S', 'N', 'P')
-#define INSTANCE_FROM_SNP_THIS(a)        CR(a, SOPHGO_SIMPLE_NETWORK_DRIVER, Snp, SNP_DRIVER_SIGNATURE)
-#define SNP_TX_BUFFER_INCREASE           32
-#define SNP_MAX_TX_BUFFER_NUM            65536
 /*---------------------------------------------------------------------------------------------------------------------
 
   UEFI-Compliant functions for EFI_SIMPLE_NETWORK_PROTOCOL

@@ -18,6 +18,7 @@
 #define STMMAC_DXE_UTIL_H__
 
 #include <Protocol/SimpleNetwork.h>
+#include <Library/UefiLib.h>
 #include <Base.h>
 #define BIT(nr)              (1UL << (nr))
 #define GENMASK(end, start)  (((1ULL << ((end) - (start) + 1)) - 1) << (start))
@@ -638,21 +639,21 @@
 //
 #define DMA_RX_WATCHDOG         0x00001024
 
-/* DMA debug status bitmap */                                                   
-#define DMA_DEBUG_STATUS_TS_MASK        0xf                                     
-#define DMA_DEBUG_STATUS_RS_MASK        0xf                                     
-                                                                                
-/* DMA AXI bitmap */                                                            
-#define DMA_AXI_EN_LPI                  BIT31                                 
-#define DMA_AXI_LPI_XIT_FRM             BIT30                                 
-#define DMA_AXI_WR_OSR_LMT              GENMASK(27, 24)                         
-#define DMA_AXI_WR_OSR_LMT_SHIFT        24                                      
-#define DMA_AXI_RD_OSR_LMT              GENMASK(19, 16)                         
-#define DMA_AXI_RD_OSR_LMT_SHIFT        16                                      
-                                                                                
-#define DMA_AXI_OSR_MAX                 0xf                                                                                                                                                                   
+/* DMA debug status bitmap */
+#define DMA_DEBUG_STATUS_TS_MASK        0xf
+#define DMA_DEBUG_STATUS_RS_MASK        0xf
+
+/* DMA AXI bitmap */
+#define DMA_AXI_EN_LPI                  BIT31
+#define DMA_AXI_LPI_XIT_FRM             BIT30
+#define DMA_AXI_WR_OSR_LMT              GENMASK(27, 24)
+#define DMA_AXI_WR_OSR_LMT_SHIFT        24
+#define DMA_AXI_RD_OSR_LMT              GENMASK(19, 16)
+#define DMA_AXI_RD_OSR_LMT_SHIFT        16
+
+#define DMA_AXI_OSR_MAX                 0xf
 #define DMA_AXI_MAX_OSR_LIMIT ((DMA_AXI_OSR_MAX << DMA_AXI_WR_OSR_LMT_SHIFT) | \
-                                (DMA_AXI_OSR_MAX << DMA_AXI_RD_OSR_LMT_SHIFT))  
+                                (DMA_AXI_OSR_MAX << DMA_AXI_RD_OSR_LMT_SHIFT))
 
 //
 // AXI Master Bus Mode
@@ -853,10 +854,11 @@
 
 #define TX_DESC_NUM               4
 #define RX_DESC_NUM               4
-#define ETH_BUFFER_SIZE           2048 // 2KiB
+//#define ETH_BUFFER_SIZE           2048 // 2KiB
+#define ETH_BUFFER_SIZE           1600 // 2KiB
 #define TX_TOTAL_BUFFER_SIZE      (TX_DESC_NUM * ETH_BUFFER_SIZE)
 #define RX_TOTAL_BUFFER_SIZE      (RX_DESC_NUM * ETH_BUFFER_SIZE)
-
+#define RX_MAX_PACKET             1600 // ALIGN(1568, 64)
 
 /* Normal transmit descriptor defines (without split feature) */
 
@@ -999,6 +1001,16 @@
 #define MTL_QUEUE_AVB           0x0
 #define MTL_QUEUE_DCB           0x1
 
+#define PAUSE_TIME      0xffff
+//
+// Flow Control defines
+//
+#define FLOW_OFF        0
+#define FLOW_RX         1
+#define FLOW_TX         2
+#define FLOW_AUTO       (FLOW_TX | FLOW_RX)
+
+
 #define SF_DMA_MODE 1           /* DMA STORE-AND-FORWARD Operation Mode */
 
 /* Basic descriptor structure for normal and alternate descriptors */
@@ -1028,78 +1040,113 @@ typedef struct {
   UINT32                      RxNextDescriptorNum;
 } STMMAC_DRIVER;
 
+typedef struct {
+  // Driver signature
+  UINT32                                 Signature;
+  EFI_HANDLE                             ControllerHandle;
+
+  // EFI SNP protocol instances
+  EFI_SIMPLE_NETWORK_PROTOCOL            Snp;
+  EFI_SIMPLE_NETWORK_MODE                SnpMode;
+
+  // EFI Snp statistics instance
+  EFI_NETWORK_STATISTICS                 Stats;
+
+  STMMAC_DRIVER                          MacDriver;
+  PHY_DEVICE                             *PhyDev;
+  SOPHGO_PHY_PROTOCOL                    *Phy;
+
+  EFI_LOCK                               Lock;
+
+  UINTN                                  RegBase;
+
+  // Array of the recycled transmit buffer address
+  UINT64                                 *RecycledTxBuf;
+
+  // The maximum number of recycled buffer pointers in RecycledTxBuf
+  UINT32                                 MaxRecycledTxBuf;
+
+  // Current number of recycled buffer pointers in RecycledTxBuf
+  UINT32                                 RecycledTxBufCount;
+
+  // For TX buffer DmaUnmap
+  VOID                                   *MappingTxbuf;
+
+} SOPHGO_SIMPLE_NETWORK_DRIVER;
+
+#define SNP_DRIVER_SIGNATURE             SIGNATURE_32('A', 'S', 'N', 'P')
+#define INSTANCE_FROM_SNP_THIS(a)        CR(a, SOPHGO_SIMPLE_NETWORK_DRIVER, Snp, SNP_DRIVER_SIGNATURE)
+#define SNP_TX_BUFFER_INCREASE           32
+#define SNP_MAX_TX_BUFFER_NUM            65536
+
 VOID
 EFIAPI
 StmmacSetUmacAddr (
-  IN  EFI_MAC_ADDRESS         *MacAddress,
-  IN  UINTN                   MacBaseAddress,
-  IN  UINTN                   RegN
+  IN  EFI_MAC_ADDRESS               *MacAddress,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         RegN
   );
 
 VOID
 EFIAPI
 StmmacGetMacAddr (
-  OUT  EFI_MAC_ADDRESS        *MacAddress,
-  IN   UINTN                  MacBaseAddress,
-  IN   UINTN                  RegN
+  OUT EFI_MAC_ADDRESS               *MacAddress,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         RegN
   );
 
 VOID
 EFIAPI
 StmmacReadMacAddress (
-  OUT EFI_MAC_ADDRESS         *MacAddress,
-  IN  UINTN                   MacBaseAddress
+  OUT EFI_MAC_ADDRESS               *MacAddress,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacDxeInitialization (
-  IN  STMMAC_DRIVER           *StmmacDriver,
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacDmaInit (
-  IN  STMMAC_DRIVER           *StmmacDriver,
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacSetupTxdesc (
-  IN  STMMAC_DRIVER           *StmmacDriver,
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
  );
 
 EFI_STATUS
 EFIAPI
 StmmacSetupRxdesc (
-  IN  STMMAC_DRIVER           *StmmacDriver,
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacStartTransmission (
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacSetFilters (
-  IN  UINT32                  ReceiveFilterSetting,
-  IN  BOOLEAN                 Reset,
-  IN  UINTN                   NumMfilter             OPTIONAL,
-  IN  EFI_MAC_ADDRESS         *Mfilter               OPTIONAL,
-  IN  UINTN                   MacBaseAddress
+  IN  UINT32                        ReceiveFilterSetting,
+  IN  BOOLEAN                       Reset,
+  IN  UINTN                         NumMfilter             OPTIONAL,
+  IN  EFI_MAC_ADDRESS               *Mfilter               OPTIONAL,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 UINT32
 EFIAPI
 GenEtherCrc32 (
   IN  EFI_MAC_ADDRESS         *Mac,
-  IN  UINT32 AddrLen
+  IN  UINT32                  AddrLen
   );
 
 UINT8
@@ -1111,74 +1158,85 @@ BitReverse (
 VOID
 EFIAPI
 StmmacStopTxRx (
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacDmaStart (
-  IN  UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 
 VOID
 EFIAPI
 StmmacGetDmaStatus (
-  OUT UINT32                  *IrqStat  OPTIONAL,
-  IN  UINTN                   MacBaseAddress
+  OUT UINT32                        *IrqStat  OPTIONAL,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacGetStatistic (
-  IN  EFI_NETWORK_STATISTICS *Stats,
-  IN  UINTN                  MacBaseAddress
+  IN  EFI_NETWORK_STATISTICS        *Stats,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacStartAllDma (
-  IN UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacStopAllDma (
-  IN UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 EFI_STATUS
 EFIAPI
 StmmacInitDmaEngine (
-  IN STMMAC_DRIVER           *StmmacDriver,
-  IN UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacMacLinkUp (
-  IN  UINT32                 Speed,
-  IN  UINT32                 Duplex,
-  IN  UINTN                  MacBaseAddress
+  IN  UINT32                        Speed,
+  IN  UINT32                        Duplex,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 EFIAPI
 StmmacDebug (
-  IN UINTN                   MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 
 VOID
 StmmacSetRxTailPtr (
-  IN UINTN                   MacBaseAddress,
-  IN UINT32                  TailPtr,
-  IN UINT32                  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         TailPtr,
+  IN  UINT32                        Channel
   );
 
 VOID
 StmmacSetTxTailPtr (
-  IN UINTN                   MacBaseAddress,
-  IN UINT32                  TailPtr,
-  IN UINT32                  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         TailPtr,
+  IN  UINT32                        Channel
+  );
+
+VOID
+StmmacMtlConfiguration (
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
+  );
+
+VOID
+StmmacMacFlowControl (
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Duplex,
+  IN  UINT32                        FlowCtrl
   );
 #endif // STMMAC_DXE_UTIL_H__

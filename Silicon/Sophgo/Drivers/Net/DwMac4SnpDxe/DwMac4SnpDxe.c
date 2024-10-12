@@ -14,6 +14,7 @@
 
 **/
 
+#include <Protocol/Cpu.h>
 #include <Library/NetLib.h>
 #include <Library/DmaLib.h>
 #include <Library/DebugLib.h>
@@ -23,6 +24,7 @@
 #include "DwMac4SnpDxe.h"
 #include "DwMac4DxeUtil.h"
 
+//STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 #define ReturnUnlock(s) do { Status = (s); goto exit_unlock; } while(0)
 
 //STATIC EFI_MAC_ADDRESS mZeroMac = { { 0 } };
@@ -216,7 +218,7 @@ SnpStop (
   //
   // Stop all RX and TX DMA channels
   //
-  StmmacStopAllDma (DwMac4Driver->MacBase);
+  StmmacStopAllDma (DwMac4Driver);
 
   //
   // Change the state
@@ -370,12 +372,12 @@ SnpInitialize (
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 #else
-  StmmacMacLinkUp (PHY_INTERFACE_MODE_RGMII_ID, DUPLEX_FULL, DwMac4Driver->MacBase);
+  StmmacMacLinkUp (PHY_INTERFACE_MODE_RGMII_ID, DUPLEX_FULL, DwMac4Driver);
 #endif
   //
   // DMA initialization and SW reset
   //
-  Status = StmmacInitDmaEngine (&DwMac4Driver->MacDriver, DwMac4Driver->MacBase);
+  Status = StmmacInitDmaEngine (DwMac4Driver);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -387,10 +389,16 @@ SnpInitialize (
   }
 
   //
+  // Configure flow control
+  //
+  StmmacMacFlowControl (DwMac4Driver, DwMac4Driver->PhyDev->Duplex, FLOW_AUTO);
+  StmmacMtlConfiguration (DwMac4Driver);
+
+  //
   // Copy the MAC addr into the HW
   //
-  StmmacSetUmacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver->MacBase, 0);
-  StmmacGetMacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver->MacBase, 0);
+  StmmacSetUmacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver, 0);
+  StmmacGetMacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver, 0);
 
   //
   // Declare the driver as initialized
@@ -495,7 +503,7 @@ SnpReset (
   //
   // Initiate a PHY reset
   //
-  Status = PhySoftReset (&DwMac4Driver->PhyDev, Snp->MacBase);
+  Status = PhySoftReset (&DwMac4Driver->PhyDev, Snp->RegBase);
   if (EFI_ERROR (Status)) {
     DwMac4Driver->SnpMode.State = EfiSimpleNetworkStopped;
     ReturnUnlock (EFI_NOT_STARTED);
@@ -590,7 +598,7 @@ SnpShutdown (
   //
   // Stop all RX and TX DMA channels
   //
-  StmmacStopAllDma (DwMac4Driver->MacBase);
+  StmmacStopAllDma (DwMac4Driver);
 
   DwMac4Driver->SnpMode.State = EfiSimpleNetworkStopped;
 
@@ -772,7 +780,7 @@ SnpReceiveFilters (
   //
   ReceiveFilterSetting = (DwMac4Driver->SnpMode.ReceiveFilterSetting | Enable) & (~Disable);
 
-  StmmacSetFilters (ReceiveFilterSetting, ResetMCastFilter, MCastFilterCnt, MCastFilter, DwMac4Driver->MacBase);
+  StmmacSetFilters (ReceiveFilterSetting, ResetMCastFilter, MCastFilterCnt, MCastFilter, DwMac4Driver);
 
   Status = EFI_SUCCESS;
 
@@ -903,7 +911,7 @@ SnpStationAddress (
         __func__
         ));
       NewMac = (EFI_MAC_ADDRESS *) (FixedPcdGet64 (PcdDwMac4DefaultMacAddress));
-      StmmacSetUmacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver->MacBase, 0);
+      StmmacSetUmacAddr (&DwMac4Driver->SnpMode.CurrentAddress, DwMac4Driver, 0);
     //}
   } else {
     //
@@ -1069,7 +1077,7 @@ SnpStatistics (
   //
   // Read statistic counters
   //
-  StmmacGetStatistic (&DwMac4Driver->Stats, DwMac4Driver->MacBase);
+  StmmacGetStatistic (&DwMac4Driver->Stats, DwMac4Driver);
 
   //
   // Fill in the statistics
@@ -1367,7 +1375,7 @@ SnpGetStatus (
       DEBUG_INFO,
       "Link is up - Network Cable is Plugged\r\n"
       ));
-    StmmacMacLinkUp (DwMac4Driver->PhyDev->Speed, DwMac4Driver->PhyDev->Duplex, DwMac4Driver->MacBase);
+    StmmacMacLinkUp (DwMac4Driver->PhyDev->Speed, DwMac4Driver->PhyDev->Duplex, DwMac4Driver);
     DwMac4Driver->SnpMode.MediaPresent = TRUE;
   } else {
     DEBUG ((
@@ -1396,7 +1404,7 @@ SnpGetStatus (
   // Check DMA Irq status
   //
   DEBUG ((DEBUG_INFO, "%a() Check DMA Irq Status\n", __func__));
-  StmmacGetDmaStatus (IrqStat, DwMac4Driver->MacBase);
+  StmmacGetDmaStatus (IrqStat, DwMac4Driver);
 
   Status = EFI_SUCCESS;
 
@@ -1486,7 +1494,7 @@ SnpTransmit (
   UINT32                            Index;
   UINTN                             TxTailAddr;
   EFI_TPL                           SavedTpl;
-  UINTN               DmaNumberOfBytes;
+  UINTN                             DmaNumberOfBytes;
 
   DEBUG ((DEBUG_INFO, "%a()\n", __func__));
 
@@ -1622,7 +1630,7 @@ SnpTransmit (
   //
   TxDescIndex++;
   TxDescIndex %= TX_DESC_NUM;
-  
+
   TxDescriptor->Des0 = TxBufferAddrMap;
   TxDescriptor->Des1 = TxBufferAddrMap >> 32;
   TxDescriptor->Des2 = BufferSize;
@@ -1657,7 +1665,7 @@ SnpTransmit (
   }
 
   TxTailAddr = TxDescIndex * sizeof(DMA_DESCRIPTOR);
-  StmmacSetTxTailPtr (DwMac4Driver->MacBase, TxTailAddr, 0);
+  StmmacSetTxTailPtr (DwMac4Driver, TxTailAddr, 0);
   for (Index = 0; Index < 1000000; Index++) {
     if (!(TxDescriptor->Des3 & TDES3_OWN)) {
       return 0;
@@ -1787,6 +1795,18 @@ SnpReceive (
   DEBUG ((DEBUG_INFO, "RxCurrentDescriptorNum=%d\n", DwMac4Driver->MacDriver.RxNextDescriptorNum));
   DEBUG ((DEBUG_INFO, "RxDescIndex=%d\n", DwMac4Driver->MacDriver.RxCurrentDescriptorNum));
   RxDescriptor = DwMac4Driver->MacDriver.RxDescRing[RxDescIndex];
+  DEBUG ((DEBUG_INFO, "RxDescAddr=0x%lx\n", (UINTN)DwMac4Driver->MacDriver.RxDescRing[RxDescIndex]));
+#if 0 
+    //
+    // Flush Rx Descriptor
+    //
+    mCpu->FlushDataCache (
+            mCpu,
+            (UINTN)DwMac4Driver->MacDriver.RxDescRing[RxDescIndex],
+            EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
+            EfiCpuFlushTypeWriteBackInvalidate
+            );
+#endif
   RxBufferAddr = (UINTN*)((UINTN)DwMac4Driver->MacDriver.RxBuffer +
                           (RxDescIndex * BufferSizeBuf));
   DEBUG ((DEBUG_INFO, "*RxBufferAddr=0x%lx\n", RxBufferAddr));
@@ -1797,7 +1817,9 @@ SnpReceive (
   //
   // Write-Back: Get Rx Status
   //
-  StmmacDebug (DwMac4Driver->MacBase);
+#if 0
+  StmmacDebug (DwMac4Driver);
+#endif
   RxDescriptorStatus = RxDescriptor->Des3;
   DEBUG ((DEBUG_INFO, "%a[%d] RxDescriptorStatus=0x%x\n", __func__, __LINE__, RxDescriptorStatus));
   if (RxDescriptorStatus & RDES3_OWN) {
@@ -1887,6 +1909,9 @@ SnpReceive (
     *HdrSize = DwMac4Driver->SnpMode.MediaHeaderSize;
   }
 
+  //
+  // Given an RX buffer descriptor index, undo the DmaMap operation on the buffer.
+  //
   DmaUnmap (DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].Mapping);
   DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].Mapping = NULL;
 
@@ -1961,7 +1986,6 @@ SnpReceive (
   }
 
   DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap = RxBufferAddrMap;
-  //RxDescriptorMap->DmaMacAddr = DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap;
 
   RxDescriptor->Des3 |= (UINT32)RDES3_OWN;
 
@@ -1986,11 +2010,53 @@ ReleaseLock:
     "%a(): RX packet not available!\n",
     __func__
     ));
-  StmmacDebug (DwMac4Driver->MacBase);
+#if 0
+  StmmacDebug (DwMac4Driver);
+#endif
 
   return EFI_NOT_READY;
 }
 
+#if 0
+VOID
+SetAttributeToUncache (
+  VOID
+  )
+{
+  EFI_CPU_ARCH_PROTOCOL  *gCpu;
+  EFI_STATUS             Status;
+
+  Status = gBS->LocateProtocol (
+		  &gEfiCpuArchProtocolGuid,
+		  NULL,
+		  (VOID **)&gCpu
+		  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): LocateProtocol gEfiCpuArchProtocolGuid Status = %r !\n",
+      __func__,
+      Status
+      ));
+  }
+
+  Status = gCpu->SetMemoryAttributes (
+                     gCpu,
+                     PcdGet64(PcdNORFlashBase),
+                     PcdGet32(PcdNORFlashCachableSize),
+                     EFI_MEMORY_UC
+                     );
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): gCpu->SetMemoryAttributes Status = %r !\n",
+      __func__,
+      Status
+      ));
+  }
+}
+#endif
 /*
  * Entry point for DwMac4 driver.
  */
@@ -2014,6 +2080,7 @@ DwMac4SnpDxeEntry (
   EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
   UINT32                            Index;
   EFI_HANDLE                        Handle;
+  EFI_CPU_ARCH_PROTOCOL  *gCpu;
 
   Handle = NULL;
 
@@ -2038,6 +2105,20 @@ DwMac4SnpDxeEntry (
       __func__
       ));
     return EFI_OUT_OF_RESOURCES;
+  }
+
+  Status = gBS->LocateProtocol (
+		  &gEfiCpuArchProtocolGuid,
+		  NULL,
+		  (VOID **)&gCpu
+		  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): LocateProtocol gEfiCpuArchProtocolGuid Status = %r !\n",
+      __func__,
+      Status
+      ));
   }
 
   //
@@ -2069,7 +2150,26 @@ DwMac4SnpDxeEntry (
 	));
       return Status;
     }
-
+#if 0
+    DEBUG ((DEBUG_INFO, "%a[%d] TxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",__func__, __LINE__,
+			    Index,
+			     (EFI_PHYSICAL_ADDRESS)DwMac4Driver->MacDriver.TxDescRing[Index],
+			     DescriptorSize));
+    Status = gCpu->SetMemoryAttributes (
+                     gCpu,
+                     (EFI_PHYSICAL_ADDRESS)DwMac4Driver->MacDriver.TxDescRing[Index],
+		     DescriptorSize,
+                     EFI_MEMORY_UC
+                     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Tx gCpu->SetMemoryAttributes Status = %r !\n",
+        __func__,
+        Status
+        ));
+    }
+#endif
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     DwMac4Driver->MacDriver.TxDescRing[Index],
                      &DescriptorSize,
@@ -2102,7 +2202,26 @@ DwMac4SnpDxeEntry (
 	));
       return Status;
     }
-
+#if 0
+    DEBUG ((DEBUG_INFO, "%a[%d] RxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",__func__, __LINE__,
+			     Index,
+			     (EFI_PHYSICAL_ADDRESS)DwMac4Driver->MacDriver.RxDescRing[Index],
+			     DescriptorSize));
+    Status = gCpu->SetMemoryAttributes (
+                     gCpu,
+                     (EFI_PHYSICAL_ADDRESS)DwMac4Driver->MacDriver.RxDescRing[Index],
+		     DescriptorSize,
+                     EFI_MEMORY_UC
+                     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Rx gCpu->SetMemoryAttributes Status = %r !\n",
+        __func__,
+        Status
+        ));
+    }
+#endif
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     DwMac4Driver->MacDriver.RxDescRing[Index],
                      &DescriptorSize,
@@ -2158,7 +2277,7 @@ DwMac4SnpDxeEntry (
   //
   // Get MAC controller base address
   //
-  DwMac4Driver->MacBase = 0x7030006000;
+  DwMac4Driver->RegBase = 0x7030006000;
 
   //
   // Assign fields and func pointers
@@ -2251,7 +2370,7 @@ DwMac4SnpDxeEntry (
   // If we had an address before (set by StationAddress), continue to use it
   //
  // if (CompareMem (&Snp->Mode->CurrentAddress, &mZeroMac, NET_ETHER_ADDR_LEN)) {
- //   StmmacSetUmacAddr (&Snp->Mode->CurrentAddress, DwMac4Driver->MacBase, 0);
+ //   StmmacSetUmacAddr (&Snp->Mode->CurrentAddress, DwMac4Driver, 0);
  // } else {
       //
       // If there are no cached addresses, then fall back to a default

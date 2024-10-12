@@ -17,6 +17,8 @@
 
 #include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
+#include <Protocol/Cpu.h>
+//STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 
 #define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
 #define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
@@ -28,6 +30,34 @@ struct StmmacRxRouting {
 
 UINT32 RxChannelsCount = 1;
 UINT32 TxChannelsCount = 1;
+UINT32 RxQueuesToUse   = 1;
+UINT32 TxQueuesToUse   = 1;
+
+STATIC
+UINT32
+DwMac4MmioRead (
+  IN SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN UINT32                        Offset
+  )
+{
+  ASSERT ((Offset & 3) == 0);
+
+  return MmioRead32 ((UINTN)(DwMac4Driver->RegBase + Offset));
+}
+
+STATIC
+VOID
+DwMac4MmioWrite (
+  IN SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN UINT32                        Offset,
+  IN UINT32                        Data
+  )
+{
+  ASSERT ((Offset & 3) == 0);
+
+  MemoryFence ();
+  MmioWrite32 ((UINTN)(DwMac4Driver->RegBase + Offset), Data);
+}
 
 /*
  * linux/drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
@@ -35,9 +65,9 @@ UINT32 TxChannelsCount = 1;
 VOID
 EFIAPI
 StmmacSetUmacAddr (
-  IN  EFI_MAC_ADDRESS   *MacAddress,
-  IN  UINTN             MacBaseAddress,
-  IN  UINTN             RegN
+  IN  EFI_MAC_ADDRESS               *MacAddress,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         RegN
   )
 {
   //
@@ -45,7 +75,7 @@ StmmacSetUmacAddr (
   // Must program HIGH Offset first before LOW Offset
   // because synchronization is triggered when MAC Address0 Low Register are written.
   //
-  MmioWrite32 (MacBaseAddress + GMAC_ADDR_HIGH(RegN),
+  DwMac4MmioWrite (DwMac4Driver, GMAC_ADDR_HIGH(RegN),
                (UINT32)(MacAddress->Addr[4] & 0xFF) |
                       ((MacAddress->Addr[5] & 0xFF) << 8) |
 		      GMAC_HI_REG_AE
@@ -53,7 +83,7 @@ StmmacSetUmacAddr (
   //
   // MacAddress->Addr[0,1,2] is the 3 bytes OUI
   //
-  MmioWrite32 (MacBaseAddress + GMAC_ADDR_LOW(RegN),
+  DwMac4MmioWrite (DwMac4Driver, GMAC_ADDR_LOW(RegN),
                        (MacAddress->Addr[0] & 0xFF) |
                       ((MacAddress->Addr[1] & 0xFF) << 8) |
                       ((MacAddress->Addr[2] & 0xFF) << 16) |
@@ -65,23 +95,23 @@ StmmacSetUmacAddr (
     "%a(): GMAC_ADDR_LOW(%d)  = 0x%08X \r\n",
     __func__,
     RegN,
-    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN)))
+    DwMac4MmioRead (DwMac4Driver, GMAC_ADDR_LOW(RegN))
     ));
   DEBUG ((
     DEBUG_VERBOSE,
     "%a(): GMAC_ADDR_HIGH(%d)  = 0x%08X \r\n",
     __func__,
     RegN,
-    MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN)))
+    DwMac4MmioRead (DwMac4Driver, GMAC_ADDR_HIGH(RegN))
     ));
 }
 
 VOID
 EFIAPI
 StmmacGetMacAddr (
-  OUT  EFI_MAC_ADDRESS   *MacAddress,
-  IN   UINTN             MacBaseAddress,
-  IN   UINTN             RegN
+  OUT EFI_MAC_ADDRESS               *MacAddress,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         RegN
   )
 {
   UINT32 MacAddrHighValue;
@@ -90,12 +120,12 @@ StmmacGetMacAddr (
   //
   // Read the Mac Addr high register
   //
-  MacAddrHighValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_HIGH(RegN))) & 0xFFFF;
+  MacAddrHighValue = DwMac4MmioRead (DwMac4Driver, GMAC_ADDR_HIGH(RegN)) & 0xFFFF;
 
   //
   // Read the Mac Addr low register
   //
-  MacAddrLowValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_ADDR_LOW(RegN)));
+  MacAddrLowValue = DwMac4MmioRead (DwMac4Driver, GMAC_ADDR_LOW(RegN));
 
   SetMem (MacAddress, sizeof(*MacAddress), 0);
   MacAddress->Addr[0] = MacAddrLowValue & 0xFF;
@@ -121,21 +151,21 @@ StmmacGetMacAddr (
 #if 0
 VOID
 DwMacDmaFlushTxFifo (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Csr6;
-  Csr6 = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CONTROL));
+  Csr6 = DwMac4MmioRead (DwMac4Driver, DMA_CONTROL));
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CONTROL), Csr6 | DMA_CONTROL_FTF);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CONTROL, Csr6 | DMA_CONTROL_FTF);
 
   do {}
-  while ((MmioRead32 ((UINTN)(MacBaseAddress + DMA_CONTROL)) & DMA_CONTROL_FTF));
+  while ((DwMac4MmioRead (DwMac4Driver, DMA_CONTROL) & DMA_CONTROL_FTF));
 }
 #endif
 VOID
 DwMac4DmaAxi (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Value;
@@ -144,7 +174,7 @@ DwMac4DmaAxi (
 
   AxiWrOsrLmt = 1;
   AxiRdOsrLmt = 1;
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_SYS_BUS_MODE);
 
   DEBUG ((
     DEBUG_INFO,
@@ -161,93 +191,98 @@ DwMac4DmaAxi (
 
   Value |= DMA_AXI_BLEN16 | DMA_AXI_BLEN8 | DMA_AXI_BLEN4;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE), Value);
+  //
+  // ?
+  //
+  Value |= DMA_AXI_1KBBE;
+
+  DwMac4MmioWrite (DwMac4Driver, DMA_SYS_BUS_MODE, Value);
 }
 
 VOID
 StmmacSetRxTailPtr (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 TailPtr,
-  IN UINT32 Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         TailPtr,
+  IN  UINT32                        Channel
   )
 {
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_END_ADDR(Channel)), TailPtr);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_END_ADDR(Channel), TailPtr);
 }
 
 VOID
 StmmacSetTxTailPtr (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 TailPtr,
-  IN UINT32 Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         TailPtr,
+  IN  UINT32                        Channel
   )
 {
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_END_ADDR(Channel)), TailPtr);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_END_ADDR(Channel), TailPtr);
 }
 
 VOID
 DwMac4DmaStartTx (
-  IN  UINTN   MacBaseAddress,
-  IN  UINT32  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Channel
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel));
   Value |= DMA_CONTROL_ST;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel), Value);
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_CONFIG);
   Value |= GMAC_CONFIG_TE;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
 }
 
 VOID
 DwMac4DmaStopTx (
-  IN  UINTN   MacBaseAddress,
-  IN  UINT32  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Channel
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel));
   Value &= ~DMA_CONTROL_ST;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel), Value);
 }
 
 VOID
 DwMac4DmaStartRx (
-  IN  UINTN   MacBaseAddress,
-  IN  UINT32  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Channel
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel));
   Value |= DMA_CONTROL_SR;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 
-  Value = MmioRead32((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_CONFIG);
   Value |= GMAC_CONFIG_RE;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
 }
 
 VOID
 DwMac4DmaStopRx (
-  IN  UINTN   MacBaseAddress,
-  IN  UINT32  Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Channel
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel));
   Value &= ~DMA_CONTROL_SR;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 }
 
 /*
@@ -256,17 +291,17 @@ DwMac4DmaStopRx (
 VOID
 EFIAPI
 StmmacStartAllDma (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Channel;
 
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
-    DwMac4DmaStartRx (MacBaseAddress, Channel);
+    DwMac4DmaStartRx (DwMac4Driver, Channel);
   }
 
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DwMac4DmaStartTx (MacBaseAddress, Channel);
+    DwMac4DmaStartTx (DwMac4Driver, Channel);
   }
 }
 
@@ -276,43 +311,43 @@ StmmacStartAllDma (
 VOID
 EFIAPI
 StmmacStopAllDma (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Channel;
 
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
-    DwMac4DmaStopRx (MacBaseAddress, Channel);
+    DwMac4DmaStopRx (DwMac4Driver, Channel);
   }
 
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DwMac4DmaStopTx (MacBaseAddress, Channel);
+    DwMac4DmaStopTx (DwMac4Driver, Channel);
   }
 }
 
 EFI_STATUS
 EFIAPI
 DwMac4DmaReset (
-  IN  UINTN         MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32     Value;
   UINT32     Timeout;
 
   Timeout = 1000000;
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_BUS_MODE);
 
   //
   // DMA SW reset
   //
   Value |= DMA_BUS_MODE_SFT_RESET;
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_BUS_MODE, Value);
 
   //
   // wait till the bus software reset
   //
   do {
-    Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE));
+    Value = DwMac4MmioRead (DwMac4Driver, DMA_BUS_MODE);
     if (Timeout-- == 10000) {
       DEBUG ((
         DEBUG_ERROR,
@@ -329,35 +364,34 @@ DwMac4DmaReset (
 
 VOID
 DwMac4DmaInit (
-  IN  STMMAC_DRIVER  *StmmacDriver,
-  IN  UINTN          MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_SYS_BUS_MODE);
 
   Value |= DMA_SYS_BUS_AAL;
   Value |= DMA_SYS_BUS_EAME;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_SYS_BUS_MODE), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_SYS_BUS_MODE, Value);
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_BUS_MODE);
 
   //
   // Only DWMAC core version 5.20 onwards supports HW descriptor prefetch.
   //
-  if (MmioRead32((UINTN)(MacBaseAddress + GMAC4_VERSION)) >= 0x52) {
+  if (DwMac4MmioRead (DwMac4Driver, GMAC4_VERSION) >= 0x52) {
 	  Value |= DMA_BUS_MODE_DCHE;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_BUS_MODE), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_BUS_MODE, Value);
 }
 
 VOID
 DwMac4InitChannel (
-  IN  UINTN          MacBaseAddress,
-  IN  UINTN          Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel
   )
 {
   UINT32  Value;
@@ -368,24 +402,24 @@ DwMac4InitChannel (
   //
   // Common channel control register config
   //
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CONTROL(Channel));
 
   if (Pblx8) {
     Value = Value | DMA_BUS_MODE_PBL;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_CONTROL(Channel), Value);
 
   //
   // Mask interrupts by writing to CSR7
   //
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Channel)), DMA_CHAN_INTR_DEFAULT_MASK);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel), DMA_CHAN_INTR_DEFAULT_MASK);
 }
 
 VOID
 DwMac4DmaInitRxChan (
-  IN  UINTN          MacBaseAddress,
-  IN  UINTN          Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel
   )
 {
   UINT32           Value;
@@ -393,16 +427,16 @@ DwMac4DmaInitRxChan (
 
   RxPbl = 32;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel));
   Value = Value | (RxPbl << DMA_BUS_MODE_RPBL_SHIFT);
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 }
 
 VOID
 DwMac4DmaInitTxChan (
-  IN  UINTN          MacBaseAddress,
-  IN  UINTN          Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel
   )
 {
   UINT32          Value;
@@ -410,7 +444,7 @@ DwMac4DmaInitTxChan (
 
   TxPbl = 32;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel));
   Value = Value | (TxPbl << DMA_BUS_MODE_PBL_SHIFT);
 
   //
@@ -418,13 +452,12 @@ DwMac4DmaInitTxChan (
   //
   Value |= DMA_CONTROL_OSP;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_CONTROL(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_CONTROL(Channel), Value);
 }
 
 VOID
 DwMac4SetupRxDescriptor (
-  IN  STMMAC_DRIVER  *StmmacDriver,
-  IN  UINTN          MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32           Index;
@@ -434,38 +467,59 @@ DwMac4SetupRxDescriptor (
   Channel = 0;
 
   for (Index = 0; Index < RX_DESC_NUM; Index++) {
-    RxDescriptor = (VOID *)(UINTN)StmmacDriver->RxDescRingMap[Index].AddrMap;
+    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap));
+    RxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap;
 
 
-    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]->Des0/Des1 (RxBuffer) =0x%lx\n", Index, StmmacDriver->RxBufNum[Index].AddrMap));
+    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]->Des0/Des1 (RxBuffer) =0x%lx\n", Index, DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap));
 
-    RxDescriptor->Des0 = LOWER_32_BITS(StmmacDriver->RxBufNum[Index].AddrMap);
-    RxDescriptor->Des1 = UPPER_32_BITS(StmmacDriver->RxBufNum[Index].AddrMap);
+    RxDescriptor->Des0 = LOWER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap);
+    RxDescriptor->Des1 = UPPER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap);
     RxDescriptor->Des2 = 0;
     RxDescriptor->Des3 = RDES3_OWN | RDES3_BUFFER1_VALID_ADDR;
-  }
+    DEBUG ((DEBUG_INFO, "After: RxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap));
+#if 0
+    //
+    // Flush Rx Descriptor
+    //
+    mCpu->FlushDataCache (
+            mCpu,
+            (UINTN)DwMac4Driver->MacDriver->RxDescRingMap[Index].AddrMap,
+            EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
+            EfiCpuFlushTypeWriteBackInvalidate
+            );
 
+    //
+    // Invalidate Rx Buffer
+    //
+    mCpu->FlushDataCache (
+            mCpu,
+            (UINTN)DwMac4Driver->MacDriver->RxBufNum[Index].AddrMap,
+            ETH_BUFFER_SIZE,
+            EfiCpuFlushTypeInvalidate
+            );
+#endif
+  }
   //
   // Write the address of Rx descriptor list
   //
-  DEBUG ((DEBUG_INFO, "RxDescriptor[0] Address=0x%lx\n", StmmacDriver->RxDescRingMap[0].AddrMap));
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR_HI(Channel)),
-		    UPPER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
+  DEBUG ((DEBUG_INFO, "RxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_BASE_ADDR_HI(Channel),
+		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_BASE_ADDR(Channel)),
-		    LOWER_32_BITS((UINTN)StmmacDriver->RxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_BASE_ADDR(Channel),
+		    LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
 
   //
   // Initialize the descriptor number
   //
-  StmmacDriver->RxCurrentDescriptorNum = 0;
-  StmmacDriver->RxNextDescriptorNum = 0;
+  DwMac4Driver->MacDriver.RxCurrentDescriptorNum = 0;
+  DwMac4Driver->MacDriver.RxNextDescriptorNum = 0;
 }
 
 VOID
 DwMac4SetupTxDescriptor (
-  IN  STMMAC_DRIVER  *StmmacDriver,
-  IN  UINTN          MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32          Index;
@@ -475,13 +529,14 @@ DwMac4SetupTxDescriptor (
   Channel = 0;
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
-    TxDescriptor = (VOID *)(UINTN)StmmacDriver->TxDescRingMap[Index].AddrMap;
+    DEBUG ((DEBUG_INFO, "TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap));
+    TxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap;
 #if 0
-    TxDescriptor->DmaMacAddr = (UINTN)&StmmacDriver->TxBuffer[Index * ETH_BUFFER_SIZE];
+    TxDescriptor->DmaMacAddr = (UINTN)&DwMac4Driver->MacDriver.TxBuffer[Index * ETH_BUFFER_SIZE];
 
     DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
     if (Index < TX_DESC_NUM - 1) {
-      TxDescriptor->DmaMacNext = (UINTN)StmmacDriver->TxDescRingMap[Index + 1].AddrMap;
+      TxDescriptor->DmaMacNext = (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index + 1].AddrMap;
     DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
     }
 
@@ -495,33 +550,43 @@ DwMac4SetupTxDescriptor (
     } else {
       TxDescriptor->Des3 &= ~TDES3_LAST_DESCRIPTOR;
     }
+    //
+    // Flush Tx Descriptor
+    //
+    mCpu->FlushDataCache (
+            mCpu,
+            (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap,
+            EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
+            EfiCpuFlushTypeWriteBackInvalidate
+            );
 #endif
+    DEBUG ((DEBUG_INFO, "After: TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap));
   }
 
   //
   // Write the address of tx descriptor list
   //
-  DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", StmmacDriver->TxDescRingMap[0].AddrMap));
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR_HI(Channel)),
-		    UPPER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+  DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_BASE_ADDR_HI(Channel),
+		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_BASE_ADDR(Channel)),
-		    LOWER_32_BITS((UINTN)StmmacDriver->TxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_BASE_ADDR(Channel),
+		    LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
 
   //
   // Initialize the descriptor number
   //
-  StmmacDriver->TxCurrentDescriptorNum = 0;
-  StmmacDriver->TxNextDescriptorNum = 0;
+  DwMac4Driver->MacDriver.TxCurrentDescriptorNum = 0;
+  DwMac4Driver->MacDriver.TxNextDescriptorNum = 0;
 }
 
 VOID
 DwMac4DmaRxChanOpMode (
-  IN  UINTN          MacBaseAddress,
-  IN  UINTN          Channel,
-  IN  UINT32         FifoSize,
-  IN  UINT32         Mode,
-  IN  UINT8          Qmode
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel,
+  IN  UINT32                        FifoSize,
+  IN  UINT32                        Mode,
+  IN  UINT8                         Qmode
   )
 {
   UINT32 Rqs;
@@ -530,7 +595,7 @@ DwMac4DmaRxChanOpMode (
   UINT32 Rfa;
 
   Rqs = FifoSize / 256 - 1;
-  MtlRxOp = MmioRead32 ((UINTN)(MacBaseAddress + MTL_CHAN_RX_OP_MODE(Channel)));
+  MtlRxOp = DwMac4MmioRead (DwMac4Driver, MTL_CHAN_RX_OP_MODE(Channel));
 
   if (Mode == SF_DMA_MODE) {
     DEBUG ((
@@ -563,6 +628,7 @@ DwMac4DmaRxChanOpMode (
 
   MtlRxOp &= ~MTL_OP_MODE_RQS_MASK;
   MtlRxOp |= Rqs << MTL_OP_MODE_RQS_SHIFT;
+  DEBUG ((DEBUG_INFO, "\n\n%a[%d] Rqs=%d\tFifoSize=%d\n", __func__, __LINE__, Rqs, FifoSize));
 
   //
   // Enable flow control only if each channel gets 4 KiB or more FIFO and
@@ -601,22 +667,22 @@ DwMac4DmaRxChanOpMode (
     MtlRxOp |= Rfa << MTL_OP_MODE_RFA_SHIFT;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + MTL_CHAN_RX_OP_MODE(Channel)), MtlRxOp);
+  DwMac4MmioWrite (DwMac4Driver, MTL_CHAN_RX_OP_MODE(Channel), MtlRxOp);
 }
 
 VOID
 DwMac4DmaTxChanOpMode (
-  IN  UINTN          MacBaseAddress,
-  IN  UINTN          Channel,
-  IN  UINT32         FifoSize,
-  IN  UINT32         Mode,
-  IN  UINT8          Qmode
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel,
+  IN  UINT32                        FifoSize,
+  IN  UINT32                        Mode,
+  IN  UINT8                         Qmode
   )
 {
  UINT32 MtlTxOp;
  UINT32 Tqs;
 
- MtlTxOp = MmioRead32 ((UINTN)(MacBaseAddress + MTL_CHAN_TX_OP_MODE(Channel)));
+ MtlTxOp = DwMac4MmioRead (DwMac4Driver, MTL_CHAN_TX_OP_MODE(Channel));
  Tqs = FifoSize / 256 - 1;
 
  if (Mode == SF_DMA_MODE) {
@@ -679,20 +745,21 @@ DwMac4DmaTxChanOpMode (
   }
 
   MtlTxOp &= ~MTL_OP_MODE_TQS_MASK;
+  DEBUG ((DEBUG_INFO, "\n\n%a[%d] Tqs=%d\n", __func__, __LINE__, Tqs));
   MtlTxOp |= Tqs << MTL_OP_MODE_TQS_SHIFT;
 
-  MmioWrite32((UINTN)(MacBaseAddress + MTL_CHAN_TX_OP_MODE(Channel)), MtlTxOp);
+  DwMac4MmioWrite(DwMac4Driver, MTL_CHAN_TX_OP_MODE(Channel), MtlTxOp);
 }
 
 VOID
 DwMac4ProgMtlRxAlgorithms (
-  IN UINTN   MacBaseAddress,
-  IN UINT32  RxAlg
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        RxAlg
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + MTL_OPERATION_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, MTL_OPERATION_MODE);
   Value &= ~MTL_OPERATION_RAA;
 
   switch (RxAlg) {
@@ -706,18 +773,18 @@ DwMac4ProgMtlRxAlgorithms (
     break;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + MTL_OPERATION_MODE), Value);
+  DwMac4MmioWrite (DwMac4Driver, MTL_OPERATION_MODE, Value);
 }
 
 VOID
 DwMac4ProgMtlTxAlgorithms (
-  IN UINTN   MacBaseAddress,
-  IN UINT32  TxAlg
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        TxAlg
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + MTL_OPERATION_MODE));
+  Value = DwMac4MmioRead (DwMac4Driver, MTL_OPERATION_MODE);
   Value &= ~MTL_OPERATION_SCHALG_MASK;
 
   switch (TxAlg) {
@@ -737,41 +804,41 @@ DwMac4ProgMtlTxAlgorithms (
     break;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + MTL_OPERATION_MODE), Value);
+  DwMac4MmioWrite (DwMac4Driver, MTL_OPERATION_MODE, Value);
 }
 
 VOID
 DwMac4SetTxRingLen (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 Length,
-  IN UINT32 Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Length,
+  IN  UINT32                        Channel
   )
 {
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_TX_RING_LEN(Channel)), Length);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_RING_LEN(Channel), Length);
 }
 
 VOID
 DwMac4SetRxRingLen (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 Length,
-  IN UINT32 Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Length,
+  IN  UINT32                        Channel
   )
 {
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_RX_RING_LEN(Channel)), Length);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_RING_LEN(Channel), Length);
 }
 
 VOID
 EFIAPI
 DwMac4CoreInit (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_CONFIG);
   Value |= GMAC_CORE_INIT;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
 
   //
   // Enable GMAC interrupts
@@ -781,24 +848,24 @@ DwMac4CoreInit (
   //
   // Enable FPE interrupt
   //
-  if ((GMAC_HW_FEAT_FPESEL & MmioRead32 ((UINTN)(MacBaseAddress + GMAC_HW_FEATURE3))) >> 26) {
+  if ((GMAC_HW_FEAT_FPESEL & DwMac4MmioRead (DwMac4Driver, GMAC_HW_FEATURE3)) >> 26) {
     Value |= GMAC_INT_FPE_EN;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_INT_EN), Value);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_INT_EN, Value);
 }
 
 VOID
 DwMac4EnableDmaInterrupt (
-  IN UINTN   MacBaseAddress,
-  IN UINTN   Channel,
-  IN BOOLEAN Rx,
-  IN BOOLEAN Tx
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINTN                         Channel,
+  IN  BOOLEAN                       Rx,
+  IN  BOOLEAN                       Tx
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Channel)));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel));
 
   if (Rx) {
     Value |= DMA_CHAN_INTR_DEFAULT_RX;
@@ -808,7 +875,7 @@ DwMac4EnableDmaInterrupt (
     Value |= DMA_CHAN_INTR_DEFAULT_TX;
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Channel)), Value);
+  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel), Value);
 }
 
 /*
@@ -821,19 +888,19 @@ DwMac4EnableDmaInterrupt (
 EFI_STATUS
 EFIAPI
 StmmacInitDmaEngine (
-  IN STMMAC_DRIVER   *StmmacDriver,
-  IN UINTN           MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32          DmaCsrCh;
   UINT32          Channel;
   EFI_STATUS      Status;
+  UINT32          Value;
 
   DEBUG ((
     DEBUG_INFO,
     "%a(): MacBaseAddress=0x%lx\r\n",
     __func__,
-    MacBaseAddress
+    DwMac4Driver->RegBase
     ));
 
   DmaCsrCh = MAX (RxChannelsCount, TxChannelsCount);
@@ -844,7 +911,7 @@ StmmacInitDmaEngine (
   // Step 2. Wait for the completion of the reset process (poll bit 0 of the
   // DMA_Mode, which is only cleared after the reset operation is completed).
   //
-  Status = DwMac4DmaReset (MacBaseAddress);
+  Status = DwMac4DmaReset (DwMac4Driver);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -864,9 +931,9 @@ StmmacInitDmaEngine (
   // (4) If fixed length value is enabled, select the maximum burst length
   //     possible on the AXI Bus (bits [7:1]).
   //
-  DwMac4DmaInit (StmmacDriver, MacBaseAddress);
+  DwMac4DmaInit (DwMac4Driver);
 
-  DwMac4DmaAxi (MacBaseAddress);
+  DwMac4DmaAxi (DwMac4Driver);
 
   //
   // Step 4. Create a descriptor list for transmit and receive.
@@ -875,8 +942,8 @@ StmmacInitDmaEngine (
   //
   // DMA CSR Channel configuration
   //
-  DwMac4SetupTxDescriptor (StmmacDriver, MacBaseAddress);
-  DwMac4SetupRxDescriptor (StmmacDriver, MacBaseAddress);
+  DwMac4SetupTxDescriptor (DwMac4Driver);
+  DwMac4SetupRxDescriptor (DwMac4Driver);
 
   //
   // Step 5. Program the Transmit and Receive Ring length registers
@@ -885,11 +952,11 @@ StmmacInitDmaEngine (
   // The ring length programmed must be at least 4.
   //
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DwMac4SetTxRingLen (MacBaseAddress, TX_DESC_NUM - 1, Channel);
+    DwMac4SetTxRingLen (DwMac4Driver, TX_DESC_NUM - 1, Channel);
   }
 
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
-    DwMac4SetRxRingLen (MacBaseAddress, RX_DESC_NUM - 1, Channel);
+    DwMac4SetRxRingLen (DwMac4Driver, RX_DESC_NUM - 1, Channel);
   }
 
   //
@@ -907,33 +974,43 @@ StmmacInitDmaEngine (
   // OSP in case of Tx DMA, RBSZ in case of Rx DMA, and so on.
   //
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4InitChannel (MacBaseAddress, Channel);
+    DwMac4InitChannel (DwMac4Driver, Channel);
   }
 
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
-    DwMac4DmaInitRxChan (MacBaseAddress, Channel);
+    DwMac4DmaInitRxChan (DwMac4Driver, Channel);
+    //
+    // RX buffer size. Must be a multiple of bus width
+    //
+    Value = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel));
+    Value &= ~DMA_RBSZ_MASK;
+    Value |= (RX_MAX_PACKET << DMA_RBSZ_SHIFT) & DMA_RBSZ_MASK;
+    DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 
-    DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&StmmacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
-    StmmacSetRxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
+    //DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&DwMac4Driver->MacDriver.RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
+    DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].AddrMap));
+    //StmmacSetRxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
+    StmmacSetRxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].AddrMap, Channel);
   }
 
   //
   // DMA TX Channel Configuration
   //
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DwMac4DmaInitTxChan (MacBaseAddress, Channel);
+    DwMac4DmaInitTxChan (DwMac4Driver, Channel);
 
-    DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&StmmacDriver->TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
-    StmmacSetTxTailPtr (MacBaseAddress, (UINTN)&StmmacDriver->TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
+    //DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&DwMac4Driver->MacDriver.TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
+    DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&DwMac4Driver->MacDriver.TxDescRingMap[TX_DESC_NUM - 1].AddrMap));
+    StmmacSetTxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver.TxDescRingMap[TX_DESC_NUM - 1].AddrMap, Channel);
   }
 
   //
   // Step 8. Enable the interrupts by programming the
   // DMA_CH(#i)_Interrupt_Enable (for i = 0; i <= DWC_EQOS_NUM_DMA_TX_CH-1) register.
   //
-  DwMac4CoreInit (MacBaseAddress);
+  DwMac4CoreInit (DwMac4Driver);
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4EnableDmaInterrupt (MacBaseAddress, Channel, TRUE, TRUE);
+    DwMac4EnableDmaInterrupt (DwMac4Driver, Channel, TRUE, TRUE);
   }
 
   //
@@ -942,11 +1019,11 @@ StmmacInitDmaEngine (
   // ST (bit 0) of the DMA_CH(#i)_TX_Control (for i = 0; i <= DWC_EQOS_NUM_DMA_TX_CH-1) register.
   //
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4DmaStartRx (MacBaseAddress, Channel);
+    DwMac4DmaStartRx (DwMac4Driver, Channel);
   }
 
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4DmaStartTx (MacBaseAddress, Channel);
+    DwMac4DmaStartTx (DwMac4Driver, Channel);
   }
 
   //
@@ -959,52 +1036,52 @@ StmmacInitDmaEngine (
 
 VOID
 DwMac4SetMtlTxQueueWeight (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 Weight,
-  IN UINT32 Queue
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Weight,
+  IN  UINT32                        Queue
   )
 {
   UINT32 Value;
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + MTL_TXQ_WEIGHT_BASE_ADDR + (Queue * MTL_TXQ_WEIGHT_BASE_OFFSET)));
+  Value = DwMac4MmioRead (DwMac4Driver, MTL_TXQ_WEIGHT_BASE_ADDR + (Queue * MTL_TXQ_WEIGHT_BASE_OFFSET));
 
   Value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
   Value |= Weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + MTL_TXQ_WEIGHT_BASE_ADDR + (Queue * MTL_TXQ_WEIGHT_BASE_OFFSET)), Value);
+  DwMac4MmioWrite (DwMac4Driver, MTL_TXQ_WEIGHT_BASE_ADDR + (Queue * MTL_TXQ_WEIGHT_BASE_OFFSET), Value);
 }
 
 VOID
 DwMac4MapMtlDma (
-  IN UINTN  MacBaseAddress,
-  IN UINT32 Queue,
-  IN UINT32 Channel
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Queue,
+  IN  UINT32                        Channel
   )
 {
   UINT32 Value;
 
   if (Queue < 4) {
-    Value = MmioRead32 ((UINTN)(MacBaseAddress + MTL_RXQ_DMA_MAP0));
+    Value = DwMac4MmioRead (DwMac4Driver, MTL_RXQ_DMA_MAP0);
     Value &= ~MTL_RXQ_DMA_QXMDMACH_MASK(Queue);
     Value |= MTL_RXQ_DMA_QXMDMACH(Channel, Queue);
-    MmioWrite32 ((UINTN)(MacBaseAddress + MTL_RXQ_DMA_MAP0), Value);
+    DwMac4MmioWrite (DwMac4Driver, MTL_RXQ_DMA_MAP0, Value);
   } else {
-    Value = MmioRead32 ((UINTN)(MacBaseAddress + MTL_RXQ_DMA_MAP1));
+    Value = DwMac4MmioRead (DwMac4Driver, MTL_RXQ_DMA_MAP1);
     Value &= ~MTL_RXQ_DMA_QXMDMACH_MASK(Queue - 4);
     Value |= MTL_RXQ_DMA_QXMDMACH(Channel, Queue - 4);
-    MmioWrite32 ((UINTN)(MacBaseAddress + MTL_RXQ_DMA_MAP1), Value);
+    DwMac4MmioWrite (DwMac4Driver, MTL_RXQ_DMA_MAP1, Value);
   }
 }
 
 VOID
 DwMac4RxQueueEnable (
-  IN UINTN  MacBaseAddress,
-  IN UINT8  Mode,
-  IN UINT32 Queue
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT8                         Mode,
+  IN  UINT32                        Queue
   )
 {
   UINT32 Value;
 
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_RXQ_CTRL0));
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_RXQ_CTRL0);
 
   Value &= GMAC_RX_QUEUE_CLEAR(Queue);
   if (Mode == MTL_QUEUE_AVB) {
@@ -1013,7 +1090,7 @@ DwMac4RxQueueEnable (
     Value |= GMAC_RX_DCB_QUEUE_ENABLE(Queue);
   }
 
-  MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_RXQ_CTRL0), Value);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_RXQ_CTRL0, Value);
 }
 
 /**
@@ -1023,26 +1100,23 @@ DwMac4RxQueueEnable (
  */
 VOID
 StmmacMtlConfiguration (
-  IN UINTN MacBaseAddress
-)
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
+  )
 {
   UINT32 HwCap;
   UINT32 TxFifoSize;
   UINT32 RxFifoSize;
-  UINT32 TxQueuesToUse;
-  UINT32 RxQueuesToUse;
   UINT32 TxAlgorithm;
   UINT32 RxAlgorithm;
   UINT32 Queue;
   UINT32 Weight;
   UINT32 Channel;
   UINT8  Mode;
+  UINT32 Value;
 
-  TxQueuesToUse = 1;
-  RxQueuesToUse = 1;
   TxAlgorithm = MTL_TX_ALGORITHM_SP;
   RxAlgorithm = MTL_RX_ALGORITHM_WSP;
-  HwCap = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_HW_FEATURE0));
+  HwCap = DwMac4MmioRead (DwMac4Driver, GMAC_HW_FEATURE1);
 
   //
   // RX and TX FIFO sizes are encoded as log2(n / 128). Undo that by
@@ -1060,7 +1134,7 @@ StmmacMtlConfiguration (
   if (TxQueuesToUse > 1) {
     for (Queue = 0; Queue < TxQueuesToUse; Queue++) {
       Weight = 0x10 + Queue;
-      DwMac4SetMtlTxQueueWeight (MacBaseAddress, Weight, Queue);
+      DwMac4SetMtlTxQueueWeight (DwMac4Driver, Weight, Queue);
     }
   }
 
@@ -1068,14 +1142,14 @@ StmmacMtlConfiguration (
   // Configure MTL RX algorithms
   //
   if (RxQueuesToUse > 1) {
-    DwMac4ProgMtlRxAlgorithms (MacBaseAddress, RxAlgorithm);
+    DwMac4ProgMtlRxAlgorithms (DwMac4Driver, RxAlgorithm);
   }
 
   //
   // Configure MTL TX algorithms
   //
   if (TxQueuesToUse > 1) {
-    DwMac4ProgMtlTxAlgorithms (MacBaseAddress, TxAlgorithm);
+    DwMac4ProgMtlTxAlgorithms (DwMac4Driver, TxAlgorithm);
   }
 
   //
@@ -1083,7 +1157,7 @@ StmmacMtlConfiguration (
   //
   for (Queue = 0; Queue < RxQueuesToUse; Queue++) {
     Channel = Queue;
-    DwMac4MapMtlDma (MacBaseAddress, Queue, Channel);
+    DwMac4MapMtlDma (DwMac4Driver, Queue, Channel);
   }
 
   //
@@ -1091,7 +1165,7 @@ StmmacMtlConfiguration (
   //
   for (Queue = 0; Queue < RxQueuesToUse; Queue++) {
     Mode = MTL_QUEUE_DCB;
-    DwMac4RxQueueEnable (MacBaseAddress, Mode, Queue);
+    DwMac4RxQueueEnable (DwMac4Driver, Mode, Queue);
   }
 
   //
@@ -1102,7 +1176,7 @@ StmmacMtlConfiguration (
   // c. Transmit Queue Size (TQS)
   //
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DwMac4DmaTxChanOpMode(MacBaseAddress, Channel, TxFifoSize, SF_DMA_MODE, MTL_QUEUE_DCB);
+    DwMac4DmaTxChanOpMode (DwMac4Driver, Channel, TxFifoSize, SF_DMA_MODE, MTL_QUEUE_DCB);
   }
 
   //
@@ -1114,18 +1188,97 @@ StmmacMtlConfiguration (
   // d. Receive Queue Size (RQS)
   //
   for (Channel = 0; Channel < RxChannelsCount; Channel++) {
-    DwMac4DmaRxChanOpMode(MacBaseAddress, Channel, RxFifoSize, SF_DMA_MODE, MTL_QUEUE_DCB);
+    DwMac4DmaRxChanOpMode (DwMac4Driver, Channel, RxFifoSize, SF_DMA_MODE, MTL_QUEUE_DCB);
+  }
+
+  //
+  // Set TX priorities
+  //
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_TXQ_PRTY_MAP0);
+  Value &= ~GMAC_TXQCTRL_PSTQX_MASK(0);
+  Value |= (0 << GMAC_TXQCTRL_PSTQX_SHIFT(0)) & GMAC_TXQCTRL_PSTQX_MASK(0);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_TXQ_PRTY_MAP0, Value);
+
+  //
+  // Set RX priorities
+  //
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_RXQ_CTRL2);
+  Value &= ~GMAC_RXQCTRL_PSRQX_MASK(0);
+  Value |= (0 << GMAC_RXQCTRL_PSRQX_SHIFT(0)) & GMAC_RXQCTRL_PSRQX_MASK(0);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_RXQ_CTRL2, Value);
+
+  //
+  // Set RX routing: Multicast and Broadcast Queue Enable
+  //
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_RXQ_CTRL1);
+  Value &= ~GMAC_RXQCTRL_MCBCQEN;
+  Value |= 0x1 << GMAC_RXQCTRL_MCBCQEN_SHIFT;
+  DwMac4MmioWrite (DwMac4Driver, GMAC_RXQ_CTRL1, Value);
+
+  //
+  // Enable promiscuous mode
+  //
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_PACKET_FILTER);
+  Value |= GMAC_PACKET_FILTER_PR;
+  DwMac4MmioWrite (DwMac4Driver, GMAC_PACKET_FILTER, Value);
+}
+
+VOID
+StmmacMacFlowControl (
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
+  IN  UINT32                        Duplex,
+  IN  UINT32                        FlowCtrl
+  )
+{
+  UINT32 Flow;
+  UINT32 Queue;
+  UINT32 PauseTime;
+
+  Flow = 0;
+  Queue = 0;
+  PauseTime = PAUSE_TIME;
+
+  DEBUG ((DEBUG_INFO, "GMAC Flow-Control:\n"));
+  if (FlowCtrl & FLOW_RX) {
+    DEBUG ((DEBUG_INFO, "\tReceive Flow-Control ON\n"));
+    Flow |= GMAC_RX_FLOW_CTRL_RFE;
+  } else {
+    DEBUG ((DEBUG_INFO, "\tReceive Flow-Control OFF\n"));
+  }
+
+  DwMac4MmioWrite (DwMac4Driver, GMAC_RX_FLOW_CTRL, Flow);
+
+  if (FlowCtrl & FLOW_TX) {
+    DEBUG ((DEBUG_INFO, "\tTransmit Flow-Control ON\n"));
+
+    if (Duplex) {
+      DEBUG ((DEBUG_INFO, "\tduplex mode: PAUSE %d\n", PauseTime));
+    }
+
+    for (Queue = 0; Queue < TxQueuesToUse; Queue++) {
+      Flow = GMAC_TX_FLOW_CTRL_TFE;
+
+      if (Duplex) {
+        Flow |= (PauseTime << GMAC_TX_FLOW_CTRL_PT_SHIFT);
+      }
+
+      DwMac4MmioWrite (DwMac4Driver, GMAC_QX_TX_FLOW_CTRL(Queue), Flow);
+    }
+  } else {
+    for (Queue = 0; Queue < TxQueuesToUse; Queue++) {
+      DwMac4MmioWrite (DwMac4Driver, GMAC_QX_TX_FLOW_CTRL(Queue), 0);
+    }
   }
 }
 
 EFI_STATUS
 EFIAPI
 StmmacSetFilters (
-  IN  UINT32            ReceiveFilterSetting,
-  IN  BOOLEAN           Reset,
-  IN  UINTN             NumMfilter          OPTIONAL,
-  IN  EFI_MAC_ADDRESS   *Mfilter            OPTIONAL,
-  IN  UINTN             MacBaseAddress
+  IN  UINT32                        ReceiveFilterSetting,
+  IN  BOOLEAN                       Reset,
+  IN  UINTN                         NumMfilter          OPTIONAL,
+  IN  EFI_MAC_ADDRESS               *Mfilter            OPTIONAL,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32  MacFilter;
@@ -1141,14 +1294,14 @@ StmmacSetFilters (
   //
   if (Reset) {
     for (Index = 0; Index < NumMfilter; Index++) {
-      MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_HASH_TAB(Index)), 0x0);
+      DwMac4MmioWrite (DwMac4Driver, GMAC_HASH_TAB(Index), 0x0);
     }
   }
 
   //
   // Set MacFilter to the reset value of the GMAC_PACKET_FILTER register.
   //
-  MacFilter = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_PACKET_FILTER));
+  MacFilter = DwMac4MmioRead (DwMac4Driver, GMAC_PACKET_FILTER);
   MacFilter &= ~GMAC_PACKET_FILTER_HMC;
   MacFilter &= ~GMAC_PACKET_FILTER_HPF;
   MacFilter &= ~GMAC_PACKET_FILTER_PCF;
@@ -1183,13 +1336,13 @@ StmmacSetFilters (
         HashReg = (Value >> 5);
         HashBit = (Value & 0x1f);
 
-        Register = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_HASH_TAB(HashReg)));
+        Register = DwMac4MmioRead (DwMac4Driver, GMAC_HASH_TAB(HashReg));
 	//
         // Set 1 to HashBit of HashReg.
         // For example, set 1 to bit 31 to Reg 5 as in above example.
 	//
         Register |= (1 << HashBit);
-        MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_HASH_TAB(HashReg)), Register);
+        DwMac4MmioWrite (DwMac4Driver, GMAC_HASH_TAB(HashReg), Register);
       }
     }
   }
@@ -1209,7 +1362,7 @@ StmmacSetFilters (
   //
   // Set MacFilter to GMAC_PACKET_FILTER register.
   //
-  MmioWrite32((UINTN)(MacBaseAddress + GMAC_PACKET_FILTER), MacFilter);
+  DwMac4MmioWrite (DwMac4Driver, GMAC_PACKET_FILTER, MacFilter);
 
   return EFI_SUCCESS;
 }
@@ -1294,8 +1447,8 @@ BitReverse (
 VOID
 EFIAPI
 StmmacGetDmaStatus (
-  OUT  UINT32   *IrqStat  OPTIONAL,
-  IN   UINTN    MacBaseAddress
+  OUT UINT32                        *IrqStat  OPTIONAL,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32  DmaStatus;
@@ -1312,8 +1465,8 @@ StmmacGetDmaStatus (
   }
 
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
-    DmaStatus = MmioRead32 ((UINTN)MacBaseAddress + DMA_CHAN_STATUS(Channel));
-    IntrEnable = MmioRead32 ((UINTN)(MacBaseAddress + DMA_CHAN_INTR_ENA(Channel)));
+    DmaStatus = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_STATUS(Channel));
+    IntrEnable = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel));
 
     DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
     DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
@@ -1511,7 +1664,7 @@ StmmacGetDmaStatus (
         }
       }
     }
-    MmioWrite32 ((UINTN)(MacBaseAddress + DMA_CHAN_STATUS(Channel)), Mask & IntrEnable);
+    DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_STATUS(Channel), Mask & IntrEnable);
   }
 }
 
@@ -1522,8 +1675,8 @@ StmmacGetDmaStatus (
 VOID
 EFIAPI
 StmmacGetStatistic (
-  OUT  EFI_NETWORK_STATISTICS   *Statistic,
-  IN   UINTN                     MacBaseAddress
+  OUT EFI_NETWORK_STATISTICS        *Statistic,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   EFI_NETWORK_STATISTICS   *Stats;
@@ -1542,27 +1695,27 @@ StmmacGetStatistic (
     return;
   }
 
-  Stats->RxTotalFrames     = MmioRead32 (MacBaseAddress + MMC_RX_FRAMECOUNT_GB);
-  Stats->RxUndersizeFrames = MmioRead32 (MacBaseAddress + MMC_RX_UNDERSIZE_G);
-  Stats->RxOversizeFrames  = MmioRead32 (MacBaseAddress + MMC_RX_OVERSIZE_G);
-  Stats->RxUnicastFrames   = MmioRead32 (MacBaseAddress + MMC_RX_UNICAST_G);
-  Stats->RxBroadcastFrames = MmioRead32 (MacBaseAddress + MMC_RX_BROADCASTFRAME_G);
-  Stats->RxMulticastFrames = MmioRead32 (MacBaseAddress + MMC_RX_MULTICASTFRAME_G);
-  Stats->RxCrcErrorFrames  = MmioRead32 (MacBaseAddress + MMC_RX_CRC_ERROR);
-  Stats->RxTotalBytes      = MmioRead32 (MacBaseAddress + MMC_RX_OCTETCOUNT_GB);
+  Stats->RxTotalFrames     = DwMac4MmioRead (DwMac4Driver, MMC_RX_FRAMECOUNT_GB);
+  Stats->RxUndersizeFrames = DwMac4MmioRead (DwMac4Driver, MMC_RX_UNDERSIZE_G);
+  Stats->RxOversizeFrames  = DwMac4MmioRead (DwMac4Driver, MMC_RX_OVERSIZE_G);
+  Stats->RxUnicastFrames   = DwMac4MmioRead (DwMac4Driver, MMC_RX_UNICAST_G);
+  Stats->RxBroadcastFrames = DwMac4MmioRead (DwMac4Driver, MMC_RX_BROADCASTFRAME_G);
+  Stats->RxMulticastFrames = DwMac4MmioRead (DwMac4Driver, MMC_RX_MULTICASTFRAME_G);
+  Stats->RxCrcErrorFrames  = DwMac4MmioRead (DwMac4Driver, MMC_RX_CRC_ERROR);
+  Stats->RxTotalBytes      = DwMac4MmioRead (DwMac4Driver, MMC_RX_OCTETCOUNT_GB);
   Stats->RxGoodFrames      = Stats->RxUnicastFrames +
 	                     Stats->RxBroadcastFrames +
 			     Stats->RxMulticastFrames;
 
-  Stats->TxTotalFrames     = MmioRead32 (MacBaseAddress + MMC_TX_FRAMECOUNT_GB);
-  Stats->TxGoodFrames      = MmioRead32 (MacBaseAddress + MMC_TX_FRAMECOUNT_G);
-  Stats->TxOversizeFrames  = MmioRead32 (MacBaseAddress + MMC_TX_OVERSIZE_G);
-  Stats->TxUnicastFrames   = MmioRead32 (MacBaseAddress + MMC_TX_UNICAST_GB);
-  Stats->TxBroadcastFrames = MmioRead32 (MacBaseAddress + MMC_TX_BROADCASTFRAME_G);
-  Stats->TxMulticastFrames = MmioRead32 (MacBaseAddress + MMC_TX_MULTICASTFRAME_G);
-  Stats->TxTotalBytes      = MmioRead32 (MacBaseAddress + MMC_TX_OCTETCOUNT_GB);
-  Stats->Collisions        = MmioRead32 (MacBaseAddress + MMC_TX_LATECOL) +
-                             MmioRead32 (MacBaseAddress + MMC_TX_EXESSCOL);
+  Stats->TxTotalFrames     = DwMac4MmioRead (DwMac4Driver, MMC_TX_FRAMECOUNT_GB);
+  Stats->TxGoodFrames      = DwMac4MmioRead (DwMac4Driver, MMC_TX_FRAMECOUNT_G);
+  Stats->TxOversizeFrames  = DwMac4MmioRead (DwMac4Driver, MMC_TX_OVERSIZE_G);
+  Stats->TxUnicastFrames   = DwMac4MmioRead (DwMac4Driver, MMC_TX_UNICAST_GB);
+  Stats->TxBroadcastFrames = DwMac4MmioRead (DwMac4Driver, MMC_TX_BROADCASTFRAME_G);
+  Stats->TxMulticastFrames = DwMac4MmioRead (DwMac4Driver, MMC_TX_MULTICASTFRAME_G);
+  Stats->TxTotalBytes      = DwMac4MmioRead (DwMac4Driver, MMC_TX_OCTETCOUNT_GB);
+  Stats->Collisions        = DwMac4MmioRead (DwMac4Driver, MMC_TX_LATECOL) +
+                             DwMac4MmioRead (DwMac4Driver, MMC_TX_EXESSCOL);
 
   //
   // Fill in the statistics
@@ -1573,15 +1726,15 @@ StmmacGetStatistic (
 VOID
 EFIAPI
 StmmacMacLinkUp (
-  IN  UINT32   Speed,
-  IN  UINT32   Duplex,
-  IN  UINTN    MacBaseAddress
+  IN  UINT32                        Speed,
+  IN  UINT32                        Duplex,
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 OldValue;
   UINT32 Value;
 
-  OldValue = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_CONFIG));
+  OldValue = DwMac4MmioRead (DwMac4Driver, GMAC_CONFIG);
 
   Value = OldValue & ~(GMAC_CONFIG_FES | GMAC_CONFIG_PS);
 
@@ -1614,14 +1767,14 @@ StmmacMacLinkUp (
   }
 
   if (Value != OldValue) {
-    MmioWrite32 ((UINTN)(MacBaseAddress + GMAC_CONFIG), Value);
+    DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
   }
 }
 
 VOID
 EFIAPI
 StmmacDebug (
-  IN UINTN MacBaseAddress
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   )
 {
   UINT32 Value;
@@ -1632,7 +1785,7 @@ StmmacDebug (
   //
   // GMAC debug
   //
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + GMAC_DEBUG));
+  Value = DwMac4MmioRead (DwMac4Driver, GMAC_DEBUG);
 
   if (Value & GMAC_DEBUG_TFCSTS_MASK) {
     TfcStatus = (Value & GMAC_DEBUG_TFCSTS_MASK) >> GMAC_DEBUG_TFCSTS_SHIFT;
@@ -1674,7 +1827,7 @@ StmmacDebug (
   //
   // DMA debug
   //
-  Value = MmioRead32 ((UINTN)(MacBaseAddress + DMA_DEBUG_STATUS_0));
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_DEBUG_STATUS_0);
 
   if (Value & DMA_DEBUG_STATUS_0_AXWHSTS) {
       DEBUG ((DEBUG_INFO, "%a(): AXI Master Write Channel or AHB Master Status detected\n", __func__));
