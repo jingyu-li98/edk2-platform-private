@@ -18,6 +18,7 @@
   Motorcomm8531PhyDxe.c
 
 [Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   Silicon/Sophgo/Sophgo.dec
@@ -35,10 +36,11 @@
 [Protocols]
   gSophgoMdioProtocolGuid
   gSophgoPhyProtocolGuid
+  gFdtClientProtocolGuid                                  ## CONSUMES
 
 [Pcd]
-  #gSophgoSiliconTokenSpaceGuid.PcdMdioControllersEnabled
-  #gSophgoSiliconTokenSpaceGuid.PcdPhyStartupAutoneg
+  gSophgoTokenSpaceGuid.PcdPhyResetGpio
+  gSophgoTokenSpaceGuid.PcdPhyResetGpioPin
 
 [Depex]
-  TRUE
+  gFdtClientProtocolGuid

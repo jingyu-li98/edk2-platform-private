@@ -415,7 +415,6 @@ MdioDxeInitialize (
   FDT_CLIENT_PROTOCOL         *FdtClient;
   SOPHGO_MDIO_PROTOCOL        *Mdio;
   EFI_STATUS                  Status;
-  EFI_STATUS                  FindNodeStatus;
   EFI_HANDLE                  Handle;
 
   Handle  = NULL;
@@ -448,7 +447,7 @@ MdioDxeInitialize (
     goto ErrorInstallProto;
   }
 
-  FindNodeStatus = FdtClient->FindCompatibleNode (
+  Status = FdtClient->FindCompatibleNode (
                                      FdtClient,
                                      "sophgo,ethernet",
                                      &Node

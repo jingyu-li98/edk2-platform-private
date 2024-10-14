@@ -38,9 +38,5 @@
   gSophgoMdioProtocolGuid
   gFdtClientProtocolGuid                                  ## CONSUMES
 
-[FixedPcd]
-  #gSophgoTokenSpaceGuid.PcdETHBase                       ## CONSUMES
-  #gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode    ## CONSUMES
-
 [Depex]
   gFdtClientProtocolGuid

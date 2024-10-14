@@ -14,10 +14,15 @@
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Protocol/FdtClient.h>
 
 #include <Include/Phy.h>
 #include <Include/Mdio.h>
 #include "Motorcomm8531PhyDxe.h"
+
+#define GPIO_MUX_VAL(Pin)       (1UL << (Pin))
+#define GPIO_SWPORTA_DR		0x00
+#define GPIO_SWPORTA_DDR	0x04
 
 STATIC SOPHGO_MDIO_PROTOCOL *Mdio;
 
@@ -480,6 +485,44 @@ Yt8531PhyParseStatus (
   return EFI_SUCCESS;
 }
 
+STATIC
+VOID
+PhyResetGpio (
+  IN UINTN  BaseAddress,
+  IN UINT32 Pin
+  )
+{
+  UINT32 Value;
+
+  //
+  // direction: output
+  //
+  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DDR));
+  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DDR), Value | GPIO_MUX_VAL(Pin));
+
+  //
+  // data: 0
+  //
+  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR));
+  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR), Value & (~GPIO_MUX_VAL(Pin)));
+
+  //
+  // wait 100ms
+  //
+  gBS->Stall (100000);
+
+  //
+  // data: 1
+  //
+  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR));
+  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR), Value | GPIO_MUX_VAL(Pin));
+
+  //
+  // wait 100ms
+  //
+  gBS->Stall (100000);
+}
+
 /*
  * Probe and init a PHY device.
  */
@@ -491,10 +534,14 @@ Yt8531PhyInitialize (
   IN PHY_DEVICE                **OutPhyDev
   )
 {
-  UINT16       Mask;
-  UINT16       Value;
-  EFI_STATUS   Status;
-  PHY_DEVICE   *PhyDev;
+  UINT16                      Mask;
+  UINT16                      Value;
+  EFI_STATUS                  Status;
+  PHY_DEVICE                  *PhyDev;
+  INT32                       Node;
+  CONST VOID                  *Prop;
+  UINT32                      PropSize;
+  FDT_CLIENT_PROTOCOL         *FdtClient;
 
   Status = gBS->LocateProtocol (
                &gSophgoMdioProtocolGuid,
@@ -511,12 +558,24 @@ Yt8531PhyInitialize (
     return Status;
   }
 
+  Status = gBS->LocateProtocol (
+      &gFdtClientProtocolGuid,
+      NULL,
+      (VOID **) &FdtClient
+      );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Locate FDT_CLIENT_PROTOCOL failed (Status = %r)\n",
+      __func__,
+      Status
+      ));
+
+    return Status;
+  }
+
   PhyDev = AllocateZeroPool (sizeof (PHY_DEVICE));
   PhyDev->Interface = PhyInterface;
-  //
-  // ------------
-  // todo: why phyaddr=0
-  // ------------
   PhyDev->PhyAddr = 0;
   *OutPhyDev = PhyDev;
   DEBUG ((
@@ -526,6 +585,44 @@ Yt8531PhyInitialize (
     PhyDev->PhyAddr,
     PhyInterface
     ));
+
+  if (PcdGetBool (PcdPhyResetGpio)) {
+    Status = FdtClient->FindCompatibleNode (
+                                       FdtClient,
+                                       "snps,dw-apb-gpio",
+                                       &Node
+                                       );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Find GPIO0 node (Status = %r)\n",
+        __func__,
+        Status
+        ));
+
+      return Status;
+    }
+
+    Status = FdtClient->GetNodeProperty (
+                                  FdtClient,
+                                  Node,
+                                  "reg",
+                                  &Prop,
+                                  &PropSize
+                                  );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Get reg failed (Status = %r)\n",
+        __func__,
+        Status
+        ));
+
+      return Status;
+    }
+
+    PhyResetGpio (SwapBytes64 (((CONST UINT64 *) Prop)[0]), PcdGet8(PcdPhyResetGpioPin));
+  }
 
   //
   // Enable sync e clock output.

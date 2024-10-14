@@ -147,6 +147,7 @@ PlatformPeimInitialization (
   // Add SDHI resource
   //
   PopulateIoResources (Base, "bitmain,bm-sd");
+  PopulateIoResources (Base, "sophgo,sg2044-dwcmshc");
 
   //
   // Add SPI Flash Master Controller resource
@@ -157,6 +158,11 @@ PlatformPeimInitialization (
   // Add Ethernet resource
   //
   PopulateIoResources (Base, "sophgo,ethernet");
+
+  //
+  // Add GPIO resource
+  //
+  PopulateIoResources (Base, "snps,dw-apb-gpio");
 
   return EFI_SUCCESS;
 }
