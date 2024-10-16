@@ -1385,6 +1385,7 @@ SnpGetStatus (
     DwMac4Driver->SnpMode.MediaPresent = FALSE;
   }
 #endif
+#if 0
   //
   // TxBuff
   //
@@ -1399,7 +1400,7 @@ SnpGetStatus (
       *TxBuff = (VOID *)(UINTN) DwMac4Driver->RecycledTxBuf[DwMac4Driver->RecycledTxBufCount];
     }
   }
-
+#endif
   //
   // Check DMA Irq status
   //
@@ -1490,9 +1491,8 @@ SnpTransmit (
   UINT8                             *EthernetPacket;
   UINT64                            *Tmp;
   EFI_STATUS                        Status;
-  EFI_PHYSICAL_ADDRESS              TxBufferAddrMap;
+  EFI_PHYSICAL_ADDRESS              TxBufferPhysAddress;
   UINT32                            Index;
-  UINTN                             TxTailAddr;
   EFI_TPL                           SavedTpl;
   UINTN                             DmaNumberOfBytes;
 
@@ -1581,10 +1581,8 @@ SnpTransmit (
   DwMac4Driver->MacDriver.TxCurrentDescriptorNum = DwMac4Driver->MacDriver.TxNextDescriptorNum;
   TxDescIndex = DwMac4Driver->MacDriver.TxCurrentDescriptorNum;
 
-  DEBUG ((DEBUG_INFO, "TxCurrentDescriptorNum=%d\n", DwMac4Driver->MacDriver.TxNextDescriptorNum));
-  DEBUG ((DEBUG_INFO, "TxDescIndex=%d\n", DwMac4Driver->MacDriver.TxCurrentDescriptorNum));
   TxDescriptor = DwMac4Driver->MacDriver.TxDescRing[TxDescIndex];
-  TxDescriptorMap = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[TxDescIndex].AddrMap;
+  TxDescriptorMap = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[TxDescIndex].PhysAddress;
 
   if (HdrSize) {
     EthernetPacket[0] = DstAddr->Addr[0];
@@ -1611,7 +1609,7 @@ SnpTransmit (
 		  MapOperationBusMasterRead,
 		  (VOID *)(UINTN)EthernetPacket,
                   &DmaNumberOfBytes,
-		  &TxBufferAddrMap,
+		  &TxBufferPhysAddress,
 		  &DwMac4Driver->MappingTxbuf
 		  );
   if (EFI_ERROR (Status)) {
@@ -1631,8 +1629,8 @@ SnpTransmit (
   TxDescIndex++;
   TxDescIndex %= TX_DESC_NUM;
 
-  TxDescriptor->Des0 = TxBufferAddrMap;
-  TxDescriptor->Des1 = TxBufferAddrMap >> 32;
+  TxDescriptor->Des0 = TxBufferPhysAddress;
+  TxDescriptor->Des1 = TxBufferPhysAddress >> 32;
   TxDescriptor->Des2 = BufferSize;
 
   //
@@ -1664,8 +1662,9 @@ SnpTransmit (
     DwMac4Driver->MaxRecycledTxBuf += TX_DESC_NUM;
   }
 
-  TxTailAddr = TxDescIndex * sizeof(DMA_DESCRIPTOR);
-  StmmacSetTxTailPtr (DwMac4Driver, TxTailAddr, 0);
+  StmmacSetTxTailPtr (DwMac4Driver,
+		      (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[TX_DESC_NUM - 1].PhysAddress,
+		      0);
   for (Index = 0; Index < 1000000; Index++) {
     if (!(TxDescriptor->Des3 & TDES3_OWN)) {
       return 0;
@@ -1764,7 +1763,6 @@ SnpReceive (
   DMA_DESCRIPTOR                    *RxDescriptorMap;
   UINTN                             BufferSizeBuf;
   UINTN                             *RxBufferAddr;
-  EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
   EFI_STATUS                        Status;
 
   BufferSizeBuf = ETH_BUFFER_SIZE;
@@ -1792,15 +1790,12 @@ SnpReceive (
   //
   DwMac4Driver->MacDriver.RxCurrentDescriptorNum = DwMac4Driver->MacDriver.RxNextDescriptorNum;
   RxDescIndex = DwMac4Driver->MacDriver.RxCurrentDescriptorNum;
-  DEBUG ((DEBUG_INFO, "RxCurrentDescriptorNum=%d\n", DwMac4Driver->MacDriver.RxNextDescriptorNum));
-  DEBUG ((DEBUG_INFO, "RxDescIndex=%d\n", DwMac4Driver->MacDriver.RxCurrentDescriptorNum));
   RxDescriptor = DwMac4Driver->MacDriver.RxDescRing[RxDescIndex];
-  DEBUG ((DEBUG_INFO, "RxDescAddr=0x%lx\n", (UINTN)DwMac4Driver->MacDriver.RxDescRing[RxDescIndex]));
 #if 0 
-    //
-    // Flush Rx Descriptor
-    //
-    mCpu->FlushDataCache (
+  //
+  // Flush Rx Descriptor
+  //
+  mCpu->FlushDataCache (
             mCpu,
             (UINTN)DwMac4Driver->MacDriver.RxDescRing[RxDescIndex],
             EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
@@ -1810,7 +1805,7 @@ SnpReceive (
   RxBufferAddr = (UINTN*)((UINTN)DwMac4Driver->MacDriver.RxBuffer +
                           (RxDescIndex * BufferSizeBuf));
   DEBUG ((DEBUG_INFO, "*RxBufferAddr=0x%lx\n", RxBufferAddr));
-  RxDescriptorMap = (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RxDescIndex].AddrMap;
+  RxDescriptorMap = (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RxDescIndex].PhysAddress;
 
   RawData = (UINT8 *) Data;
 
@@ -1821,7 +1816,7 @@ SnpReceive (
   StmmacDebug (DwMac4Driver);
 #endif
   RxDescriptorStatus = RxDescriptor->Des3;
-  DEBUG ((DEBUG_INFO, "%a[%d] RxDescriptorStatus=0x%x\n", __func__, __LINE__, RxDescriptorStatus));
+  DEBUG ((DEBUG_INFO, "%a[%d] RxDescriptor->Des3=0x%x\n", __func__, __LINE__, RxDescriptorStatus));
   if (RxDescriptorStatus & RDES3_OWN) {
     goto ReleaseLock;
   }
@@ -1971,7 +1966,7 @@ SnpReceive (
 		  MapOperationBusMasterWrite,
 		  (VOID *)RxBufferAddr,
                   &BufferSizeBuf,
-		  &RxBufferAddrMap,
+		  &DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].PhysAddress,
 		  &DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].Mapping
 		  );
   if (EFI_ERROR (Status)) {
@@ -1984,8 +1979,6 @@ SnpReceive (
 
     return Status;
   }
-
-  DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].AddrMap = RxBufferAddrMap;
 
   RxDescriptor->Des3 |= (UINT32)RDES3_OWN;
 
@@ -2076,11 +2069,9 @@ DwMac4SnpDxeEntry (
   EFI_MAC_ADDRESS                   *SwapMacAddressPtr;
   UINTN                             DescriptorSize;
   UINTN                             BufferSize;
-  UINTN                             *RxBufferAddr;
-  EFI_PHYSICAL_ADDRESS              RxBufferAddrMap;
   UINT32                            Index;
   EFI_HANDLE                        Handle;
-  EFI_CPU_ARCH_PROTOCOL  *gCpu;
+  EFI_CPU_ARCH_PROTOCOL             *gCpu;
 
   Handle = NULL;
 
@@ -2124,14 +2115,16 @@ DwMac4SnpDxeEntry (
   //
   // Size for descriptor
   //
-  DescriptorSize = EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR));
-  DEBUG ((DEBUG_INFO, "%a[%d] --------------- DescriptorSize=0x%lx\n", __func__, __LINE__, DescriptorSize));
+  DescriptorSize = sizeof (DMA_DESCRIPTOR);
 
   //
   // Size for transmit and receive buffer
   //
   BufferSize = ETH_BUFFER_SIZE;
-  DEBUG ((DEBUG_INFO, "%a[%d] --------------- BufferSize=0x%lx\n", __func__, __LINE__, BufferSize));
+    Status = DmaAllocateBuffer (EfiBootServicesData,
+                                EFI_SIZE_TO_PAGES (BufferSize * RX_DESC_NUM),
+				(VOID *)&DwMac4Driver->MacDriver.RxBuffer
+				);
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
     //
@@ -2150,6 +2143,7 @@ DwMac4SnpDxeEntry (
 	));
       return Status;
     }
+    ZeroMem (DwMac4Driver->MacDriver.TxDescRing[Index], DescriptorSize);
 #if 0
     DEBUG ((DEBUG_INFO, "%a[%d] TxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",__func__, __LINE__,
 			    Index,
@@ -2173,7 +2167,7 @@ DwMac4SnpDxeEntry (
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     DwMac4Driver->MacDriver.TxDescRing[Index],
                      &DescriptorSize,
-	             &DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap,
+	             &DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress,
 	             &DwMac4Driver->MacDriver.TxDescRingMap[Index].Mapping
 	             );
     if (EFI_ERROR (Status)) {
@@ -2202,6 +2196,7 @@ DwMac4SnpDxeEntry (
 	));
       return Status;
     }
+    ZeroMem (DwMac4Driver->MacDriver.RxDescRing[Index], DescriptorSize);
 #if 0
     DEBUG ((DEBUG_INFO, "%a[%d] RxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",__func__, __LINE__,
 			     Index,
@@ -2225,7 +2220,7 @@ DwMac4SnpDxeEntry (
     Status = DmaMap (MapOperationBusMasterCommonBuffer,
 		     DwMac4Driver->MacDriver.RxDescRing[Index],
                      &DescriptorSize,
-		     &DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap,
+		     &DwMac4Driver->MacDriver.RxDescRingMap[Index].PhysAddress,
 		     &DwMac4Driver->MacDriver.RxDescRingMap[Index].Mapping
 		     );
     if (EFI_ERROR (Status)) {
@@ -2238,14 +2233,15 @@ DwMac4SnpDxeEntry (
       return Status;
     }
 
+
     //
     // DMA mapping for receive buffer
     //
-    RxBufferAddr = (UINTN*)((UINTN)DwMac4Driver->MacDriver.RxBuffer + (Index * BufferSize));
+    // RxBufferAddr = (UINTN *)((UINTN)DwMac4Driver->MacDriver.RxBuffer + (Index * BufferSize));
     Status = DmaMap (MapOperationBusMasterWrite,
-		     (VOID *) RxBufferAddr,
+                     (UINT8 *)(UINTN)DwMac4Driver->MacDriver.RxBuffer + Index * BufferSize,
                      &BufferSize,
-		     &RxBufferAddrMap,
+		     &DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress,
 		     &DwMac4Driver->MacDriver.RxBufNum[Index].Mapping
 		     );
     if (EFI_ERROR (Status)) {
@@ -2257,9 +2253,23 @@ DwMac4SnpDxeEntry (
 	));
       return Status;
     }
-    DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap = RxBufferAddrMap;
   }
-
+#if 0
+  //
+  // Allocate DMA Buffers for RX
+  //
+  Status = gBS->AllocatePages (AllocateMaxAddress,
+		  EfiBootServicesData,
+                  EFI_SIZE_TO_PAGES (RX_MAX_PACKET * RX_DESC_NUM),
+                  &Genet->RxBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Failed to allocate RX buffer: %r\n",
+      __func__,
+      Status));
+  }
+#endif
   //
   // Initialized signature (used by INSTANCE_FROM_SNP_THIS macro)
   //

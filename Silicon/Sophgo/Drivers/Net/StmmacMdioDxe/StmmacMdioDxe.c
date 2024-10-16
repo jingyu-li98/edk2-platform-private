@@ -519,7 +519,7 @@ MdioDxeInitialize (
     Mdio->MiiClkCsrMask = GENMASK(11, 8);
   }
 
-  DEBUG ((DEBUG_INFO, "%a(): \n\
+  DEBUG ((DEBUG_VERBOSE, "%a(): \n\
 			  Mdio->BaseAddress=0x%lx, \n\
 			  Mdio->MiiAddr=0x%x,\n\
 			  Mdio->MiiData=0x%x, \n\

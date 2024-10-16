@@ -18,7 +18,7 @@
 #include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
 #include <Protocol/Cpu.h>
-//STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
+STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 
 #define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
 #define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
@@ -467,48 +467,48 @@ DwMac4SetupRxDescriptor (
   Channel = 0;
 
   for (Index = 0; Index < RX_DESC_NUM; Index++) {
-    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap));
-    RxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap;
+    RxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].PhysAddress;
 
-
-    DEBUG ((DEBUG_INFO, "RxDescriptor[%d]->Des0/Des1 (RxBuffer) =0x%lx\n", Index, DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap));
-
-    RxDescriptor->Des0 = LOWER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap);
-    RxDescriptor->Des1 = UPPER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].AddrMap);
+    RxDescriptor->Des0 = LOWER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress);
+    RxDescriptor->Des1 = UPPER_32_BITS(DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress);
     RxDescriptor->Des2 = 0;
     RxDescriptor->Des3 = RDES3_OWN | RDES3_BUFFER1_VALID_ADDR;
-    DEBUG ((DEBUG_INFO, "After: RxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].AddrMap));
+
+    MemoryFence ();
 #if 0
     //
     // Flush Rx Descriptor
     //
     mCpu->FlushDataCache (
             mCpu,
-            (UINTN)DwMac4Driver->MacDriver->RxDescRingMap[Index].AddrMap,
+            (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[Index].PhysAddress,
             EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
             EfiCpuFlushTypeWriteBackInvalidate
             );
-
+#endif
+    DEBUG ((DEBUG_INFO, "=======%a[%d] flush rx buffer addr=0x%lx =====\n", __func__, __LINE__, 
+            DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress));
     //
     // Invalidate Rx Buffer
     //
     mCpu->FlushDataCache (
             mCpu,
-            (UINTN)DwMac4Driver->MacDriver->RxBufNum[Index].AddrMap,
+            DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress,
             ETH_BUFFER_SIZE,
             EfiCpuFlushTypeInvalidate
             );
-#endif
   }
+
   //
   // Write the address of Rx descriptor list
   //
-  DEBUG ((DEBUG_INFO, "RxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
-  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_BASE_ADDR_HI(Channel),
-		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver,
+		   DMA_CHAN_RX_BASE_ADDR_HI(Channel),
+		   UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].PhysAddress));
 
-  DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_BASE_ADDR(Channel),
-		    LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].AddrMap));
+  DwMac4MmioWrite (DwMac4Driver,
+		   DMA_CHAN_RX_BASE_ADDR(Channel),
+		   LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.RxDescRingMap[0].PhysAddress));
 
   //
   // Initialize the descriptor number
@@ -529,14 +529,14 @@ DwMac4SetupTxDescriptor (
   Channel = 0;
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
-    DEBUG ((DEBUG_INFO, "TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap));
-    TxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap;
+    DEBUG ((DEBUG_INFO, "TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress));
+    TxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress;
 #if 0
     TxDescriptor->DmaMacAddr = (UINTN)&DwMac4Driver->MacDriver.TxBuffer[Index * ETH_BUFFER_SIZE];
 
     DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
     if (Index < TX_DESC_NUM - 1) {
-      TxDescriptor->DmaMacNext = (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index + 1].AddrMap;
+      TxDescriptor->DmaMacNext = (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index + 1].PhysAddress;
     DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
     }
 
@@ -555,23 +555,23 @@ DwMac4SetupTxDescriptor (
     //
     mCpu->FlushDataCache (
             mCpu,
-            (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap,
+            (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress,
             EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
             EfiCpuFlushTypeWriteBackInvalidate
             );
+    //DEBUG ((DEBUG_INFO, "After: TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress));
 #endif
-    DEBUG ((DEBUG_INFO, "After: TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].AddrMap));
   }
 
   //
   // Write the address of tx descriptor list
   //
-  DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
+ // DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.TxDescRingMap[0].PhysAddress));
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_BASE_ADDR_HI(Channel),
-		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
+		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].PhysAddress));
 
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_BASE_ADDR(Channel),
-		    LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].AddrMap));
+		    LOWER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].PhysAddress));
 
   //
   // Initialize the descriptor number
@@ -745,7 +745,6 @@ DwMac4DmaTxChanOpMode (
   }
 
   MtlTxOp &= ~MTL_OP_MODE_TQS_MASK;
-  DEBUG ((DEBUG_INFO, "\n\n%a[%d] Tqs=%d\n", __func__, __LINE__, Tqs));
   MtlTxOp |= Tqs << MTL_OP_MODE_TQS_SHIFT;
 
   DwMac4MmioWrite(DwMac4Driver, MTL_CHAN_TX_OP_MODE(Channel), MtlTxOp);
@@ -987,10 +986,9 @@ StmmacInitDmaEngine (
     Value |= (RX_MAX_PACKET << DMA_RBSZ_SHIFT) & DMA_RBSZ_MASK;
     DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 
-    //DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&DwMac4Driver->MacDriver.RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
-    DEBUG ((DEBUG_INFO, "%a(): RxTailPtr = 0x%lx\n", __func__, (UINTN)&DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].AddrMap));
-    //StmmacSetRxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver->RxBuffer[(RX_DESC_NUM - 1) * ETH_BUFFER_SIZE], Channel);
-    StmmacSetRxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].AddrMap, Channel);
+    StmmacSetRxTailPtr (DwMac4Driver,
+		        (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].PhysAddress,
+			Channel);
   }
 
   //
@@ -998,10 +996,6 @@ StmmacInitDmaEngine (
   //
   for (Channel = 0; Channel < TxChannelsCount; Channel++) {
     DwMac4DmaInitTxChan (DwMac4Driver, Channel);
-
-    //DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&DwMac4Driver->MacDriver.TxBuffer[(TX_DESC_NUM - 1) * ETH_BUFFER_SIZE]));
-    DEBUG ((DEBUG_INFO, "%a(): TxTailPtr = 0x%lx\n",  __func__, (UINTN)&DwMac4Driver->MacDriver.TxDescRingMap[TX_DESC_NUM - 1].AddrMap));
-    StmmacSetTxTailPtr (DwMac4Driver, (UINTN)&DwMac4Driver->MacDriver.TxDescRingMap[TX_DESC_NUM - 1].AddrMap, Channel);
   }
 
   //
@@ -1470,6 +1464,7 @@ StmmacGetDmaStatus (
 
     DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
     DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
+
     //
     // TX/RX NORMAL interrupts.
     //

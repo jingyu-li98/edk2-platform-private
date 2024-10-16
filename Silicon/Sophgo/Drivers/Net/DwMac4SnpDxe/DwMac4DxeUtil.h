@@ -1022,15 +1022,16 @@ typedef struct {
 } DMA_DESCRIPTOR;
 
 typedef struct {
-  EFI_PHYSICAL_ADDRESS        AddrMap;
+  EFI_PHYSICAL_ADDRESS        PhysAddress;
   void                        *Mapping;
 } MAP_INFO;
 
 typedef struct {
   DMA_DESCRIPTOR              *TxDescRing[TX_DESC_NUM];
   DMA_DESCRIPTOR              *RxDescRing[RX_DESC_NUM];
+  EFI_PHYSICAL_ADDRESS        RxBuffer;  
   CHAR8                       TxBuffer[TX_TOTAL_BUFFER_SIZE];
-  CHAR8                       RxBuffer[RX_TOTAL_BUFFER_SIZE];
+  // CHAR8                       RxBuffer[RX_TOTAL_BUFFER_SIZE];
   MAP_INFO                    TxDescRingMap[TX_DESC_NUM];
   MAP_INFO                    RxDescRingMap[RX_DESC_NUM];
   MAP_INFO                    RxBufNum[RX_DESC_NUM];
