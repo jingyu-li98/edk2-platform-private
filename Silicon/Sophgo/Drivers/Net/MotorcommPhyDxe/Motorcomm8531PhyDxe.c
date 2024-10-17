@@ -474,7 +474,7 @@ Yt8531PhyParseStatus (
   PhyDev->LinkUp = !!(Value & YTPHY_SSR_LINK);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "%a(): Speed=%d Mbps, %s-duplex, Link %s!\n",
     __func__,
     PhyDev->Speed,

@@ -23,6 +23,9 @@
 #define BIT(nr)              (1UL << (nr))
 #define GENMASK(end, start)  (((1ULL << ((end) - (start) + 1)) - 1) << (start))
 
+#define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
+#define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
+
 #define GMAC4_VERSION           0x00000110      /* GMAC4+ CORE Version */
 
 //
@@ -1027,9 +1030,13 @@ typedef struct {
 } MAP_INFO;
 
 typedef struct {
-  DMA_DESCRIPTOR              *TxDescRing[TX_DESC_NUM];
-  DMA_DESCRIPTOR              *RxDescRing[RX_DESC_NUM];
-  EFI_PHYSICAL_ADDRESS        RxBuffer;  
+  //DMA_DESCRIPTOR              *TxDescRing[TX_DESC_NUM];
+  //DMA_DESCRIPTOR              *RxDescRing[RX_DESC_NUM];
+  DMA_DESCRIPTOR              *TxDescRing;
+  DMA_DESCRIPTOR              *RxDescRing;
+  //EFI_PHYSICAL_ADDRESS        RxBuffer;  
+  UINT8 *                     RxBuffer;
+
   CHAR8                       TxBuffer[TX_TOTAL_BUFFER_SIZE];
   // CHAR8                       RxBuffer[RX_TOTAL_BUFFER_SIZE];
   MAP_INFO                    TxDescRingMap[TX_DESC_NUM];

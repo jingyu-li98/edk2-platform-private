@@ -18,10 +18,8 @@
 #include <Include/Phy.h>
 #include "DwMac4DxeUtil.h"
 #include <Protocol/Cpu.h>
-STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
+//STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 
-#define UPPER_32_BITS(n)      ((UINT32)((n) >> 32))
-#define LOWER_32_BITS(n)      ((UINT32)((n) & 0xffffffff))
 
 struct StmmacRxRouting {
   UINT32 RegMask;
@@ -148,21 +146,6 @@ StmmacGetMacAddr (
   ));
 }
 
-#if 0
-VOID
-DwMacDmaFlushTxFifo (
-  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
-  )
-{
-  UINT32 Csr6;
-  Csr6 = DwMac4MmioRead (DwMac4Driver, DMA_CONTROL));
-
-  DwMac4MmioWrite (DwMac4Driver, DMA_CONTROL, Csr6 | DMA_CONTROL_FTF);
-
-  do {}
-  while ((DwMac4MmioRead (DwMac4Driver, DMA_CONTROL) & DMA_CONTROL_FTF));
-}
-#endif
 VOID
 DwMac4DmaAxi (
   IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
@@ -177,7 +160,7 @@ DwMac4DmaAxi (
   Value = DwMac4MmioRead (DwMac4Driver, DMA_SYS_BUS_MODE);
 
   DEBUG ((
-    DEBUG_INFO,
+    DEBUG_VERBOSE,
     "%a(): Master AXI performs %s burst length\n",
     __func__,
     (Value & DMA_SYS_BUS_FB) ? L"fixed" : L"any"
@@ -409,11 +392,12 @@ DwMac4InitChannel (
   }
 
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_CONTROL(Channel), Value);
-
+#if 0
   //
   // Mask interrupts by writing to CSR7
   //
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel), DMA_CHAN_INTR_DEFAULT_MASK);
+#endif
 }
 
 VOID
@@ -474,7 +458,15 @@ DwMac4SetupRxDescriptor (
     RxDescriptor->Des2 = 0;
     RxDescriptor->Des3 = RDES3_OWN | RDES3_BUFFER1_VALID_ADDR;
 
-    MemoryFence ();
+    DEBUG ((
+      DEBUG_INFO,
+      "%a[%d] RxDescriptor(0x%lx): Des0=0x%lx\tDesc1=0x%lx\n",
+      __func__,
+      __LINE__,
+      RxDescriptor,
+      RxDescriptor->Des0,
+      RxDescriptor->Des1
+    ));
 #if 0
     //
     // Flush Rx Descriptor
@@ -485,7 +477,6 @@ DwMac4SetupRxDescriptor (
             EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
             EfiCpuFlushTypeWriteBackInvalidate
             );
-#endif
     DEBUG ((DEBUG_INFO, "=======%a[%d] flush rx buffer addr=0x%lx =====\n", __func__, __LINE__, 
             DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress));
     //
@@ -497,6 +488,7 @@ DwMac4SetupRxDescriptor (
             ETH_BUFFER_SIZE,
             EfiCpuFlushTypeInvalidate
             );
+#endif
   }
 
   //
@@ -529,44 +521,12 @@ DwMac4SetupTxDescriptor (
   Channel = 0;
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
-    DEBUG ((DEBUG_INFO, "TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress));
     TxDescriptor = (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress;
-#if 0
-    TxDescriptor->DmaMacAddr = (UINTN)&DwMac4Driver->MacDriver.TxBuffer[Index * ETH_BUFFER_SIZE];
-
-    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacAddr=0x%lx\n", Index, TxDescriptor->DmaMacAddr));
-    if (Index < TX_DESC_NUM - 1) {
-      TxDescriptor->DmaMacNext = (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index + 1].PhysAddress;
-    DEBUG ((DEBUG_INFO, "[%d] TxDescriptor->DmaMacNext=0x%lx\n", Index, TxDescriptor->DmaMacNext));
-    }
-
-    TxDescriptor->Des0 = LOWER_32_BITS(TxDescriptor->DmaMacAddr);
-    TxDescriptor->Des1 = UPPER_32_BITS(TxDescriptor->DmaMacAddr);
-    //TxDescriptor->Des2 = Length;
-    TxDescriptor->Des2 = 0;
-    TxDescriptor->Des3 = TDES3_OWN | TDES3_PACKET_SIZE_MASK;
-    if (Index == (TX_DESC_NUM - 1)) {
-      TxDescriptor->Des3 |= TDES3_LAST_DESCRIPTOR;
-    } else {
-      TxDescriptor->Des3 &= ~TDES3_LAST_DESCRIPTOR;
-    }
-    //
-    // Flush Tx Descriptor
-    //
-    mCpu->FlushDataCache (
-            mCpu,
-            (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress,
-            EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
-            EfiCpuFlushTypeWriteBackInvalidate
-            );
-    //DEBUG ((DEBUG_INFO, "After: TxDescriptor[%d]: 0x%lx\n", Index, (VOID *)(UINTN)DwMac4Driver->MacDriver.TxDescRingMap[Index].PhysAddress));
-#endif
   }
 
   //
   // Write the address of tx descriptor list
   //
- // DEBUG ((DEBUG_INFO, "TxDescriptor[0] Address=0x%lx\n", DwMac4Driver->MacDriver.TxDescRingMap[0].PhysAddress));
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_TX_BASE_ADDR_HI(Channel),
 		    UPPER_32_BITS((UINTN)DwMac4Driver->MacDriver.TxDescRingMap[0].PhysAddress));
 
@@ -599,14 +559,14 @@ DwMac4DmaRxChanOpMode (
 
   if (Mode == SF_DMA_MODE) {
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a(): enable RX store and forward mode\n",
       __func__
       ));
     MtlRxOp |= MTL_OP_MODE_RSF;
   } else {
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a(): disable RX SF mode (threshold %d)\n",
       __func__,
       Mode
@@ -628,7 +588,6 @@ DwMac4DmaRxChanOpMode (
 
   MtlRxOp &= ~MTL_OP_MODE_RQS_MASK;
   MtlRxOp |= Rqs << MTL_OP_MODE_RQS_SHIFT;
-  DEBUG ((DEBUG_INFO, "\n\n%a[%d] Rqs=%d\tFifoSize=%d\n", __func__, __LINE__, Rqs, FifoSize));
 
   //
   // Enable flow control only if each channel gets 4 KiB or more FIFO and
@@ -687,7 +646,7 @@ DwMac4DmaTxChanOpMode (
 
  if (Mode == SF_DMA_MODE) {
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a(): enable TX store and forward mode\n",
       __func__
       ));
@@ -697,7 +656,7 @@ DwMac4DmaTxChanOpMode (
     MtlTxOp |= MTL_OP_MODE_TSF;
   } else {
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a(): disabling TX SF (threshold %d)\n",
       __func__,
       Mode
@@ -838,7 +797,7 @@ DwMac4CoreInit (
   Value |= GMAC_CORE_INIT;
 
   DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
-
+#if 0
   //
   // Enable GMAC interrupts
   //
@@ -852,6 +811,7 @@ DwMac4CoreInit (
   }
 
   DwMac4MmioWrite (DwMac4Driver, GMAC_INT_EN, Value);
+#endif
 }
 
 VOID
@@ -986,9 +946,6 @@ StmmacInitDmaEngine (
     Value |= (RX_MAX_PACKET << DMA_RBSZ_SHIFT) & DMA_RBSZ_MASK;
     DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_RX_CONTROL(Channel), Value);
 
-    StmmacSetRxTailPtr (DwMac4Driver,
-		        (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].PhysAddress,
-			Channel);
   }
 
   //
@@ -1003,23 +960,21 @@ StmmacInitDmaEngine (
   // DMA_CH(#i)_Interrupt_Enable (for i = 0; i <= DWC_EQOS_NUM_DMA_TX_CH-1) register.
   //
   DwMac4CoreInit (DwMac4Driver);
+#if 0
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
     DwMac4EnableDmaInterrupt (DwMac4Driver, Channel, TRUE, TRUE);
   }
-
+#endif
   //
   // Step 9. Start the Receive and Transmit DMAs by setting SR (bit 0) of the
   // DMA_CH(#i)_RX_Control (for i = 0; i <= DWC_EQOS_NUM_DMA_RX_CH-1) and
   // ST (bit 0) of the DMA_CH(#i)_TX_Control (for i = 0; i <= DWC_EQOS_NUM_DMA_TX_CH-1) register.
   //
-  for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4DmaStartRx (DwMac4Driver, Channel);
-  }
+  StmmacStartAllDma (DwMac4Driver);
 
-  for (Channel = 0; Channel < DmaCsrCh; Channel++) {
-    DwMac4DmaStartTx (DwMac4Driver, Channel);
-  }
-
+  StmmacSetRxTailPtr (DwMac4Driver,
+		        (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].PhysAddress,
+			0);
   //
   // Step 10. Repeat steps 4 to 9 for all the Tx DMA and Rx DMA channels
   // selected in the hardware.
@@ -1232,21 +1187,21 @@ StmmacMacFlowControl (
   Queue = 0;
   PauseTime = PAUSE_TIME;
 
-  DEBUG ((DEBUG_INFO, "GMAC Flow-Control:\n"));
+  DEBUG ((DEBUG_VERBOSE, "GMAC Flow-Control:\n"));
   if (FlowCtrl & FLOW_RX) {
-    DEBUG ((DEBUG_INFO, "\tReceive Flow-Control ON\n"));
+    DEBUG ((DEBUG_VERBOSE, "\tReceive Flow-Control ON\n"));
     Flow |= GMAC_RX_FLOW_CTRL_RFE;
   } else {
-    DEBUG ((DEBUG_INFO, "\tReceive Flow-Control OFF\n"));
+    DEBUG ((DEBUG_VERBOSE, "\tReceive Flow-Control OFF\n"));
   }
 
   DwMac4MmioWrite (DwMac4Driver, GMAC_RX_FLOW_CTRL, Flow);
 
   if (FlowCtrl & FLOW_TX) {
-    DEBUG ((DEBUG_INFO, "\tTransmit Flow-Control ON\n"));
+    DEBUG ((DEBUG_VERBOSE, "\tTransmit Flow-Control ON\n"));
 
     if (Duplex) {
-      DEBUG ((DEBUG_INFO, "\tduplex mode: PAUSE %d\n", PauseTime));
+      DEBUG ((DEBUG_VERBOSE, "\tduplex mode: PAUSE %d\n", PauseTime));
     }
 
     for (Queue = 0; Queue < TxQueuesToUse; Queue++) {
@@ -1462,8 +1417,8 @@ StmmacGetDmaStatus (
     DmaStatus = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_STATUS(Channel));
     IntrEnable = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel));
 
-    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
-    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
+    DEBUG ((DEBUG_VERBOSE, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
+    DEBUG ((DEBUG_VERBOSE, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
 
     //
     // TX/RX NORMAL interrupts.
