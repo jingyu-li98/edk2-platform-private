@@ -392,7 +392,7 @@ DwMac4InitChannel (
   }
 
   DwMac4MmioWrite (DwMac4Driver, DMA_CHAN_CONTROL(Channel), Value);
-#if 0
+#if 1
   //
   // Mask interrupts by writing to CSR7
   //
@@ -477,7 +477,7 @@ DwMac4SetupRxDescriptor (
             EFI_PAGES_TO_SIZE (sizeof (DMA_DESCRIPTOR)),
             EfiCpuFlushTypeWriteBackInvalidate
             );
-    DEBUG ((DEBUG_INFO, "=======%a[%d] flush rx buffer addr=0x%lx =====\n", __func__, __LINE__, 
+    DEBUG ((DEBUG_INFO, "=======%a[%d] flush rx buffer addr=0x%lx =====\n", __func__, __LINE__,
             DwMac4Driver->MacDriver.RxBufNum[Index].PhysAddress));
     //
     // Invalidate Rx Buffer
@@ -797,7 +797,7 @@ DwMac4CoreInit (
   Value |= GMAC_CORE_INIT;
 
   DwMac4MmioWrite (DwMac4Driver, GMAC_CONFIG, Value);
-#if 0
+#if 1
   //
   // Enable GMAC interrupts
   //
@@ -960,7 +960,7 @@ StmmacInitDmaEngine (
   // DMA_CH(#i)_Interrupt_Enable (for i = 0; i <= DWC_EQOS_NUM_DMA_TX_CH-1) register.
   //
   DwMac4CoreInit (DwMac4Driver);
-#if 0
+#if 1
   for (Channel = 0; Channel < DmaCsrCh; Channel++) {
     DwMac4EnableDmaInterrupt (DwMac4Driver, Channel, TRUE, TRUE);
   }
@@ -973,8 +973,8 @@ StmmacInitDmaEngine (
   StmmacStartAllDma (DwMac4Driver);
 
   StmmacSetRxTailPtr (DwMac4Driver,
-		        (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].PhysAddress,
-			0);
+		      (UINTN)DwMac4Driver->MacDriver.RxDescRingMap[RX_DESC_NUM - 1].PhysAddress,
+	              0);
   //
   // Step 10. Repeat steps 4 to 9 for all the Tx DMA and Rx DMA channels
   // selected in the hardware.
@@ -1417,8 +1417,8 @@ StmmacGetDmaStatus (
     DmaStatus = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_STATUS(Channel));
     IntrEnable = DwMac4MmioRead (DwMac4Driver, DMA_CHAN_INTR_ENA(Channel));
 
-    DEBUG ((DEBUG_VERBOSE, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
-    DEBUG ((DEBUG_VERBOSE, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
+    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_STATUS(0)=0x%x\n", __func__, DmaStatus));
+    DEBUG ((DEBUG_INFO, "%a() DMA_CHAN_INTR_ENA(0)=0x%x\n", __func__, IntrEnable));
 
     //
     // TX/RX NORMAL interrupts.
@@ -1721,6 +1721,36 @@ StmmacMacLinkUp (
   }
 }
 
+EFI_STATUS
+PhyLinkAdjustGmacConfig (
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
+  )
+{
+  EFI_STATUS Status;
+
+  Status = DwMac4Driver->Phy->Status (DwMac4Driver->Phy, DwMac4Driver->PhyDev);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (DwMac4Driver->PhyDev->LinkUp) {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Link is up - Network Cable is Plugged\r\n"
+      ));
+    StmmacMacLinkUp (DwMac4Driver->PhyDev->Speed, DwMac4Driver->PhyDev->Duplex, DwMac4Driver);
+    Status = EFI_SUCCESS;
+  } else {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Link is Down - Network Cable is Unplugged?\r\n"
+      ));
+    Status = EFI_NOT_READY;
+  }
+
+  return Status;
+}
+
 VOID
 EFIAPI
 StmmacDebug (
@@ -1772,6 +1802,16 @@ StmmacDebug (
       DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Receive Protocol Engine Status detected\n", __func__));
   } else {
       DEBUG ((DEBUG_INFO, "%a(): MAC GMII or MII Receive Protocol Engine Status NOT detected\n", __func__));
+  }
+
+  //
+  // DMA debug
+  //
+  Value = DwMac4MmioRead (DwMac4Driver, DMA_STATUS);
+  if (Value & BIT0) {
+      DEBUG ((DEBUG_INFO, "%a(): DMA Channel 0 Interrupt Status detected\n", __func__));
+  } else {
+      DEBUG ((DEBUG_INFO, "%a(): DMA Channel 0 Interrupt Status NOT detected\n", __func__));
   }
 
   //
@@ -1856,4 +1896,11 @@ StmmacDebug (
       break;
     }
   }
+
+  DEBUG ((DEBUG_INFO, "Current Tx Buffer addr(H): 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_TX_BUF_ADDR_H(0))));
+  DEBUG ((DEBUG_INFO, "Current Tx Buffer addr(L): 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_TX_BUF_ADDR(0))));
+  DEBUG ((DEBUG_INFO, "Current Rx Buffer addr(H): 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_RX_BUF_ADDR_H(0))));
+  DEBUG ((DEBUG_INFO, "Current Rx Buffer addr(L): 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_RX_BUF_ADDR(0))));
+  DEBUG ((DEBUG_INFO, "Current Tx desc pointer: 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_RX_DESC(0))));
+  DEBUG ((DEBUG_INFO, "Current Rx desc pointer: 0x%lx\n", DwMac4MmioRead (DwMac4Driver, DMA_CHAN_CUR_RX_DESC(0))));
 }

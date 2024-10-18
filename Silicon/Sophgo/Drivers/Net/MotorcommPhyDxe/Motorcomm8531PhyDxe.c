@@ -18,11 +18,8 @@
 
 #include <Include/Phy.h>
 #include <Include/Mdio.h>
+#include <Include/Gpio.h>
 #include "Motorcomm8531PhyDxe.h"
-
-#define GPIO_MUX_VAL(Pin)       (1UL << (Pin))
-#define GPIO_SWPORTA_DR		0x00
-#define GPIO_SWPORTA_DDR	0x04
 
 STATIC SOPHGO_MDIO_PROTOCOL *Mdio;
 

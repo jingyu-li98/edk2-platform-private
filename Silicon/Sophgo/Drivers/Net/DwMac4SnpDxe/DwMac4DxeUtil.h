@@ -718,7 +718,9 @@
 #define DMA_CHAN_SLOT_CTRL_STATUS(x)    (DMA_CHANX_BASE_ADDR(x) + 0x3c)
 #define DMA_CHAN_CUR_TX_DESC(x)         (DMA_CHANX_BASE_ADDR(x) + 0x44)
 #define DMA_CHAN_CUR_RX_DESC(x)         (DMA_CHANX_BASE_ADDR(x) + 0x4c)
+#define DMA_CHAN_CUR_TX_BUF_ADDR_H(x)   (DMA_CHANX_BASE_ADDR(x) + 0x50)
 #define DMA_CHAN_CUR_TX_BUF_ADDR(x)     (DMA_CHANX_BASE_ADDR(x) + 0x54)
+#define DMA_CHAN_CUR_RX_BUF_ADDR_H(x)   (DMA_CHANX_BASE_ADDR(x) + 0x58)
 #define DMA_CHAN_CUR_RX_BUF_ADDR(x)     (DMA_CHANX_BASE_ADDR(x) + 0x5c)
 #define DMA_CHAN_STATUS(x)              (DMA_CHANX_BASE_ADDR(x) + 0x60)
 
@@ -1034,13 +1036,15 @@ typedef struct {
   //DMA_DESCRIPTOR              *RxDescRing[RX_DESC_NUM];
   DMA_DESCRIPTOR              *TxDescRing;
   DMA_DESCRIPTOR              *RxDescRing;
-  //EFI_PHYSICAL_ADDRESS        RxBuffer;  
-  UINT8 *                     RxBuffer;
+  //EFI_PHYSICAL_ADDRESS        RxBuffer;
+  UINT8                       *TxBuffer;
+  UINT8                       *RxBuffer;
 
-  CHAR8                       TxBuffer[TX_TOTAL_BUFFER_SIZE];
+  // CHAR8                       TxBuffer[TX_TOTAL_BUFFER_SIZE];
   // CHAR8                       RxBuffer[RX_TOTAL_BUFFER_SIZE];
   MAP_INFO                    TxDescRingMap[TX_DESC_NUM];
   MAP_INFO                    RxDescRingMap[RX_DESC_NUM];
+  MAP_INFO                    TxBufNum[TX_DESC_NUM];
   MAP_INFO                    RxBufNum[RX_DESC_NUM];
   UINT32                      TxCurrentDescriptorNum;
   UINT32                      TxNextDescriptorNum;
@@ -1067,9 +1071,10 @@ typedef struct {
   EFI_LOCK                               Lock;
 
   UINTN                                  RegBase;
-
+#if 1
   // Array of the recycled transmit buffer address
-  UINT64                                 *RecycledTxBuf;
+  //UINT64                                 *RecycledTxBuf;
+  UINT8                                  *RecycledTxBuf;
 
   // The maximum number of recycled buffer pointers in RecycledTxBuf
   UINT32                                 MaxRecycledTxBuf;
@@ -1079,7 +1084,7 @@ typedef struct {
 
   // For TX buffer DmaUnmap
   VOID                                   *MappingTxbuf;
-
+#endif
 } SOPHGO_SIMPLE_NETWORK_DRIVER;
 
 #define SNP_DRIVER_SIGNATURE             SIGNATURE_32('A', 'S', 'N', 'P')
@@ -1246,5 +1251,11 @@ StmmacMacFlowControl (
   IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver,
   IN  UINT32                        Duplex,
   IN  UINT32                        FlowCtrl
+  );
+
+EFI_STATUS
+EFIAPI
+PhyLinkAdjustGmacConfig (
+  IN  SOPHGO_SIMPLE_NETWORK_DRIVER  *DwMac4Driver
   );
 #endif // STMMAC_DXE_UTIL_H__

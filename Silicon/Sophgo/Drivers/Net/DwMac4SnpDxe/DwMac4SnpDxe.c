@@ -15,6 +15,7 @@
 **/
 
 #include <Protocol/Cpu.h>
+#include <Library/IoLib.h>
 #include <Library/NetLib.h>
 #include <Library/DmaLib.h>
 #include <Library/DebugLib.h>
@@ -25,7 +26,6 @@
 #include "DwMac4DxeUtil.h"
 
 //STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
-#define ReturnUnlock(s) do { Status = (s); goto exit_unlock; } while(0)
 
 //STATIC EFI_MAC_ADDRESS mZeroMac = { { 0 } };
 
@@ -79,65 +79,25 @@ SnpStart (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL   *This
  )
 {
-  EFI_TPL                         SavedTpl;
-  EFI_STATUS                      Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER    *DwMac4Driver;
 
-  DEBUG ((
-    DEBUG_INFO,
-    "%a()\r\n",
-    __func__
-    ));
-
-  //
-  // Check Snp instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // Check state of the driver
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkStopped:
-    break;
-  case EfiSimpleNetworkStarted:
-  case EfiSimpleNetworkInitialized:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver already started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_ALREADY_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStarted) {
+    return EFI_ALREADY_STARTED;
+  } else if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkStopped) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
   // Change state
   //
   DwMac4Driver->SnpMode.State = EfiSimpleNetworkStarted;
-  Status = EFI_SUCCESS;
 
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -167,52 +127,17 @@ SnpStop (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL*   This
   )
 {
-  EFI_TPL                         SavedTpl;
-  EFI_STATUS                      Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER    *DwMac4Driver;
 
-  DEBUG ((
-    DEBUG_INFO,
-    "%a()\r\n",
-    __func__
-    ));
-
-  //
-  // Check Snp Instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // Check state of the driver
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkStarted:
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  } else if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkStarted) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
@@ -224,14 +149,8 @@ SnpStop (
   // Change the state
   //
   DwMac4Driver->SnpMode.State = EfiSimpleNetworkStopped;
-  Status = EFI_SUCCESS;
 
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -275,58 +194,18 @@ SnpInitialize (
   IN  UINTN                         ExtraTxBufferSize OPTIONAL
   )
 {
-  EFI_TPL                            SavedTpl;
   EFI_STATUS                         Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER       *DwMac4Driver;
 
-  DEBUG ((
-    DEBUG_INFO,
-    "%a()\r\n",
-    __func__
-    ));
-
-  //
-  // Check Snp Instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // First check that driver has not already been initialized
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkStarted:
-    break;
-  case EfiSimpleNetworkInitialized:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver already initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_SUCCESS);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  } else if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkStarted) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
@@ -344,7 +223,7 @@ SnpInitialize (
       __func__,
       Status
       ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+    return Status;
   }
 #if 1
   // ------------------------
@@ -361,17 +240,19 @@ SnpInitialize (
       __func__,
       Status
       ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+    return Status;
   }
 
   gBS->Stall (5000000);
   //
+ #if 0
   // Get Phy Status
   //
   Status = DwMac4Driver->Phy->Status (DwMac4Driver->Phy, DwMac4Driver->PhyDev);
   if (EFI_ERROR (Status)) {
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
+#endif
 #else
   StmmacMacLinkUp (PHY_INTERFACE_MODE_RGMII_ID, DUPLEX_FULL, DwMac4Driver);
 #endif
@@ -386,7 +267,7 @@ SnpInitialize (
       __func__,
       Status
       ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+    return Status;
   }
 
   //
@@ -405,16 +286,9 @@ SnpInitialize (
   // Declare the driver as initialized
   //
   DwMac4Driver->SnpMode.State = EfiSimpleNetworkInitialized;
-  Status = EFI_SUCCESS;
 
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
-
 
 /**
   Resets a network adapter and reinitializes it with the parameters that were
@@ -447,11 +321,8 @@ SnpReset (
   IN  BOOLEAN                       ExtendedVerification
   )
 {
-  EFI_TPL                            SavedTpl;
-  EFI_STATUS                         Status;
+  //EFI_STATUS                         Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER       *DwMac4Driver;
-
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
 
   DEBUG ((
     DEBUG_INFO,
@@ -459,47 +330,19 @@ SnpReset (
     __func__
     ));
 
-  //
-  // Check Snp Instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // First check that driver has not already been initialized
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
   }
+
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
+  }
+
 #if 0
   //
   // Initiate a PHY reset
@@ -507,14 +350,10 @@ SnpReset (
   Status = PhySoftReset (&DwMac4Driver->PhyDev, Snp->RegBase);
   if (EFI_ERROR (Status)) {
     DwMac4Driver->SnpMode.State = EfiSimpleNetworkStopped;
-    ReturnUnlock (EFI_NOT_STARTED);
+    return EFI_NOT_STARTED;
   }
 #endif
-  //
-  // Restore TPL and return
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -542,8 +381,6 @@ SnpShutdown (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL*   This
   )
 {
-  EFI_TPL                          SavedTpl;
-  EFI_STATUS                       Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER     *DwMac4Driver;
 
   DEBUG ((
@@ -552,48 +389,17 @@ SnpShutdown (
     __func__
     ));
 
-  //
-  // Check Snp Instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  }
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // First check that driver has not already been initialized
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver in stopped state\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
@@ -601,16 +407,9 @@ SnpShutdown (
   //
   StmmacStopAllDma (DwMac4Driver);
 
-  DwMac4Driver->SnpMode.State = EfiSimpleNetworkStopped;
+  DwMac4Driver->SnpMode.State = EfiSimpleNetworkStarted;
 
-  Status = EFI_SUCCESS;
-
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -718,53 +517,20 @@ SnpReceiveFilters (
   IN  EFI_MAC_ADDRESS               *MCastFilter    OPTIONAL
   )
 {
-  EFI_TPL                        SavedTpl;
   UINT32                         ReceiveFilterSetting;
-  EFI_STATUS                     Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER   *DwMac4Driver;
 
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // Check Snp Instance
-  //
-  if (DwMac4Driver == NULL) {
+  if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  }
 
-  //
-  // Check that driver was started and initialised
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
@@ -772,7 +538,7 @@ SnpReceiveFilters (
   //
    if ((Enable  & (~DwMac4Driver->SnpMode.ReceiveFilterMask)) ||
        (Disable & (~DwMac4Driver->SnpMode.ReceiveFilterMask))) {
-    ReturnUnlock (EFI_INVALID_PARAMETER);
+    return EFI_INVALID_PARAMETER;
   }
 
   //
@@ -783,14 +549,7 @@ SnpReceiveFilters (
 
   StmmacSetFilters (ReceiveFilterSetting, ResetMCastFilter, MCastFilterCnt, MCastFilter, DwMac4Driver);
 
-  Status = EFI_SUCCESS;
-
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -834,13 +593,10 @@ SnpStationAddress (
   )
 {
   return EFI_UNSUPPORTED;
-  EFI_TPL                        SavedTpl;
-  EFI_STATUS                     Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER   *DwMac4Driver;
   //UINT32                         Count;
   //UINT8                          PermAddr[NET_ETHER_ADDR_LEN];
 
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
 
   DEBUG ((
     DEBUG_INFO,
@@ -848,48 +604,19 @@ SnpStationAddress (
     __func__
     ));
 
-  //
-  // Check Snp instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-#if 1
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // Check that driver was started and initialised
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
   }
+
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
+  }
+#if 1
 
   //
   // Get the Permanent MAC address if need reset
@@ -919,27 +646,20 @@ SnpStationAddress (
     // Otherwise use the specified new MAC address
     //
     if (NewMac == NULL) {
-      ReturnUnlock (EFI_INVALID_PARAMETER);
+      return EFI_INVALID_PARAMETER;
     }
 
     //
     // If it is a multicast address, it is not valid.
     //
     if (NewMac->Addr[0] & 0x01) {
-      ReturnUnlock (EFI_INVALID_PARAMETER);
+      return EFI_INVALID_PARAMETER;
     }
   }
 
   CopyMem (&DwMac4Driver->SnpMode.CurrentAddress, NewMac, NET_ETHER_ADDR_LEN);
 
-  Status = EFI_SUCCESS;
-
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 #endif
 }
 
@@ -999,11 +719,7 @@ SnpStatistics (
       OUT  EFI_NETWORK_STATISTICS        *Statistics
   )
 {
-  EFI_TPL                        SavedTpl;
-  EFI_STATUS                     Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER   *DwMac4Driver;
-
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
 
   DEBUG ((
     DEBUG_INFO,
@@ -1011,53 +727,24 @@ SnpStatistics (
     __func__
     ));
 
-  //
-  // Check Snp instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  }
 
-  //
-  // Check that driver was started and initialised
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
   }
 
   //
   // Check the parameters
   //
   if ((StatSize == NULL) && (Statistics != NULL)) {
-    ReturnUnlock (EFI_INVALID_PARAMETER);
+    return EFI_INVALID_PARAMETER;
   }
 
   //
@@ -1072,7 +759,7 @@ SnpStatistics (
   //
   if (*StatSize < sizeof(EFI_NETWORK_STATISTICS)) {
     *StatSize = sizeof(EFI_NETWORK_STATISTICS);
-    ReturnUnlock (EFI_BUFFER_TOO_SMALL);
+    return EFI_BUFFER_TOO_SMALL;
   }
 
   //
@@ -1085,14 +772,7 @@ SnpStatistics (
   //
   CopyMem (&Statistics, &DwMac4Driver->Stats, sizeof(EFI_NETWORK_STATISTICS));
 
-  Status = EFI_SUCCESS;
-
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -1140,18 +820,11 @@ SnpMcastIptoMac (
     __func__
     ));
 
-  //
-  // Check Snp instance
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // Check that driver was started and initialised
-  //
   if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStarted) {
     return EFI_DEVICE_ERROR;
   } else if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
@@ -1318,58 +991,31 @@ SnpGetStatus (
   OUT  VOID                          **TxBuff  OPTIONAL
   )
 {
-  EFI_TPL                           SavedTpl;
   EFI_STATUS                        Status;
   SOPHGO_SIMPLE_NETWORK_DRIVER      *DwMac4Driver;
 
-  //
-  // Check preliminaries
-  //
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
-  //
-  // Serialize access to data and registers
-  //
-  SavedTpl = gBS->RaiseTPL (TPL_CALLBACK);
-
-  //
-  // Check that driver was started and initialised
-  //
-  switch (DwMac4Driver->SnpMode.State) {
-  case EfiSimpleNetworkInitialized:
-    break;
-  case EfiSimpleNetworkStarted:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not yet initialized\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
-  case EfiSimpleNetworkStopped:
-    DEBUG ((
-      DEBUG_WARN,
-      "%a(): Driver not started\n",
-      __func__
-      ));
-    ReturnUnlock (EFI_NOT_STARTED);
-  default:
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Driver in an invalid state: %u\n",
-      __func__,
-      (UINTN)DwMac4Driver->SnpMode.State
-      ));
-    ReturnUnlock (EFI_DEVICE_ERROR);
+  if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
+    return EFI_DEVICE_ERROR;
   }
-#if 1
+
+  if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
+    return EFI_NOT_STARTED;
+  }
+
   //
   // Update the media status
   //
+#if 0
   Status = DwMac4Driver->Phy->Status (DwMac4Driver->Phy, DwMac4Driver->PhyDev);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
   if (DwMac4Driver->PhyDev->LinkUp) {
     DEBUG ((
       DEBUG_VERBOSE,
@@ -1385,6 +1031,12 @@ SnpGetStatus (
     DwMac4Driver->SnpMode.MediaPresent = FALSE;
   }
 #endif
+  Status = PhyLinkAdjustGmacConfig (DwMac4Driver);
+  if (EFI_ERROR (Status)) {
+    DwMac4Driver->SnpMode.MediaPresent = FALSE;
+  } else {
+    DwMac4Driver->SnpMode.MediaPresent = TRUE;
+  }
 #if 1
   //
   // TxBuff
@@ -1404,16 +1056,9 @@ SnpGetStatus (
   //
   // Check DMA Irq status
   //
-  StmmacGetDmaStatus (IrqStat, DwMac4Driver);
+  //StmmacGetDmaStatus (IrqStat, DwMac4Driver);
 
-  Status = EFI_SUCCESS;
-
-  //
-  // Restore TPL and return
-  //
-exit_unlock:
-  gBS->RestoreTPL (SavedTpl);
-  return Status;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -1488,18 +1133,18 @@ SnpTransmit (
   DMA_DESCRIPTOR                    *TxDescriptor;
   DMA_DESCRIPTOR                    *TxDescriptorMap;
   UINT8                             *EthernetPacket;
-  UINT64                            *Tmp;
+  //UINT64                            *Tmp;
+  UINT8                             *Tmp;
   EFI_STATUS                        Status;
   EFI_PHYSICAL_ADDRESS              TxBufferPhysAddress;
   UINT32                            Index;
   UINTN                             DmaNumberOfBytes;
+  UINT32                            Retries;
 
   //
   // Setup DMA descriptor
   //
   EthernetPacket = Data;
-
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
 
   if ((This == NULL) || (Data == NULL)) {
     DEBUG ((
@@ -1510,12 +1155,40 @@ SnpTransmit (
     return EFI_INVALID_PARAMETER;
   }
 
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
   if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
     return EFI_DEVICE_ERROR;
   }
 
   if (DwMac4Driver->SnpMode.State == EfiSimpleNetworkStopped) {
     return EFI_NOT_STARTED;
+  }
+
+  if (!DwMac4Driver->SnpMode.MediaPresent) {
+    //
+    // We should only really get here if the link was up
+    // and is now down due to a stop/shutdown sequence, and
+    // the app (grub) doesn't bother to check link state
+    // because it was up a moment before.
+    // Lets wait a bit for the link to resume, rather than
+    // failing to send. In the case of grub it works either way
+    // but we can't be sure that is universally true, and
+    // hanging for a couple seconds is nicer than a screen of
+    // grub send failure messages.
+    //
+    Retries = 1000;
+    DEBUG ((DEBUG_INFO, "%a(): Waiting 5s for link\n", __func__));
+    do {
+      gBS->Stall (5000);
+      Status = PhyLinkAdjustGmacConfig (DwMac4Driver);
+    } while ((EFI_ERROR (Status)) && Retries-- > 0);
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "%a(): no link\n", __func__));
+      return EFI_NOT_READY;
+    } else {
+      DwMac4Driver->SnpMode.MediaPresent = TRUE;
+    }
   }
 
   //
@@ -1555,6 +1228,10 @@ SnpTransmit (
     return EFI_BUFFER_TOO_SMALL;
   }
 
+  if ((DwMac4Driver->MaxRecycledTxBuf + SNP_TX_BUFFER_INCREASE) >= SNP_MAX_TX_BUFFER_NUM) {
+    return EFI_NOT_READY;
+  }
+
   //
   // Check preliminaries
   //
@@ -1567,11 +1244,6 @@ SnpTransmit (
       Status
       ));
     return EFI_ACCESS_DENIED;
-  }
-
-  if ((DwMac4Driver->MaxRecycledTxBuf + TX_DESC_NUM) >= TX_TOTAL_BUFFER_SIZE) {
-    Status = EFI_NOT_READY;
-    goto ReleaseLock;
   }
 
   DwMac4Driver->MacDriver.TxCurrentDescriptorNum = DwMac4Driver->MacDriver.TxNextDescriptorNum;
@@ -1618,17 +1290,22 @@ SnpTransmit (
 
     goto ReleaseLock;
   }
-
-  //
-  // Increase Descriptor number
-  //
-  TxDescIndex++;
-  TxDescIndex %= TX_DESC_NUM;
-  DwMac4Driver->MacDriver.TxNextDescriptorNum = TxDescIndex;
+#if 0
+    //
+    // Flush Tx Buffer
+    //
+    mCpu->FlushDataCache (
+            mCpu,
+            TxBufferPhysAddress,
+            DmaNumberOfBytes,
+            EfiCpuFlushTypeWriteBackInvalidate
+            );
+#endif
 
   TxDescriptor->Des0 = LOWER_32_BITS(TxBufferPhysAddress);
   TxDescriptor->Des1 = UPPER_32_BITS(TxBufferPhysAddress);
   TxDescriptor->Des2 = BufferSize;
+  MemoryFence();
 
   //
   // Make sure that if HW sees the _OWN write below, it will see all the
@@ -1638,7 +1315,12 @@ SnpTransmit (
 	               TDES3_FIRST_DESCRIPTOR |
 		       TDES3_LAST_DESCRIPTOR |
 		       BufferSize;
-
+  //
+  // Increase Descriptor number
+  //
+  TxDescIndex++;
+  TxDescIndex %= TX_DESC_NUM;
+  DwMac4Driver->MacDriver.TxNextDescriptorNum = TxDescIndex;
   StmmacSetTxTailPtr (DwMac4Driver,
 		      (UINTN)DwMac4Driver->MacDriver.TxDescRingMap[TxDescIndex].PhysAddress,
 		      0);
@@ -1652,20 +1334,23 @@ SnpTransmit (
       Status = EFI_DEVICE_ERROR;
       goto ReleaseLock;
     }
+
     CopyMem (Tmp, DwMac4Driver->RecycledTxBuf, sizeof (UINT64) * DwMac4Driver->RecycledTxBufCount);
     FreePool (DwMac4Driver->RecycledTxBuf);
     DwMac4Driver->RecycledTxBuf = Tmp;
-    DwMac4Driver->MaxRecycledTxBuf += TX_DESC_NUM;
+    DwMac4Driver->MaxRecycledTxBuf += SNP_TX_BUFFER_INCREASE;
   }
 
   for (Index = 0; Index < 1000000; Index++) {
-    if (!(TxDescriptor->Des3 & TDES3_OWN)) {
+    if (!(MmioRead32 ((UINTN)&TxDescriptor->Des3) & TDES3_OWN)) {
       Status = EFI_SUCCESS;
       goto ReleaseLock;
     }
      gBS->Stall(1);
   }
 
+  //StmmacGetDmaStatus (0, DwMac4Driver);
+  StmmacDebug (DwMac4Driver);
   DEBUG ((
     DEBUG_ERROR,
     "%a(): TX timeout\n",
@@ -1761,8 +1446,6 @@ SnpReceive (
 
   BufferSizeBuf = ETH_BUFFER_SIZE;
 
-  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
-
   //
   // Check preliminaries
   //
@@ -1775,6 +1458,7 @@ SnpReceive (
     return EFI_INVALID_PARAMETER;
   }
 
+  DwMac4Driver = INSTANCE_FROM_SNP_THIS (This);
   if (DwMac4Driver->SnpMode.State != EfiSimpleNetworkInitialized) {
     return EFI_DEVICE_ERROR;
   }
@@ -1813,7 +1497,6 @@ SnpReceive (
   StmmacDebug (DwMac4Driver);
 #endif
   RxDescriptorStatus = RxDescriptor->Des3;
-  DEBUG ((DEBUG_VERBOSE, "%a[%d] RxDescriptor->Des3=0x%x\n", __func__, __LINE__, RxDescriptorStatus));
   if (RxDescriptorStatus & RDES3_OWN) {
     DEBUG ((
       DEBUG_VERBOSE,
@@ -1881,6 +1564,13 @@ SnpReceive (
   }
 
   Length = RxDescriptorStatus & RDES3_PACKET_SIZE_MASK;
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "%a(): RxBufferAddr=0x%lx, Length = %d\n",
+    __func__,
+    RxBufferAddr,
+    Length
+    ));
   if (!Length) {
     DEBUG ((
       DEBUG_WARN,
@@ -1909,13 +1599,13 @@ SnpReceive (
   if (HeadSize != NULL) {
     *HeadSize = DwMac4Driver->SnpMode.MediaHeaderSize;
   }
-
+#if 1
   //
   // Given an RX buffer descriptor index, undo the DmaMap operation on the buffer.
   //
   DmaUnmap (DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].Mapping);
   DwMac4Driver->MacDriver.RxBufNum[RxDescIndex].Mapping = NULL;
-
+#endif
   CopyMem (RawData, (VOID *)RxBufferAddr, *BufferSize);
 
   if (DstAddr != NULL) {
@@ -1925,7 +1615,9 @@ SnpReceive (
     Dst.Addr[3] = RawData[3];
     Dst.Addr[4] = RawData[4];
     Dst.Addr[5] = RawData[5];
+
     CopyMem (DstAddr, &Dst, NET_ETHER_ADDR_LEN);
+
     DEBUG ((
       DEBUG_INFO,
       "%a(): Received from source address %x %x\r\n",
@@ -1992,11 +1684,7 @@ SnpReceive (
   // Increase descriptor number
   //
   RxDescIndex++;
-
-  if (RxDescIndex >= RX_DESC_NUM) {
-    RxDescIndex = 0;
-  }
-
+  RxDescIndex %= RX_DESC_NUM;
   DwMac4Driver->MacDriver.RxNextDescriptorNum = RxDescIndex;
 
   Status = EFI_SUCCESS;
@@ -2010,46 +1698,6 @@ ReleaseLock:
   return Status;
 }
 
-#if 0
-VOID
-SetAttributeToUncache (
-  VOID
-  )
-{
-  EFI_CPU_ARCH_PROTOCOL  *gCpu;
-  EFI_STATUS             Status;
-
-  Status = gBS->LocateProtocol (
-		  &gEfiCpuArchProtocolGuid,
-		  NULL,
-		  (VOID **)&gCpu
-		  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): LocateProtocol gEfiCpuArchProtocolGuid Status = %r !\n",
-      __func__,
-      Status
-      ));
-  }
-
-  Status = gCpu->SetMemoryAttributes (
-                     gCpu,
-                     PcdGet64(PcdNORFlashBase),
-                     PcdGet32(PcdNORFlashCachableSize),
-                     EFI_MEMORY_UC
-                     );
-
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): gCpu->SetMemoryAttributes Status = %r !\n",
-      __func__,
-      Status
-      ));
-  }
-}
-#endif
 /*
  * Entry point for DwMac4 driver.
  */
@@ -2131,6 +1779,21 @@ DwMac4SnpDxeEntry (
     ));
 
   Status = DmaAllocateBuffer (EfiBootServicesData,
+                              EFI_SIZE_TO_PAGES (BufferSize * TX_DESC_NUM),
+			      (VOID *)&DwMac4Driver->MacDriver.TxBuffer
+			      );
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a() for Tx Buffer: %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  Status = DmaAllocateBuffer (EfiBootServicesData,
                               EFI_SIZE_TO_PAGES (BufferSize * RX_DESC_NUM),
 			      (VOID *)&DwMac4Driver->MacDriver.RxBuffer
 			      );
@@ -2185,7 +1848,7 @@ DwMac4SnpDxeEntry (
 
   for (Index = 0; Index < TX_DESC_NUM; Index++) {
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a[%d] TxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",
       __func__,
       __LINE__,
@@ -2211,7 +1874,7 @@ DwMac4SnpDxeEntry (
     }
 
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a[%d] RxDesc[%d] BaseAddr=0x%lx, Size=0x%lx\n\n",
       __func__,
       __LINE__,
@@ -2233,6 +1896,25 @@ DwMac4SnpDxeEntry (
 	 __func__,
 	 Status
 	 ));
+      return Status;
+    }
+
+    //
+    // DMA mapping for transmit buffer
+    //
+    Status = DmaMap (MapOperationBusMasterWrite,
+                     DwMac4Driver->MacDriver.TxBuffer + Index * BufferSize,
+                     &BufferSize,
+		     &DwMac4Driver->MacDriver.TxBufNum[Index].PhysAddress,
+		     &DwMac4Driver->MacDriver.TxBufNum[Index].Mapping
+		     );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a() for Rxbuffer: %r\n",
+	__func__,
+	Status
+	));
       return Status;
     }
 
@@ -2324,7 +2006,10 @@ DwMac4SnpDxeEntry (
   //
   // We do not intend to receive anything for the time being.
   //
-  SnpMode->ReceiveFilterSetting = 0;
+  //SnpMode->ReceiveFilterSetting = 0;
+  SnpMode->ReceiveFilterSetting = EFI_SIMPLE_NETWORK_RECEIVE_UNICAST     |
+                                  EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST   |
+                                  EFI_SIMPLE_NETWORK_RECEIVE_BROADCAST;
 
   //
   // GMAC has 64bit hash table, can filter 64 MCast MAC Addresses
