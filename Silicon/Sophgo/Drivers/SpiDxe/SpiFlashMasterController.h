@@ -72,6 +72,8 @@
 #define SPIFMC_TRAN_CSR_FIFO_TRG_LVL_4_BYTE   (0x02 << 12)
 #define SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE   (0x03 << 12)
 #define SPIFMC_TRAN_CSR_GO_BUSY               BIT15
+#define SPIFMC_TRAN_CSR_ADDR4B                BIT20
+#define SPIFMC_TRAN_CSR_CMD4B                 BIT21
 
 #define SPIFMC_TRAN_NUM                    0x14
 #define SPIFMC_FIFO_PORT                   0x18
@@ -90,6 +92,8 @@
 #define SPIFMC_INT_WR_FIFO_EN                 BIT3
 #define SPIFMC_INT_RX_FRAME_EN                BIT4
 #define SPIFMC_INT_TX_FRAME_EN                BIT5
+
+#define SPIFMC_OPT                        0x30
 
 #define SPIFMC_MAX_FIFO_DEPTH             8
 

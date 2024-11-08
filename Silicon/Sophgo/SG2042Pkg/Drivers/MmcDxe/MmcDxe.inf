@@ -27,7 +27,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  Silicon/Sophgo/Sophgo.dec
+  Silicon/Sophgo/SG2042Pkg/SG2042Pkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -41,9 +41,6 @@
   gEfiDevicePathProtocolGuid                    ## PRODUCES
   gEfiDriverDiagnostics2ProtocolGuid            ## SOMETIMES_PRODUCES
   gSophgoMmcHostProtocolGuid                    ## CONSUMES
-
-[FixedPcd]
-  gSophgoTokenSpaceGuid.PcdSDIOTransmissionClockFrequency     ## CONSUMES
 
 [Depex]
   TRUE

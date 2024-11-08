@@ -277,20 +277,17 @@ MemoryPeimInitialization (
         CurBase = fdt64_to_cpu (ReadUnaligned64 (RegProp));
         CurSize = fdt64_to_cpu (ReadUnaligned64 (RegProp + 1));
 
+        DEBUG ((
+          DEBUG_INFO,
+          "%a: System RAM @ 0x%lx - 0x%lx\n",
+          __func__,
+          CurBase,
+          CurBase + CurSize - 1
+          ));
+
         if ((LowestMemBase == 0) || (CurBase <= LowestMemBase)) {
           LowestMemBase = CurBase;
           LowestMemSize = CurSize;
-          if (CurBase != 0) {
-            DEBUG ((
-              DEBUG_INFO,
-              "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
-              __func__,
-              CurBase,
-              CurBase + CurSize - 1
-            ));
-
-            InitializeRamRegions (CurBase, CurSize);
-          }
         }
 
       } else {
@@ -304,13 +301,13 @@ MemoryPeimInitialization (
   }
 
   if (UefiMemoryBase > LowestMemBase) {
+    LowestMemSize -= (UefiMemoryBase - LowestMemBase);
     LowestMemBase = UefiMemoryBase;
-    LowestMemSize -= UefiMemoryBase;
   }
 
   DEBUG ((
     DEBUG_INFO,
-    "%a: Initialize System RAM @ 0x%lx - 0x%lx\n",
+    "%a: Total System RAM @ 0x%lx - 0x%lx\n",
     __func__,
     LowestMemBase,
     LowestMemBase + LowestMemSize - 1

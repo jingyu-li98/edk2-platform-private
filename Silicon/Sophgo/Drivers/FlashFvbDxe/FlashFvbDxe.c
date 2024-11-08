@@ -22,9 +22,32 @@
 #include <Guid/VariableFormat.h>
 #include <Guid/SystemNvDataGuid.h>
 #include <Guid/NvVarStoreFormatted.h>
+//#include "IniParserUtil.h"
+
+#include <Uefi.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/DebugLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/DevicePathLib.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Protocol/LoadFile.h>
+#include <Protocol/DevicePath.h>
+
+#include <Protocol/BlockIo.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define EFI_FILE_NAME L"\\conf.ini"
+
+typedef struct {
+  CHAR8 *Name;
+  UINTN Addr;
+} TEST_CONFIG;
+
+TEST_CONFIG *Config;
 
 #include "FlashFvbDxe.h"
-
+#include <string.h>
 STATIC FVB_DEVICE    *mFvbDevice;
 STATIC EFI_EVENT     mFvbVirtualAddrChangeEvent;
 
@@ -37,7 +60,6 @@ STATIC CONST FVB_DEVICE mFvbFlashInstanceTemplate = {
   FVB_FLASH_SIGNATURE, // Signature
 
   0, // RegionBaseAddress ... NEED TO BE FILLED
-  //SIZE_256KB, // Size?
   SIZE_256KB, // Size?
   0, // FvbOffset ... NEED TO BE FILLED
   0, // FvbSize ... NEED TO BE FILLED
@@ -274,8 +296,29 @@ ValidateFvHeader (
   EFI_FIRMWARE_VOLUME_HEADER  *FwVolHeader;
   VARIABLE_STORE_HEADER       *VariableStoreHeader;
   UINTN                       VariableStoreLength;
+#if 0
+  VOID                        *Headers;
+  UINTN                       HeadersLength;
+  EFI_STATUS                  Status;
 
-  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)Instance->RegionBaseAddress;
+  HeadersLength = sizeof (EFI_FIRMWARE_VOLUME_HEADER) +
+                  sizeof (EFI_FV_BLOCK_MAP_ENTRY) +
+                  sizeof (VARIABLE_STORE_HEADER);
+  Headers = AllocateZeroPool (HeadersLength);
+
+  Status = FvbRead (&Instance->FvbProtocol, 0, 0, &HeadersLength, Headers);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Get firmware volume header failed!\n",
+      __func__
+      ));
+    return Status;
+  }
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)(Headers);
+#else
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)(Instance->RegionBaseAddress);
+#endif
 
   //
   // Verify the header revision, header signature, length
@@ -382,7 +425,7 @@ FvbGetAttributes (
 
   *Attributes = *FlashFvbAttributes;
 
-  DEBUG ((DEBUG_VERBOSE, "FvbGetAttributes(0x%X)\n", *Attributes));
+  DEBUG ((DEBUG_INFO, "FvbGetAttributes(0x%X)\n", *Attributes));
 
   return EFI_SUCCESS;
 }
@@ -453,7 +496,7 @@ FvbGetPhysicalAddress (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "FvbGetPhysicalAddress(BaseAddress=0x%08x)\n",
     Instance->RegionBaseAddress
     ));
@@ -503,7 +546,7 @@ FvbGetBlockSize (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "FvbGetBlockSize(Lba=%ld, BlockSize=0x%x, LastBlock=%ld)\n",
     Lba,
     Instance->Media.BlockSize,
@@ -526,7 +569,7 @@ FvbGetBlockSize (
     *NumberOfBlocks = (UINTN)(Instance->Media.LastBlock - Lba + 1);
 
     DEBUG ((
-      DEBUG_VERBOSE,
+      DEBUG_INFO,
       "FvbGetBlockSize: *BlockSize=0x%x, *NumberOfBlocks=0x%x.\n",
       *BlockSize,
       *NumberOfBlocks
@@ -595,7 +638,7 @@ FvbRead (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "FvbRead(Parameters: Lba=%ld, Offset=0x%x, *NumBytes=0x%x, Buffer @ 0x%08x)\n",
     Instance->StartLba + Lba,
     Offset,
@@ -617,7 +660,7 @@ FvbRead (
   BlockSize = Instance->Media.BlockSize;
 
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "FvbRead: Check if (Offset=0x%x + NumBytes=0x%x) <= BlockSize=0x%x\n",
     Offset,
     *NumBytes,
@@ -652,7 +695,7 @@ FvbRead (
   DataOffset = GET_DATA_OFFSET (Instance->RegionBaseAddress + Offset,
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
-
+  DEBUG ((DEBUG_INFO, "%a[%d] DataOffset=0x%lx\n", __func__, __LINE__, DataOffset));
   Status = Instance->NorFlashProtocol->ReadData (
               Instance->Nor,
               DataOffset,
@@ -744,6 +787,14 @@ FvbWrite (
 
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
+  DEBUG ((
+    DEBUG_INFO,
+    "FvbWrite(Parameters: Lba=%ld, Offset=0x%x, *NumBytes=0x%x, Buffer @ 0x%08x)\n",
+    Instance->StartLba + Lba,
+    Offset,
+    *NumBytes,
+    Buffer
+    ));
   DataOffset = GET_DATA_OFFSET (Instance->FvbOffset + Offset,
                   Instance->StartLba + Lba,
                   Instance->Media.BlockSize);
@@ -826,7 +877,7 @@ FvbEraseBlocks (
   Instance = INSTANCE_FROM_FVB_THIS (This);
 
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "FvbEraseBlocks()\n"
     ));
 
@@ -861,7 +912,7 @@ FvbEraseBlocks (
     // All blocks must be within range
     //
     DEBUG ((
-      DEBUG_VERBOSE,
+      DEBUG_INFO,
       "FvbEraseBlocks: Check if: ( StartingLba=%ld + NumOfLba=%Lu - 1 ) > LastBlock=%ld.\n",
       Instance->StartLba + StartingLba,
       (UINT64)NumOfLba,
@@ -925,7 +976,7 @@ FvbEraseBlocks (
       // Erase single block
       //
       DEBUG ((
-        DEBUG_VERBOSE,
+        DEBUG_INFO,
         "FvbEraseBlocks: Erasing Lba=%ld @ 0x%08x.\n",
         Instance->StartLba + StartingLba,
         BlockAddress
@@ -972,6 +1023,7 @@ FvbVirtualNotifyEvent (
   // Convert SPI memory mapped region
   //
   EfiConvertPointer (0x0, (VOID**)&mFvbDevice->RegionBaseAddress);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbOffset);
 
   //
   // Convert SPI device description
@@ -989,6 +1041,16 @@ FvbVirtualNotifyEvent (
   EfiConvertPointer (0x0, (VOID**)&mFvbDevice->NorFlashProtocol->GetFlashid);
   EfiConvertPointer (0x0, (VOID**)&mFvbDevice->NorFlashProtocol->Init);
   EfiConvertPointer (0x0, (VOID**)&mFvbDevice->NorFlashProtocol);
+
+  // Convert Fvb
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.GetAttributes);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.SetAttributes);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.GetPhysicalAddress);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.GetBlockSize);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.Read);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.Write);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol.EraseBlocks);
+  EfiConvertPointer (0x0, (VOID**)&mFvbDevice->FvbProtocol);
 
   return;
 }
@@ -1269,22 +1331,32 @@ FlashFvbEntryPoint (
   // Flash. The reason is when the NOR Flash memory is set into program mode,
   // the command is written as the base of the flash region.
   //
-  RegionBaseAddress = mFvbDevice->RegionBaseAddress;
+  RegionBaseAddress = 0x80A00000;
   RuntimeMmioRegionSize = mFvbDevice->FvbSize;
+#if 0
+  // RegionBaseAddress = mFvbDevice->RegionBaseAddress;
   Status = gDS->AddMemorySpace (EfiGcdMemoryTypeMemoryMappedIo,
                   RegionBaseAddress,
 		  RuntimeMmioRegionSize,
                   EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to add memory space\n", __FUNCTION__));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Failed to add memory space\n",
+      __func__
+      ));
     goto ErrorAddSpace;
   }
-
+#endif
   Status = gDS->SetMemorySpaceAttributes (RegionBaseAddress,
                   RuntimeMmioRegionSize,
                   EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to set memory attributes\n", __FUNCTION__));
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Failed to set memory attributes\n",
+      __func__
+      ));
     goto ErrorSetMemAttr;
   }
 
@@ -1311,12 +1383,12 @@ FlashFvbEntryPoint (
 
 ErrorSetMemAttr:
   gDS->RemoveMemorySpace (RegionBaseAddress, RuntimeMmioRegionSize);
-
+#if 0
 ErrorAddSpace:
   gBS->UninstallProtocolInterface (gImageHandle,
          &gEdkiiNvVarStoreFormattedGuid,
          NULL);
-
+#endif
 ErrorInstallNvVarStoreFormatted:
   gBS->UninstallMultipleProtocolInterfaces (
             &mFvbDevice->Handle,

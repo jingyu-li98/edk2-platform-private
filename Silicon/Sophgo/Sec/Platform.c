@@ -16,6 +16,7 @@
 #include <Include/Library/PrePiLib.h>
 #include <libfdt.h>
 #include <Guid/FdtHob.h>
+//#include <Library/DxeServicesTableLib.h>
 
 /**
   Build memory map I/O range resource HOB using the
@@ -110,6 +111,8 @@ PlatformPeimInitialization (
   UINTN                       FdtSize;
   UINTN                       FdtPages;
   UINT64                      *FdtHobData;
+  //UINT64                     RuntimeMmioRegionSize;
+  //EFI_STATUS  Status;
 
   if (DeviceTreeAddress == NULL) {
     DEBUG ((DEBUG_ERROR, "%a: Invalid FDT pointer\n", __func__));
@@ -153,16 +156,45 @@ PlatformPeimInitialization (
   // Add SPI Flash Master Controller resource
   //
   PopulateIoResources (Base, "sophgo,spifmc");
+#if 0
+  AddIoMemoryBaseSizeHob (PcdGet64 (PcdFlashVariableOffset),
+		          PcdGet32 (PcdFlashNvStorageFtwSpareSize) +
+		          PcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+		          PcdGet32 (PcdFlashNvStorageVariableSize)
+		         );
+#endif
+  AddIoMemoryBaseSizeHob (0x7081A00000,
+		          PcdGet32 (PcdFlashNvStorageFtwSpareSize) +
+		          PcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+		          PcdGet32 (PcdFlashNvStorageVariableSize)
+		         );
+ #if 1
+  AddIoMemoryBaseSizeHob (0x80A00000,
+		          PcdGet32 (PcdFlashNvStorageFtwSpareSize) +
+		          PcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+		          PcdGet32 (PcdFlashNvStorageVariableSize)
+		         );
+#else
+    RuntimeMmioRegionSize = PcdGet32 (PcdFlashNvStorageFtwSpareSize) +
+		          PcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+		          PcdGet32 (PcdFlashNvStorageVariableSize)
+    Status = gDS->AddMemorySpace (EfiGcdMemoryTypeMemoryMappedIo,
+                    0x80A00000,
+                    RuntimeMmioRegionSize,
+                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "%a: Failed to add memory space\n", __func__));
+//      goto ErrorAddSpace;
+    }
 
-  //
-  // Add Ethernet resource
-  //
-  PopulateIoResources (Base, "sophgo,ethernet");
 
-  //
-  // Add GPIO resource
-  //
-  PopulateIoResources (Base, "snps,dw-apb-gpio");
-
+    Status = gDS->SetMemorySpaceAttributes (0x80A00000,
+                    RuntimeMmioRegionSize,
+                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
+    if (EFI_ERROR (Status)) {
+     DEBUG ((DEBUG_ERROR, "%a: Failed to set memory attributes\n", __func__));
+  //    goto ErrorSetMemAttr;
+    }
+#endif
   return EFI_SUCCESS;
 }

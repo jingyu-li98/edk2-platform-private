@@ -1,0 +1,56 @@
+## @file
+#  Implementation for IniParserLib library class interfaces.
+#
+#  Copyright (c) 2024. SOPHGO Inc. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = IniParserLib
+  FILE_GUID                      = 0620512C-3882-4D0A-81B0-0BE3AE955ADB
+  MODULE_TYPE                    = Base
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IniParserLib
+
+[Sources]
+  IniParserUtil.c
+  IniParserUtil.h
+  IniParserLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  BootLogoLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  PcdLib
+  PrintLib
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[FixedPcd]
+
+[Pcd]
+
+[Guids]
+  gEfiFileInfoGuid
+  gEfiFileSystemInfoGuid
+  gEfiFileSystemVolumeLabelInfoIdGuid
+  gEfiEndOfDxeEventGroupGuid
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
+  gPlatformBootManagerProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid

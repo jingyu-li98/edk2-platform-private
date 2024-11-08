@@ -1,0 +1,51 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+HANDLER	IniParserUtil.c	193;"	d	file:
+Handler	IniParser.c	/^Handler ($/;"	f
+INI_ALLOW_BOM	IniParserUtil.h	138;"	d
+INI_ALLOW_INLINE_COMMENTS	IniParserUtil.h	151;"	d
+INI_ALLOW_MULTILINE	IniParserUtil.h	132;"	d
+INI_ALLOW_NO_VALUE	IniParserUtil.h	197;"	d
+INI_ALLOW_REALLOC	IniParserUtil.h	172;"	d
+INI_API	IniParserUtil.h	34;"	d
+INI_API	IniParserUtil.h	36;"	d
+INI_API	IniParserUtil.h	39;"	d
+INI_API	IniParserUtil.h	43;"	d
+INI_API	IniParserUtil.h	45;"	d
+INI_CALL_HANDLER_ON_NEW_SECTION	IniParserUtil.h	190;"	d
+INI_CUSTOM_ALLOCATOR	IniParserUtil.h	205;"	d
+INI_H	IniParserUtil.h	15;"	d
+INI_HANDLER_LINENO	IniParserUtil.h	26;"	d
+INI_INITIAL_ALLOC	IniParserUtil.h	178;"	d
+INI_INLINE_COMMENT_PREFIXES	IniParserUtil.h	154;"	d
+INI_MAX_LINE	IniParserUtil.h	165;"	d
+INI_START_COMMENT_PREFIXES	IniParserUtil.h	144;"	d
+INI_STOP_ON_FIRST_ERROR	IniParserUtil.h	183;"	d
+INI_USE_STACK	IniParserUtil.h	159;"	d
+IniFindCharsOrComment	IniParserUtil.c	/^CHAR8 *IniFindCharsOrComment ($/;"	f
+IniFree	IniParserUtil.c	32;"	d	file:
+IniHandler	IniParserUtil.h	/^typedef int (*IniHandler) ($/;"	t
+IniLskip	IniParserUtil.c	/^CHAR8 *IniLskip ($/;"	f
+IniParse	IniParserUtil.c	/^IniParse ($/;"	f
+IniParseFile	IniParserUtil.c	/^IniParseFile ($/;"	f
+IniParseStream	IniParserUtil.c	/^IniParseStream ($/;"	f
+IniParseString	IniParserUtil.c	/^IniParseString ($/;"	f
+IniParserLib	IniParser.c	/^IniParserLib ($/;"	f
+IniReader	IniParserUtil.h	/^typedef CHAR8* (*IniReader) ($/;"	t
+IniReaderString	IniParserUtil.c	/^IniReaderString ($/;"	f
+IniRstrip	IniParserUtil.c	/^IniRstrip ($/;"	f
+IniStrncpy0	IniParserUtil.c	/^CHAR8 *IniStrncpy0 ($/;"	f
+IsSpace	IniParserUtil.c	/^IsSpace ($/;"	f
+MATCH	IniParser.c	39;"	d	file:
+MAX_NAME	IniParserUtil.c	38;"	d	file:
+MAX_SECTION	IniParserUtil.c	37;"	d	file:
+NumLeft	IniParserUtil.c	/^  UINTN        NumLeft;$/;"	m	struct:__anon1	file:
+Ptr	IniParserUtil.c	/^  CONST CHAR8  *Ptr;$/;"	m	struct:__anon1	file:
+STRING_CONTEXT	IniParserUtil.c	/^} STRING_CONTEXT;$/;"	t	typeref:struct:__anon1	file:
+_CRT_SECURE_NO_WARNINGS	IniParserUtil.c	14;"	d	file:
+ini_malloc	IniParserUtil.c	31;"	d	file:
+ini_realloc	IniParserUtil.c	33;"	d	file:

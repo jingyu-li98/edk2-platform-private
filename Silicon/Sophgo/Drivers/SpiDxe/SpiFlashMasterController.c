@@ -8,7 +8,6 @@
  **/
 
 #include "SpiFlashMasterController.h"
-
 SPI_MASTER *mSpiMasterInstance;
 
 STATIC
@@ -79,6 +78,10 @@ SpifmcReadRegister (
   Register |= SPIFMC_TRAN_CSR_WITH_CMD;
   Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
 
+  //
+  // OPT bit[1]: Disable no address cmd fifo flush
+  //
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_OPT), 2);
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Opcode);
 
@@ -167,6 +170,7 @@ SpifmcWriteRegister (
   return EFI_SUCCESS;
 }
 
+#if 0
 EFI_STATUS
 EFIAPI
 SpifmcRead (
@@ -251,6 +255,53 @@ SpifmcRead (
 
   return EFI_SUCCESS;
 }
+#else
+EFI_STATUS
+EFIAPI
+SpifmcDmmrRead (
+  IN  SPI_NOR *Nor,
+  IN  UINTN   From,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
+  )
+{
+  UINT32     Register;
+  UINTN      SpiBase;
+
+  SpiBase = Nor->SpiBase;
+
+  Register = SpifmcInitReg (SpiBase);
+  Register |= (Nor->AddrNbytes) << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
+  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX;
+  if (Nor->AddrNbytes == 4) {
+    Register |= SPIFMC_TRAN_CSR_ADDR4B;
+    Register |= SPIFMC_TRAN_CSR_CMD4B;
+  }
+
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
+
+  //
+  // enable DMMR (Direct Memory Mapping Read)
+  //
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 1);
+
+  //
+  // Read the data
+  //
+  CopyMem (Buffer, (UINTN *)(SpiBase + From), Length);
+
+  //
+  // disable DMMR (Direct Memory Mapping Read)
+  //
+  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 0);
+
+     //   usleep_range(5, 10);
+
+  return EFI_SUCCESS;
+}
+#endif
 
 EFI_STATUS
 EFIAPI
@@ -420,8 +471,6 @@ SpiMasterSetupSlave (
   IN SPI_NOR                    *Nor
   )
 {
-  UINT32 Index;
-
   if (!Nor) {
     Nor = AllocateZeroPool (sizeof(SPI_NOR));
     if (!Nor) {
@@ -441,15 +490,6 @@ SpiMasterSetupSlave (
   }
 
   Nor->SpiBase = SPIFMC_BASE;
-  if (PcdGet32 (PcdCpuRiscVMmuMaxSatpMode) > 0UL) {
-     for (Index = 39; Index < 64; Index++) {
-       if (Nor->SpiBase & (1ULL << 38)) {
-         Nor->SpiBase |= (1ULL << Index);
-       } else {
-         Nor->SpiBase &= ~(1ULL << Index);
-       }
-     }
-  }
 
   SpifmcInit (Nor);
 
@@ -495,7 +535,8 @@ SpifmcEntryPoint (
 
   mSpiMasterInstance->SpiMasterProtocol.ReadRegister   = SpifmcReadRegister;
   mSpiMasterInstance->SpiMasterProtocol.WriteRegister  = SpifmcWriteRegister;
-  mSpiMasterInstance->SpiMasterProtocol.Read           = SpifmcRead;
+  //mSpiMasterInstance->SpiMasterProtocol.Read           = SpifmcRead;
+  mSpiMasterInstance->SpiMasterProtocol.Read           = SpifmcDmmrRead;
   mSpiMasterInstance->SpiMasterProtocol.Write          = SpifmcWrite;
   mSpiMasterInstance->SpiMasterProtocol.Erase          = SpifmcErase;
   mSpiMasterInstance->SpiMasterProtocol.SetupDevice    = SpiMasterSetupSlave;

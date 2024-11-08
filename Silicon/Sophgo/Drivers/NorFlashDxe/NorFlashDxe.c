@@ -186,7 +186,7 @@ SpiNorWriteStatus (
   Status = SpiNorWaitTillReady (Nor);
   if (EFI_ERROR (Status)) {
     DEBUG ((
-      DEBUG_ERROR, 
+      DEBUG_ERROR,
       "%a: Flash is not ready for new commands - %r\n",
       __func__,
       Status
@@ -200,7 +200,7 @@ SpiNorWriteStatus (
   Status = SpiNorWriteDisable (Nor);
   if (EFI_ERROR (Status)) {
     DEBUG ((
-      DEBUG_ERROR, 
+      DEBUG_ERROR,
       "%a: Write Disable - %r\n",
       __func__,
       Status
@@ -243,7 +243,17 @@ SpiNorReadData (
       ));
     return EFI_BAD_BUFFER_SIZE;
   }
-
+#if 0
+  if ((FlashOffset + Length) > (Nor->Info->SectorSize * Nor->Info->SectorCount)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Flash size total %d MB, address is out of range!\n",
+      __func__,
+      (Nor->Info->SectorSize * Nor->Info->SectorCount) / 1024 / 1024
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
+#endif
   //
   // read data from flash memory by PAGE
   //
@@ -255,7 +265,7 @@ SpiNorReadData (
     PageRemain = MIN (Nor->Info->PageSize - PageOffset, Length - Index);
 
     DEBUG ((
-      DEBUG_VERBOSE,
+      DEBUG_INFO,
       "%a: Length=0x%lx\tIndex=0x%lx\tAddress=0x%lx\tPageRemain=0x%lx\tPageOffset=0x%lx\n",
       __func__,
       Length,
@@ -313,6 +323,16 @@ SpiNorWriteData (
     return EFI_BAD_BUFFER_SIZE;
   }
 
+  if ((FlashOffset + Length) > (Nor->Info->SectorSize * Nor->Info->SectorCount)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Flash size total %d MB, address is out of range!\n",
+      __func__,
+      (Nor->Info->SectorSize * Nor->Info->SectorCount) / 1024 / 1024
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
   //
   // Write data by PAGE
   //
@@ -324,7 +344,7 @@ SpiNorWriteData (
     PageRemain = MIN (Nor->Info->PageSize - PageOffset, Length - Index);
 
     DEBUG ((
-      DEBUG_VERBOSE,
+      DEBUG_INFO,
       "%a: Length=0x%lx\tIndex=0x%lx\tAddress=0x%lx\tPageRemain=0x%lx\n",
       __func__,
       Length,
@@ -358,7 +378,7 @@ SpiNorWriteData (
     Status = SpiNorWaitTillReady (Nor);
     if (EFI_ERROR (Status)) {
       DEBUG ((
-          DEBUG_ERROR, 
+          DEBUG_ERROR,
           "%a: Flash is not ready for new commands - %r\n",
           __func__,
           Status
@@ -370,7 +390,7 @@ SpiNorWriteData (
   Status = SpiNorWriteDisable (Nor);
   if (EFI_ERROR (Status)) {
     DEBUG ((
-      DEBUG_ERROR, 
+      DEBUG_ERROR,
       "%a: Write Disable - %r\n",
       __func__,
       Status
@@ -547,7 +567,7 @@ SpiNorEraseChip (
   Status = SpiNorWriteDisable (Nor);
   if (EFI_ERROR (Status)) {
     DEBUG ((
-      DEBUG_ERROR, 
+      DEBUG_ERROR,
       "%a: Write Disable - %r\n",
       __func__,
       Status

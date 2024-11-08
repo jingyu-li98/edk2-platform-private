@@ -36,16 +36,86 @@
   #
   # Network definition
   #
-  DEFINE NETWORK_SNP_ENABLE             = FALSE
-  DEFINE NETWORK_IP6_ENABLE             = FALSE
-  DEFINE NETWORK_TLS_ENABLE             = FALSE
-  DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
-  DEFINE NETWORK_ALLOW_HTTP_CONNECTIONS = TRUE
-  DEFINE NETWORK_ISCSI_ENABLE           = FALSE
+  DEFINE NETWORK_SNP_ENABLE       = FALSE
+  DEFINE NETWORK_IP6_ENABLE       = FALSE
+  DEFINE NETWORK_TLS_ENABLE       = FALSE
+  DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
+  DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
-!if $(NETWORK_SNP_ENABLE) == TRUE
-  !error "NETWORK_SNP_ENABLE is IA32/X64/EBC only"
-!endif
+  #
+  # x64 Emulator
+  #
+  !if $(X64EMU_ENABLE) == TRUE
+    #
+    # Use a dedicated native stack for handling emulation.
+    #
+
+    MAU_ON_PRIVATE_STACK           = NO
+
+    #
+    # Attempt some operation on UEFI implementations without
+    # an enabled MMU, by relying on the illegal instruction
+    # handler. It won't work well and is only supported on RISC-V.
+    # Implies MAU_WRAPPED_ENTRY_POINTS=YES.
+    #
+    # On by default in RISC-V builds (via INF file).
+    #
+
+    MAU_TRY_WITHOUT_MMU            = NO
+
+    #
+    # Use an emulated entry point, instead of relying on
+    # exception-driven thunking of native to emulated code.
+    #
+    # On by default in RISC-V builds (via INF file).
+    #
+
+    MAU_WRAPPED_ENTRY_POINTS       = NO
+
+    #
+    # Handle unexpected/non-linear control flow by native code,
+    # that can result in a resource leak inside the emulator.
+    # On by default in DEBUG builds (via INF file).
+    #
+    MAU_CHECK_ORPHAN_CONTEXTS      = NO
+
+    #
+    # For maximum performance, don't periodically bail out
+    # of emulation. This is only useful for situations where
+    # you know the executed code won't do tight loops polling
+    # on some memory location updated by an event.
+    #
+    MAU_EMU_TIMEOUT_NONE           = NO
+
+    #
+    # If you want to support x64 UEFI boot service drivers
+    # and applications, say YES. Saying NO doesn't make sense
+    # for the AARCH64 build.
+    #
+    MAU_SUPPORTS_X64_BINS          = YES
+
+    #
+    # If you want to support AArch64 UEFI boot service drivers
+    # and applications, say YES. Not available for the AARCH64
+    # build.
+    #
+    MAU_SUPPORTS_AARCH64_BINS      = NO
+
+    #
+    # Say YES if you want to ignore all port I/O writes (reads
+    # returning zero), instead of forwarding to EFI_CPU_IO2_PROTOCOL.
+    #
+    # Useful for testing on UEFI DEBUG builds that use the
+    # BaseIoLibIntrinsic (IoLibNoIo.c) implementation.
+    #
+    MAU_EMU_X64_RAZ_WI_PIO         = NO
+
+    #
+    # Seems to work well even when building on small machines.
+    #
+    UC_LTO_JOBS                    = auto
+
+  !endif
 
 [BuildOptions]
   GCC:RELEASE_*_*_CC_FLAGS       = -DMDEPKG_NDEBUG
@@ -186,8 +256,7 @@
   # Nor Flash Library
   NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
 
-  # DMA Library for non-coherent platform
-  DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
+  #IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
 
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
@@ -239,7 +308,6 @@
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
   UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
-  NonDiscoverableDeviceRegistrationLib|MdeModulePkg/Library/NonDiscoverableDeviceRegistrationLib/NonDiscoverableDeviceRegistrationLib.inf
 !ifdef $(SOURCE_DEBUG_ENABLE)
   DebugAgentLib|SourceLevelDebugPkg/Library/DebugAgent/DxeDebugAgentLib.inf
 !endif
@@ -268,11 +336,12 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeMemorySize|1
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
-  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0xFFFFFFFFFFFFFFFF
+  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0xF
   gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x10
-  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x4000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize|0x8000
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize|0xe000
+  gEfiMdePkgTokenSpaceGuid.PcdMaximumAsciiStringLength|1000000
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0
 
@@ -364,20 +433,19 @@
   # 64KB + 64KB + 64KB
   # Flash Offset: 32MB
   #
-  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x02800000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize|0x00010000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize|0x00010000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00010000
+  #gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x02800000
+  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x00800000
+
+  #
+  # DDR address of conf.ini file
+  #
+  gSophgoTokenSpaceGuid.PcdIniFileRamAddress|0x89000000
 
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency|50000000
 
-  #
-  # DW MAC4 default mac address
-  #
-  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x161822242628
-
 [PcdsFixedAtBuild.common]
-  gSophgoTokenSpaceGuid.PcdSDIOBase|0x703000B000
+  gSophgoTokenSpaceGuid.PcdSDIOSourceClockFrequency|400000000
+  gSophgoTokenSpaceGuid.PcdSDIOTransmissionClockFrequency|25000000
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7001000000
 
 ################################################################################
@@ -388,10 +456,9 @@
 
 [PcdsDynamicDefault]
   gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0x80A00000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|0x80A10000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0x80A20000
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE
+
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
 
   #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0208
   #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
@@ -408,19 +475,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution|480
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|0
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|0
-
-  #
-  # IPv4 and IPv6 PXE Boot support.
-  #
-  gEfiNetworkPkgTokenSpaceGuid.PcdIPv4PXESupport|0x01
-  gEfiNetworkPkgTokenSpaceGuid.PcdIPv6PXESupport|0x01
-
-  #
-  # Indicates if Variable driver will enable emulated variable NV mode.
-  # Reset by SpiNorDxe driver when SPI is in place and can handle storing EFI Variables.
-  #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
-  #gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|FALSE
 
 [PcdsDynamicHii]
   gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|TRUE|NV,BS
@@ -497,6 +551,7 @@
   Silicon/Sophgo/Drivers/FlashFvbDxe/FlashFvbDxe.inf
   Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
   Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
+  #Silicon/Sophgo/Drivers/IniParserDxe/IniParserLib.inf
 
   #
   # RISC-V Core module
@@ -572,13 +627,6 @@
   # Network Support
   #
   !include NetworkPkg/Network.dsc.inc
-  Silicon/Sophgo/Drivers/Net/StmmacMdioDxe/StmmacMdioDxe.inf
-  Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
-  Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
-  #NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf {
-  #  <LibraryClasses>
-  #    NULL|OvmfPkg/Library/PxeBcPcdProducerLib/PxeBcPcdProducerLib.inf
-  #}
 
   #
   # USB Support
@@ -591,6 +639,13 @@
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+
+  #
+  # Emulator for x64 OpRoms, etc.
+  #
+  !if $(X64EMU_ENABLE) == TRUE
+    !include MultiArchUefiPkg/MultiArchUefiPkg.dsc.inc
+  !endif
 
   #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem

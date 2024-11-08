@@ -52,6 +52,7 @@
   MemoryAllocationLib
   HobLib
   SerialPortLib
+  #DxeServicesTableLib
 
 [FixedPcd]
   gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvBase                         ## CONSUMES
@@ -62,6 +63,10 @@
   gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize                       ## CONSUMES
   gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize                                 ## CONSUMES
   gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize                                     ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
+  gSophgoTokenSpaceGuid.PcdFlashVariableOffset
 
 [Guids]
   gFdtHobGuid      ## PRODUCES

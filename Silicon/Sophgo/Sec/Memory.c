@@ -255,6 +255,7 @@ MemoryPeimInitialization (
   INT32                       Len;
 
   UefiMemoryBase = (UINT64)FixedPcdGet32 (PcdTemporaryRamBase) + FixedPcdGet32 (PcdTemporaryRamSize) - SIZE_32MB;
+  DEBUG ((DEBUG_INFO, "\n%a[%d]UefiMemoryBase=0x%lx\n", __func__, __LINE__, UefiMemoryBase));
   FwMemBase      = PcdGet32 (PcdRiscVDxeFvBase);
   FwMemSize      = PcdGet32 (PcdRiscVDxeFvSize);
   LowestMemBase  = 0;

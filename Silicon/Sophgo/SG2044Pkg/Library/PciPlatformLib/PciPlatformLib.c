@@ -19,6 +19,7 @@
 #include <Include/PciPlatformLib.h>
 #include <Protocol/PciHostBridgeResourceAllocation.h>
 #include <Protocol/FdtClient.h>
+#include <Protocol/Cpu.h>
 #include <IndustryStandard/Pci22.h>
 
 /* designware controller specific variables */
@@ -225,9 +226,9 @@ DwPcieAtuPciAddr (
     IN  UINT32 Func
     )
 {
-  return  ((Bus & (PCI_MAX_BUS - 1)) << 24) |
-    ((Dev & (PCI_MAX_DEVICE - 1)) << 19) |
-    ((Func & (PCI_MAX_FUNC - 1)) << 16);
+  return  ((Bus & (PCI_MAX_BUS)) << 24) |
+    ((Dev & (PCI_MAX_DEVICE)) << 19) |
+    ((Func & (PCI_MAX_FUNC)) << 16);
 }
 
 RETURN_STATUS
@@ -699,6 +700,68 @@ SetupPciRoot (
   DwPcieEnableMaster (PciRoot, DwPcie);
 }
 
+STATIC
+EFI_STATUS
+SetPciMemoryAttribute (
+    IN  PCI_ROOT_BRIDGE   *PciRoot,
+    IN  DW_PCIE           *DwPcie
+    )
+{
+  EFI_CPU_ARCH_PROTOCOL *Cpu;
+  EFI_STATUS            Status;
+
+  Status = gBS->LocateProtocol (
+      &gEfiCpuArchProtocolGuid,
+      NULL,
+      (VOID **)&Cpu
+      );
+
+  if (EFI_ERROR(Status)) {
+    DEBUG ((DEBUG_ERROR, "Cannot locate CPU arch service\n"));
+  }
+
+  Status = Cpu->SetMemoryAttributes (
+      Cpu,
+      DwPcie->DbiBase,
+      DwPcie->DbiSize,
+      EFI_MEMORY_UC
+      );
+
+  if (EFI_ERROR(Status)) {
+    DEBUG ((DEBUG_ERROR, "Cannot add designware PCIe DBI space %016lx - %016lx\n",
+          DwPcie->DbiBase, DwPcie->DbiBase + DwPcie->DbiSize));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = Cpu->SetMemoryAttributes (
+      Cpu,
+      DwPcie->AtuBase,
+      DwPcie->AtuSize,
+      EFI_MEMORY_UC
+      );
+
+  if (EFI_ERROR(Status)) {
+    DEBUG ((DEBUG_ERROR, "Cannot add designware PCIe ATU space %016lx - %016lx\n",
+          DwPcie->AtuBase, DwPcie->AtuBase + DwPcie->AtuSize));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = Cpu->SetMemoryAttributes (
+      Cpu,
+      DwPcie->CfgBase,
+      DwPcie->CfgSize,
+      EFI_MEMORY_UC
+      );
+
+  if (EFI_ERROR(Status)) {
+    DEBUG ((DEBUG_ERROR, "Cannot add designware PCIe CFG space %016lx - %016lx\n",
+          DwPcie->CfgBase, DwPcie->CfgBase + DwPcie->CfgSize));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  return EFI_SUCCESS;
+}
+
 RETURN_STATUS
 EFIAPI
 PciPlatformInit (
@@ -754,6 +817,8 @@ PciPlatformInit (
   DEBUG ((DEBUG_VERBOSE, "System Memory: [%016lx - %016lx]\n", SystemMemoryStart, SystemMemoryEnd));
 
   for (PciRootIter = 0; PciRootIter < PciRootCount; ++PciRootIter) {
+
+    SetPciMemoryAttribute (&mSG2044PciRoot.PciRoot[PciRootIter], &mSG2044PciRoot.DwPcie[PciRootIter]);
 
     SetupPciRoot (&mSG2044PciRoot.PciRoot[PciRootIter], &mSG2044PciRoot.DwPcie[PciRootIter],
         SystemMemoryStart, SystemMemorySize);
@@ -819,6 +884,7 @@ PciSegmentRead (
   DW_PCIE   *DwPcie;
   UINT64    PciAddr;
   UINT32    Type;
+  UINTN     CfgBase;
 
   Segment = GET_SEGMENT (Address);
   Bus = GET_BUS (Address);
@@ -831,33 +897,46 @@ PciSegmentRead (
     return 0xffffffff;
   }
 
-  if (Device != 0)
-    return 0xffffffff;
-
   /* Find PCIe controller */
   DwPcie = &mSG2044PciRoot.DwPcie[Segment];
 
-  if (!DwPcieLinkUp (DwPcie))
-    return 0xffffffff;
+  if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base) {
+    /* host root complex */
+    if (Device != 0)
+      return 0xffffffff;
 
-  PciAddr = DwPcieAtuPciAddr (Bus, Device, Function);
+    CfgBase = DwPcie->DbiBase;
+  } else {
+    /* devices other than root complex, including pcie switches */
+    if (!DwPcieLinkUp (DwPcie))
+      return 0xffffffff;
 
-  if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base)
-    Type = DW_PCIE_ATU_TYPE_CFG0;
-  else
-    Type = DW_PCIE_ATU_TYPE_CFG1;
+    PciAddr = DwPcieAtuPciAddr (Bus, Device, Function);
 
-  DwPcieSetAtuOutbound (DwPcie, 0, Type, DwPcie->CfgBase, PciAddr, DwPcie->CfgSize);
+    /* devices direct linked with root complex */
+    if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base + 1) {
+      if (Device != 0)
+        return 0xffffffff;
 
+      Type = DW_PCIE_ATU_TYPE_CFG0;
+    } else {
+      Type = DW_PCIE_ATU_TYPE_CFG1;
+    }
+
+    DwPcieSetAtuOutbound (DwPcie, 0, Type, DwPcie->CfgBase, PciAddr, DwPcie->CfgSize);
+
+    CfgBase = DwPcie->CfgBase;
+  }
+  
   switch (Width) {
     case 8:
-      Value = MmioRead8 (DwPcie->CfgBase + Offset);
+      Value = MmioRead8 (CfgBase + Offset);
       break;
     case 16:
-      Value = MmioRead16 (DwPcie->CfgBase + Offset);
+      Value = MmioRead16 (CfgBase + Offset);
       break;
     case 32:
-      Value = MmioRead32 (DwPcie->CfgBase + Offset);
+      Value = MmioRead32 (CfgBase + Offset);
       break;
     default:
       DEBUG ((DEBUG_ERROR, "Not supported width for reading\n"));
@@ -888,11 +967,12 @@ PciSegmentWrite (
   DW_PCIE   *DwPcie;
   UINT64    PciAddr;
   UINT32    Type;
+  UINTN     CfgBase;
 
   Segment = GET_SEGMENT (Address);
   Bus = GET_BUS (Address);
   Device = GET_DEVICE (Address);
-  Function = GET_DEVICE (Address);
+  Function = GET_FUNCTION (Address);
   Offset = GET_OFFSET (Address);
 
   if (Segment > mSG2044PciRoot.Count) {
@@ -900,40 +980,45 @@ PciSegmentWrite (
     return Value;
   }
 
-  if (Device != 0)
-    return Value;
-
   /* Find PCIe controller */
   DwPcie = &mSG2044PciRoot.DwPcie[Segment];
 
-  if (!DwPcieLinkUp (DwPcie))
-    return Value;
+  if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base) {
+    /* host root complex */
+    CfgBase = DwPcie->DbiBase;
+  } else {
+    /* devices other than root complex, including pcie switches */
+    if (!DwPcieLinkUp (DwPcie))
+      return Value;
 
-  PciAddr = DwPcieAtuPciAddr (Bus, Device, Function);
+    PciAddr = DwPcieAtuPciAddr (Bus, Device, Function);
 
-  if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base)
-    Type = DW_PCIE_ATU_TYPE_CFG0;
-  else
-    Type = DW_PCIE_ATU_TYPE_CFG1;
+    if (Bus == mSG2044PciRoot.PciRoot[Segment].Bus.Base + 1)
+      Type = DW_PCIE_ATU_TYPE_CFG0;
+    else
+      Type = DW_PCIE_ATU_TYPE_CFG1;
 
-  DwPcieSetAtuOutbound (DwPcie, 0, DW_PCIE_ATU_TYPE_CFG0, DwPcie->CfgBase, PciAddr, DwPcie->CfgSize);
+    DwPcieSetAtuOutbound (DwPcie, 0, DW_PCIE_ATU_TYPE_CFG0, DwPcie->CfgBase, PciAddr, DwPcie->CfgSize);
+
+    CfgBase = DwPcie->CfgBase;
+  }
 
   switch (Width) {
     case 8:
-      MmioWrite8 (DwPcie->CfgBase + Offset, Value);
+      MmioWrite8 (CfgBase + Offset, Value);
       break;
     case 16:
-      MmioWrite16 (DwPcie->CfgBase + Offset, Value);
+      MmioWrite16 (CfgBase + Offset, Value);
       break;
     case 32:
-      MmioWrite32 (DwPcie->CfgBase + Offset, Value);
+      MmioWrite32 (CfgBase + Offset, Value);
       break;
     default:
       DEBUG ((DEBUG_ERROR, "Not supported width for writing\n"));
       break;
   }
 
-  DEBUG ((DEBUG_VERBOSE, "W%d: %04x:%02x:%02x.%1x - %04x %08x\n",
+  DEBUG ((DEBUG_VERBOSE, "W%d: %04x:%02x:%02x.%1x - %04x 0x%08x\n",
       Width, Segment, Bus, Device, Function, Offset, Value));
 
   return Value;
