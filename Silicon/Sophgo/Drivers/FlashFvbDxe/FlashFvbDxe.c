@@ -22,32 +22,8 @@
 #include <Guid/VariableFormat.h>
 #include <Guid/SystemNvDataGuid.h>
 #include <Guid/NvVarStoreFormatted.h>
-//#include "IniParserUtil.h"
-
-#include <Uefi.h>
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
-#include <Library/MemoryAllocationLib.h>
-#include <Library/DevicePathLib.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Protocol/LoadFile.h>
-#include <Protocol/DevicePath.h>
-
-#include <Protocol/BlockIo.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define EFI_FILE_NAME L"\\conf.ini"
-
-typedef struct {
-  CHAR8 *Name;
-  UINTN Addr;
-} TEST_CONFIG;
-
-TEST_CONFIG *Config;
 
 #include "FlashFvbDxe.h"
-#include <string.h>
 STATIC FVB_DEVICE    *mFvbDevice;
 STATIC EFI_EVENT     mFvbVirtualAddrChangeEvent;
 
@@ -296,29 +272,8 @@ ValidateFvHeader (
   EFI_FIRMWARE_VOLUME_HEADER  *FwVolHeader;
   VARIABLE_STORE_HEADER       *VariableStoreHeader;
   UINTN                       VariableStoreLength;
-#if 0
-  VOID                        *Headers;
-  UINTN                       HeadersLength;
-  EFI_STATUS                  Status;
 
-  HeadersLength = sizeof (EFI_FIRMWARE_VOLUME_HEADER) +
-                  sizeof (EFI_FV_BLOCK_MAP_ENTRY) +
-                  sizeof (VARIABLE_STORE_HEADER);
-  Headers = AllocateZeroPool (HeadersLength);
-
-  Status = FvbRead (&Instance->FvbProtocol, 0, 0, &HeadersLength, Headers);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: Get firmware volume header failed!\n",
-      __func__
-      ));
-    return Status;
-  }
-  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)(Headers);
-#else
   FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)(Instance->RegionBaseAddress);
-#endif
 
   //
   // Verify the header revision, header signature, length
@@ -1210,12 +1165,22 @@ FlashFvbConfigureFlashInstance (
                   FlashInstance->Nor
                   );
 
+  if (FlashInstance->Nor == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Nor Flash not found!\n",
+      __func__
+      ));
+    return EFI_NOT_FOUND;
+  }
+
   Status = FlashFvbProbe (FlashInstance);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a: Error while performing Nor flash probe\n",
-      __func__
+      "%a: Error while performing Nor flash probe [Status=%r]\n",
+      __func__,
+      Status
       ));
     return Status;
   }
@@ -1348,18 +1313,20 @@ FlashFvbEntryPoint (
     goto ErrorAddSpace;
   }
 #endif
+#if 0
   Status = gDS->SetMemorySpaceAttributes (RegionBaseAddress,
                   RuntimeMmioRegionSize,
                   EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
-      "%a: Failed to set memory attributes\n",
-      __func__
+      "%a: Failed to set memory attributes(Status=%r)\n",
+      __func__,
+      Status
       ));
     goto ErrorSetMemAttr;
   }
-
+#endif
   //
   // Register for the virtual address change event
   //
@@ -1380,9 +1347,10 @@ FlashFvbEntryPoint (
   }
 
   return Status;
-
+#if 0
 ErrorSetMemAttr:
   gDS->RemoveMemorySpace (RegionBaseAddress, RuntimeMmioRegionSize);
+#endif
 #if 0
 ErrorAddSpace:
   gBS->UninstallProtocolInterface (gImageHandle,
