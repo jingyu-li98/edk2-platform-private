@@ -1,0 +1,56 @@
+#/* @file
+#  Copyright (c) 2015-2016, Phytium Technology Co.,Ltd. All rights reserved.
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution.  The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#*/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = PhytiumEcLib
+  FILE_GUID                      = c8d3cd7a-d87d-11eb-92be-338d8fdb61da
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PhytiumEcLib
+  CONSTRUCTOR                    = EcInit
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  IoLib
+  ArmLib
+  ArmSmcLib
+  MemoryAllocationLib
+  #ParameterTableLib 
+  SerialPortLib
+  HobLib
+  PcdLib
+  BaseMemoryLib
+  PcdLib
+
+[Sources.common]
+  Ec.c
+  Ec.h
+
+[Guids]
+  gPhytiumGeneralPlatGuid
+
+[FeaturePcd]
+
+[FixedPcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdLpcBaseAddress
+
+[Pcd]
+

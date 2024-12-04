@@ -1,0 +1,50 @@
+## @file
+# Phytium I2c Device Driver.
+#
+# Copyright (C) 2016, Marvell International Ltd. All rights reserved.<BR>
+# Copyright (C) 2023, Phytium Technology Co Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PhytiumI2cDevicesIo
+  FILE_GUID                      = 9649a4d8-465b-11eb-8fc7-b38c0f47a70f
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = PhytiumI2cDevicesIoInitialise
+
+[Sources.common]
+  PhytiumI2cDevicesIo.c
+  PhytiumI2cDevicesIo.h
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  PcdLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiDriverBindingProtocolGuid
+  gEfiI2cIoProtocolGuid
+  gPhytiumI2cDevicesIoProtocolGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdDevicesAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cDevicesBusesNumber
+
+[Depex]
+  TRUE

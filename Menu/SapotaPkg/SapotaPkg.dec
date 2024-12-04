@@ -1,0 +1,45 @@
+## @file
+# This package provides platform modules.
+#
+# Copyright (C) 2022, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier:BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x0001001B
+  PACKAGE_NAME                   = SapotaPkg
+  PACKAGE_GUID                   = F03664DC-9199-11ED-BE03-ABDAD6BBFD03
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include             # Root include for the package
+
+[Guids.common]
+
+[PcdsFeatureFlag.common]
+
+[PcdsFixedAtBuild.common]
+  #
+  # The higest base address of the memory range of UART1.
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdUart1AddressMax|0x20001fff|UINT64|0x00000001
+
+  #
+  # DDR part for different CPU
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrDimmNumberArray64C | { 0x0 } |VOID*|0x00000002
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrSpdHubAddressArray64C | { 0x0 } |VOID*|0x00000003
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrPmicAddressArray64C | { 0x0 } |VOID*|0x00000004
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrDimmNumberArray32C | { 0x0 } |VOID*|0x00000005
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrSpdHubAddressArray32C | { 0x0 } |VOID*|0x00000006
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrPmicAddressArray32C | { 0x0 } |VOID*|0x00000007
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrDimmNumberArray16C | { 0x0 } |VOID*|0x00000008
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrSpdHubAddressArray16C | { 0x0 } |VOID*|0x00000009
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrPmicAddressArray16C | { 0x0 } |VOID*|0x0000000a
+  gPhytiumPlatformTokenSpaceGuid.PcdUart0AddressMax|0x20000fff|UINT64|0x0000000b
+  gPhytiumPlatformTokenSpaceGuid.PcdUart2AddressMax|0x20002fff|UINT64|0x0000000c
+
+[Protocols]
+

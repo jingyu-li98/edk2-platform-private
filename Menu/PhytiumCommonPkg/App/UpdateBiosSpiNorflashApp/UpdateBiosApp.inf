@@ -1,0 +1,64 @@
+## @file
+# Update Bios operation.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = UpdateBiosApp
+  FILE_GUID                      = 1EE29963-014D-6B1C-C525-7B55D9B08176
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UpdateBiosAppEntry
+
+[Sources]
+  UpdateBiosApp.c
+  UpdateBiosApp.uni
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  CryptoPkg/CryptoPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmPlatformLib
+  BaseCryptLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  HiiLib
+  HobLib
+  MemoryAllocationLib
+  PcdLib
+  PhytiumPowerControlLib
+  PrintLib
+  UefiLib
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiFileInfoGuid
+
+[Protocols]
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gSpiNorFlashProtocolGuid
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
+  gArmTokenSpaceGuid.PcdFdBaseAddress
+  gArmTokenSpaceGuid.PcdFvBaseAddress
+  gArmTokenSpaceGuid.PcdFvSize

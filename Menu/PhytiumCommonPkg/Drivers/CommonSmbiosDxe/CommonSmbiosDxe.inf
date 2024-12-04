@@ -1,0 +1,62 @@
+## @file
+#  SMBIOS Table for the phytium platform
+#
+#  Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = CommonSmbios
+  FILE_GUID                      = BAD0554E-22E9-4D83-9AFD-CC87727A1A45
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = CommonSmbiosEntryPoint
+
+[Sources]
+  CommonSmbiosDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  RedfishPkg/RedfishPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmLib
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  BaseLib
+  HobLib
+  UefiLib
+  UefiDriverEntryPoint
+  DebugLib
+  PrintLib
+  TimeBaseLib
+  JsonLib
+  DxeServicesLib
+  PlatformSmbiosLib
+  PssiLib
+
+[Protocols]
+  gEfiSmbiosProtocolGuid           # PROTOCOL SOMETIMES_CONSUMED
+
+[Guids]
+  gEfiSmbiosStringTxtGuid
+  gPlatformMemorySmbiosInfoGuid
+
+[Depex]
+  gEfiSmbiosProtocolGuid
+
+[Pcd]
+  gArmTokenSpaceGuid.PcdFdBaseAddress
+  gArmTokenSpaceGuid.PcdFdSize
+  gArmTokenSpaceGuid.PcdSystemMemorySize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString

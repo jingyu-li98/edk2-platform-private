@@ -1,0 +1,33 @@
+## @file
+# PEI phase IpmiBase layer library.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PeiIpmiBaseLib
+  FILE_GUID                      = 81DC0293-16D8-4BAB-84B5-AE90786D2FAA
+  MODULE_TYPE                    = PEIM
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IpmiBaseLib|PEIM PEI_CORE
+
+[sources]
+  PeiIpmiBaseLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
+  PeiServicesLib
+
+[Ppis]
+  gPeiIpmiTransportPpiGuid

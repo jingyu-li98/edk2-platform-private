@@ -1,0 +1,61 @@
+## @file
+# Phytium I2c Drivers.
+#
+# Copyright (C) 2016, Marvell International Ltd. All rights reserved.<BR>
+# Copyright (C) 2023, Phytium Technology Co Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PhytiumI2cDxe
+  FILE_GUID                      = e73330ee-d81f-11e5-9d97-3b1b6a1dbed2
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = PhytiumI2cInitialise
+
+[Sources.common]
+  PhytiumI2cDxe.c
+  PhytiumI2cDxe.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiLib
+  ArmLib
+  BaseLib
+  IoLib
+  PcdLib
+  DxeServicesTableLib
+  DebugLib
+  I2cLib
+  UefiBootServicesTableLib
+  BaseMemoryLib
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+  gEfiEndOfDxeEventGroupGuid
+
+[Protocols]
+  gEfiI2cMasterProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiI2cEnumerateProtocolGuid
+  gEfiI2cBusConfigurationManagementProtocolGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cBusSpeed
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSlaveAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSlaveBusesNumber
+  gPhytiumPlatformTokenSpaceGuid.PcdDevicesAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cDevicesBusesNumber
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cControllerInformation
+
+[Depex]
+  TRUE

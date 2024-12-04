@@ -1,0 +1,78 @@
+## @file
+# The OEM commands library of Shell.
+#
+# Copyright (C) 2022-2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = UefiShellOemCommandsLib
+  FILE_GUID                      = 7498C830-0510-11E8-B05A-FBF6B9796EF1
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = NULL|UEFI_APPLICATION UEFI_DRIVER
+  CONSTRUCTOR                    = ShellOemCommandsLibConstructor
+  DESTRUCTOR                     = ShellOemCommandsLibDestructor
+
+[Sources.common]
+  BiosUpdate.h
+  OemCommandFuncs.c
+  UefiShellOemCommandsLib.uni
+  UefiShellOemCommandsLib.c
+  UefiShellOemCommandsLib.h
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  CryptoPkg/CryptoPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  NetworkPkg/NetworkPkg.dec
+  ShellPkg/ShellPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmSmcLib
+  MemoryAllocationLib
+  BaseLib
+  BaseCryptLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  DxeServicesLib
+  DxeServicesTableLib
+  FileHandleLib
+  HiiLib
+  NetLib
+  PcdLib
+  PhytiumPowerControlLib
+  ShellCommandLib
+  ShellLib
+  UefiLib
+  UefiApplicationEntryPoint
+  UefiRuntimeServicesTableLib
+  UefiBootServicesTableLib
+  UefiBootManagerLib
+
+[Pcd]
+  gEfiShellPkgTokenSpaceGuid.PcdShellProfileMask ## CONSUMES
+  gEfiShellPkgTokenSpaceGuid.PcdShellFileOperationSize    ## CONSUMES
+
+[Protocols]
+  gEfiShellParametersProtocolGuid                         ## CONSUMES
+  gEfiManagedNetworkServiceBindingProtocolGuid
+  gEfiMtftp4ServiceBindingProtocolGuid
+  gEfiMtftp4ProtocolGuid
+  gEfiHiiPackageListProtocolGuid
+  gEfiCpuArchProtocolGuid
+  gSpiNorFlashProtocolGuid
+
+[Guids]
+  gShellOemHiiGuid                         ## SOMETIMES_CONSUMES ## HII
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize

@@ -1,0 +1,51 @@
+## @file
+# Generic IPMI during PEI phase.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation. <BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PeiGenericIpmi
+  FILE_GUID                      = 2E23EAA3-7F84-9C69-7DB2-F6AD522FD4BC
+  MODULE_TYPE                    = PEIM
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = PeimIpmiInterfaceInit
+
+[Sources]
+  ../Common/IpmiKcsBmc.c
+  ../Common/IpmiKcsBmc.h
+  PeiGenericIpmi.c
+  PeiGenericIpmi.h
+  PeiIpmiBmc.c
+  PeiIpmiBmcDef.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BmcBaseLib
+  DebugLib
+  IoLib
+  IpmiBaseLib
+  IpmiCommandLib
+  MemoryAllocationLib
+  PeimEntryPoint
+  ReportStatusCodeLib
+  TimerLib
+
+[Ppis]
+  gPeiIpmiTransportPpiGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiIoBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress
+
+[Depex]
+  TRUE

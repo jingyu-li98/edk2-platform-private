@@ -1,0 +1,46 @@
+## @file
+# This file implements basic functions of using I3C bus to communicate with
+# slave devives.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I3cLib
+  FILE_GUID                      = bf4fb5de-8b46-11ed-9fe6-533fa9af0b9b
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = I3cLib
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  IoLib
+  MemoryAllocationLib
+  PcdLib
+  BaseMemoryLib
+  TimerLib
+
+[Sources.common]
+  I3cLib.h
+  I3cLib.c
+
+[Guids]
+
+[FixedPcd]
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI3cModeClkFreq
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI2cModeClkFreq
+  gPhytiumPlatformTokenSpaceGuid.PcdSysClkFreq
+

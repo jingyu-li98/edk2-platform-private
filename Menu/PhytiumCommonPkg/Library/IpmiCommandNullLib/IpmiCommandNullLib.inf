@@ -1,0 +1,28 @@
+## @file
+# IPMI Command Interface NULL library.
+#
+# Copyright (C) 2024, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = IpmiCommandNullLib
+  FILE_GUID                      = C3D5E105-6CC9-68E6-2FFA-58B82E11E9B3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IpmiCommandLib
+
+[sources]
+  IpmiPhyCommandNullLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib

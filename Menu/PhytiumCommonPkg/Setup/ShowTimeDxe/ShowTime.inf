@@ -1,0 +1,75 @@
+## @file
+#
+#  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+#  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+#
+# This driver shows how HII protocol, VFR and UNI files are used to create a HII 
+# driver which can be dipslayed and configured by a UEFI HII Form Browser.
+#
+# Copyright (c) 2007 - 2017, Intel Corporation. All rights reserved.<BR>
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SetDateAndTime
+  MODULE_UNI_FILE                = SetDateAndTime.uni
+  FILE_GUID                      = 44265C15-C685-2D2D-E4DA-D83F48714CBE
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = SetDateAndTimeInit
+  UNLOAD_IMAGE                   = SetDateAndTimeUnload
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC LOONGARCH64
+#
+[Sources]
+  SetDateAndTime.c
+  SetDateAndTime.h
+  ShowTimeVfr.vfr
+  SetDateAndTimeStrings.uni
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  PrintLib
+  UefiLib
+  DevicePathLib
+
+[Guids]
+  gSetDateAndTimeFormSetGuid
+  gEfiIfrFrontPageGuid
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid              ## CONSUMES
+  gEfiHiiConfigAccessProtocolGuid               ## PRODUCES
+
+[Depex]
+  gEfiHiiConfigRoutingProtocolGuid  AND
+  gEfiHiiDatabaseProtocolGuid       AND
+  gEfiVariableArchProtocolGuid      AND
+  gEfiVariableWriteArchProtocolGuid AND
+  gEfiPciIoProtocolGuid
+
+

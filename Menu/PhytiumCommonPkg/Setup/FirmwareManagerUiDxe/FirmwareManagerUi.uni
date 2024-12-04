@@ -1,0 +1,52 @@
+///** @file
+//String definitions for Firmware manager menu.
+//
+//Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+//
+//SPDX-License-Identifier: BSD-2-Clause-Patent
+//**/
+
+/=#
+#langdef    en-US  "English"
+#langdef    zh-Hans "\wide简体中文"
+
+#string STR_FORM_FIRMWAREMANAGER_TITLE    #language en-US "Firmware Manager"
+                                          #language zh-Hans "\wide固件更新"
+#string STR_FIRMWAREMANAGER_MANAGER_HELP  #language en-US "Enter this interface to view and set the Firmware config"
+                                          #language zh-Hans "\wide进入此选项可查看和设置固件更新"
+
+#string STR_UPDATEBIOS_TITLE               #language en-US "Update bios"
+                                           #language zh-Hans "\wide更新\narrowBIOS\wide固件"
+#string STR_UPDATEBIOS_HELP                #language en-US "Enter this interface to view file and update bios by the selected file,Do not poweroff or reset during bios update"
+                                           #language zh-Hans "\wide进入此选项查看和选择文件\narrow,\wide用选择的文件更新固件\narrow,\wide更新时请不要重启关机"
+
+
+#string STR_UPDATE_BIOS_ERROR_INFO         #language en-US "Fail to get the BIOS.FD form the U disk."
+                                           #language zh-Hans "\wide从优盘中获取\narrowBIOS.FD\wide文件失败"
+#string STR_F5_UPDATE_BIOS_ERROR_INFO      #language en-US "Fail to get the BIOS.ROM form the U disk."
+                                           #language zh-Hans "\wide从优盘中获取\narrowBIOS.ROM\wide文件失败"
+#string STR_BIOS_FILE_ERROR                #language en-US "Invaild File."
+                                           #language zh-Hans "\wide无效的文件"
+#string STR_PRESS_ENTER_CONTINUE           #language en-US "Press <Enter> to continue..."
+                                           #language zh-Hans "\wide按回车继续\narrow..."
+#string STR_PRESS_ENTER_RESTART            #language en-US "Press <Enter> to reset system!"
+                                           #language zh-Hans "\wide按回车重启"
+#string STR_CHECK_BIOS_SIGNATURE_ERROR     #language en-US "Check Bios Signature error !"
+                                           #language zh-Hans "\narrowBIOS\wide签名检查错误"
+#string STR_CHECK_BIOS_MD5_ERROR           #language en-US "Check Bios md5 value error !"
+                                           #language zh-Hans "\narrowBIOS MD5\wide值检查错误"
+#string STR_NO_RIGHT_ERROR                 #language en-US "Unauthorized operation !"
+                                           #language zh-Hans "\wide无权限操作"
+
+#string STR_MODULE_ABSTRACT                   #language en-US "Provides the capability to configure Firmware manager config in a setup browser"
+                                              #language zh-Hans "\wide通过浏览界面\narrow,\wide提供改变固件配置的能力"
+
+#string STR_MODULE_DESCRIPTION                #language en-US "By this module, user may change the Firmware manager config."
+                                              #language zh-Hans "\wide通过此模块\narrow,\wide用户可以尝试改变固件配置"
+#string STR_BIOS_UPDATE_SUCC                  #language en-US "Updating BIOS Sucess, Press Enter to reboot system"
+                                              #language zh-Hans "\narrowBIOS\wide更新成功\narrow,\wide请按\narrowEnter\wide键重启"
+#string STR_UPDATING_BIOS                     #language en-US "Updating BIOS"
+                                              #language zh-Hans "\narrowBIOS\wide更新中"
+#string STR_UPDATING_BIOS_WARNING             #language en-US "Do not poweroff or reset during bios update"
+                                              #language zh-Hans "\wide更新时请不要重启关机"
+

@@ -1,0 +1,18 @@
+--- edk2-platforms/Silicon/Phytium/PhytiumCommonPkg/Library/PssiLib/PssiLib.inf
++++ edk2-platforms/Silicon/Phytium/PhytiumCommonPkg/Library/PssiLib/PssiLib.inf
+@@ -22,6 +22,7 @@
+   ArmPkg/ArmPkg.dec
+   ArmPlatformPkg/ArmPlatformPkg.dec
+   Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
++  Silicon/Phytium/S5000CPkg/PhytiumS5000CPkg.dec
+ 
+ [LibraryClasses]
+   ArmLib
+@@ -29,6 +30,7 @@
+   DebugLib
+   BaseMemoryLib
+   MemoryAllocationLib
++  ParameterTableLib
+ 
+ [Sources.common]
+   PssiLib.c

@@ -1,0 +1,43 @@
+## @file
+# I2C operation interfaces.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I2cLib
+  FILE_GUID                      = BEB88122-AD59-44B8-A067-E9CD9B84E6D1
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = I2cLib
+
+[Sources.common]
+  I2cLib.c
+  I2cLibInternal.h
+
+[FeaturePcd]
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  PcdLib
+  TimerLib
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSpkLen
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSpkLen

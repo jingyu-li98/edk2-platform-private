@@ -1,0 +1,29 @@
+## @file
+# String Operation Library.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = StringBaseLib
+  FILE_GUID                      = c3aab68e-2c21-11ee-afc0-439f4750cf2a
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = StringBaseLib
+
+[sources]
+  StringBaseLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  HiiLib
+  UefiLib

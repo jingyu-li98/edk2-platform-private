@@ -1,0 +1,40 @@
+## @file
+#Phytium SapotaPkg PlatformDxe Driver.
+#
+#Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+#SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PlatformDxe
+  FILE_GUID                      = 705FA28C-9661-11EE-989C-9B3C5E471581
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = PlatformDxeInitialise
+
+[Sources.common]
+  PlatformDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  DxeServicesLib
+  DxeServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Guids]
+  gEfiGlobalVariableGuid
+
+[Pcd]
+  gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut              ## CONSUMES
+
+[FixedPcd]
+
+[Protocols]
+
+[Depex]
+  TRUE

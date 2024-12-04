@@ -1,0 +1,188 @@
+/** @file
+
+Front page formset.
+
+Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#define FORMSET_GUID  { 0x9e0c30bc, 0x3f06, 0x4ba6, 0x82, 0x88, 0x9, 0x17, 0x9b, 0x85, 0x5d, 0xbe }
+
+#define FRONT_PAGE_FORM_ID             0x1000
+
+#define LABEL_FRANTPAGE_INFORMATION    0x1000
+#define LABEL_DYNAMIC                  0x1001
+#define LABEL_END                      0xffff
+
+formset
+  guid     = FORMSET_GUID,
+  title    = STRING_TOKEN(STR_FRONT_PAGE_TITLE),
+  help     = STRING_TOKEN(STR_EMPTY_STRING ),
+  classguid = FORMSET_GUID,
+
+  form formid = FRONT_PAGE_FORM_ID,
+    title  = STRING_TOKEN(STR_FRONT_PAGE_TITLE);
+
+
+    // Add this invisible text in order to indicate enter advanced config form.
+    // To trigger the form open action.
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = 0x809;
+    endif;
+
+//Off the Information
+/*
+    banner
+      title = STRING_TOKEN(STR_FRONT_SETUP_TITLE),
+      line  1,
+      align center;
+
+
+    // Add this invisible text in order to indicate enter advanced config form.
+    // To trigger the form open action.
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = 0x809;
+    endif;
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_VENDOR),
+      text   = STRING_TOKEN(STR_BIOS_VENDOR_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_VERSION),
+      text   = STRING_TOKEN(STR_BIOS_VERSION_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_BUILD_TIME),
+      text   = STRING_TOKEN(STR_BIOS_BUILD_TIME_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PBF_VERSION),
+      text   = STRING_TOKEN(STR_PBF_VERSION_VALUE);
+
+    label LABEL_DYNAMIC;
+    label LABEL_END;
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_BASEBOARD_INFO);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BASEBOARD_PRODUCT),
+      text   = STRING_TOKEN(STR_BASEBOARD_PRODUCT_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BASEBOARD_MANUFACTORY),
+      text   = STRING_TOKEN(STR_BASEBOARD_MANUFACTORY_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_PROCESSOR_INFO);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_MODEL),
+      text   = STRING_TOKEN(STR_PROCESSOR_MODEL_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_FREQUENCY),
+      text   = STRING_TOKEN(STR_PROCESSOR_FREQUENCY_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_CORE_COUNTS),
+      text   = STRING_TOKEN(STR_PROCESSOR_CORE_COUNTS_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_MEMORY_INFO);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_NUMBER),
+      text   = STRING_TOKEN(STR_MEMORY_NUMBER_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_SPEED),
+      text   = STRING_TOKEN(STR_MEMORY_SPEED_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_TOTAL_SIZE),
+      text   = STRING_TOKEN(STR_MEMORY_TOTAL_SIZE_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+*/
+    label LABEL_FRANTPAGE_INFORMATION;
+    //
+    // This is where we will dynamically add a Action type op-code to show
+    // the platform information.
+    //
+    label LABEL_END;
+
+//move to ShowTimeVfr
+/*
+    subtitle text = STRING_TOKEN(STR_DATE_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_DATE_EMPTY);
+
+  //grayoutif ideqval ADVANCED_CONFIG_DATA.UserPriv == 1;
+    date
+      name = Date,
+      prompt = STRING_TOKEN (STR_DATE_PROMPT),
+      help   = STRING_TOKEN (STR_DATE_HELP),
+      flags  = STORAGE_TIME,
+      default = 2004/1/1,
+
+      inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+        ideqval Date.Day == 31
+        AND
+        ideqvallist Date.Month == 2 4 6 9 11
+      endif;
+
+      inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+        ideqval Date.Day == 30
+        AND
+        ideqvallist Date.Month == 2
+      endif;
+
+      inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+        ideqval Date.Day == 0x1D
+        AND
+        ideqvallist Date.Month == 2
+        AND
+        NOT
+        ideqvallist Date.Year == 2004 2008 2012 2016 2020 2024 2028 2032 2036
+      endif;
+    enddate;
+    time
+      prompt = STRING_TOKEN (STR_TIME_PROMPT),
+      help   = STRING_TOKEN (STR_TIME_HELP),
+      flags  = STORAGE_TIME,
+    endtime;
+  //endif;
+*/
+//move to ShowTimeVfr
+
+  endform;
+
+endformset;

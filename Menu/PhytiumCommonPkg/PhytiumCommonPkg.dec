@@ -1,0 +1,331 @@
+## @file
+# This package provides common Phytium silicon modules.
+#
+# Copyright (C) 2020 - 2024, Phytium Technology Co,Ltd. All rights reserved.
+#
+# SPDX-License-Identifier:BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x0001001b
+  PACKAGE_NAME                   = PhytiumCommnonPkg
+  PACKAGE_GUID                   = b34af0b4-3e7c-11eb-a9d0-0738806d2dec
+  PACKAGE_VERSION                = 0.1
+
+################################################################################
+#
+# Include Section - list of Include Paths that are provided by this package.
+#                   Comments are used for Keywords and Module Types.
+#
+# Supported Module Types:
+#  BASE SEC PEI_CORE PEIM DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER DXE_SAL_DRIVER UEFI_DRIVER UEFI_APPLICATION
+#
+################################################################################
+[Includes]
+  Include             # Root include for the package
+
+[Guids.common]
+  gPhytiumPlatformTokenSpaceGuid = { 0x8c3abed4, 0x1fc8, 0x46d3, { 0xb4, 0x17, 0xa3, 0x22, 0x38, 0x14, 0xde, 0x76 } }
+  gPhytiumGeneralPlatGuid  = {0x8c3abed4, 0x1234, 0x5678, {0xb4, 0x17, 0xa3, 0x22, 0x38, 0x14, 0xde, 0x76}}
+  gOemDataSetupGuid        = {0x75942e44, 0xc72f, 0x11ea, {0xa4, 0xe5, 0xeb, 0xa0, 0xf2, 0x51, 0x31, 0xfd}}
+  gEcUpdateGuid            = {0x4ea97c46, 0x7491, 0x4dfd, {0xb4, 0x42, 0x74, 0x70, 0x10, 0xf3, 0xce, 0x5f}}
+  gX100SeUpdateGuid        = {0x19a84990, 0xe39d, 0x11eb, {0xb3, 0x40, 0x9b, 0x7c, 0xfd, 0x98, 0x6e, 0x79}}
+  gAdvancedConfigVarGuid   = {0x4dbcbc18, 0x1131, 0x11ec, {0xb4, 0xe2, 0x87, 0x73, 0x36, 0x95, 0xc3, 0x6d}}
+  gAdvancedX100VarGuid     = {0x87d88ddc, 0x1131, 0x11ec, {0x9f, 0x4a, 0xb3, 0xf2, 0x92, 0x57, 0x8c, 0x4b}}
+  gX100PciInfoVarGuid      = {0x18111848, 0x1532, 0x11ec, {0x91, 0x78, 0xd7, 0x2b, 0xbc, 0x46, 0x60, 0xf8}}
+  gPcieConfigFormSetGuid   = {0x3dc58baa, 0x21c6, 0x11ec, {0xad, 0x54, 0x93, 0x37, 0x2d, 0x38, 0xb3, 0x74}}
+  gPlatformMemoryInforGuid = { 0xe5d0f31b, 0x18b2, 0x4ec1, { 0xba, 0x20, 0x9c, 0x6d, 0xb7, 0x87, 0x91, 0x79 } }
+  gPlatformCpuInforGuid    = { 0x60c3c4b0, 0xe189, 0x4cbb, { 0x88, 0x6a, 0x96, 0x87, 0x21, 0xe0, 0xe0, 0xb0 } }
+  gPlatformPciHostInforGuid = { 0x24b99cf4, 0x2e51, 0x440e, { 0x8c, 0x7a, 0xea, 0xa2, 0xe0, 0x29, 0x32, 0xf } }
+  gShellOemHiiGuid          = {0x5f5f60aa, 0x1583, 0x4a2d, {0xa6, 0xb2, 0xeb, 0x12, 0xda, 0xb4, 0xa2, 0xb6}}
+  gFrontPageFormSetGuid     = {0xb2d99c44, 0xc326, 0x11ed, {0x8f, 0xde, 0x47, 0x88, 0xad, 0x4c, 0x3d, 0x1c}}
+  gUiAppFileGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }}
+  gAdvancedConfigVarGuid   = {0x4dbcbc18, 0x1131, 0x11ec, {0xb4, 0xe2, 0x87, 0x73, 0x36, 0x95, 0xc3, 0x6d}}
+  gAdvancedX100VarGuid     = {0x87d88ddc, 0x1131, 0x11ec, {0x9f, 0x4a, 0xb3, 0xf2, 0x92, 0x57, 0x8c, 0x4b}}
+  gX100PciInfoVarGuid      = {0x18111848, 0x1532, 0x11ec, {0x91, 0x78, 0xd7, 0x2b, 0xbc, 0x46, 0x60, 0xf8}}
+  gPcieConfigFormSetGuid   = {0x3dc58baa, 0x21c6, 0x11ec, {0xad, 0x54, 0x93, 0x37, 0x2d, 0x38, 0xb3, 0x74}}
+  gPlatformCpuAcpiInfoGuid = {0xe0a452ec, 0x0fe0, 0x49a9, {0x92, 0x84, 0x60, 0x3a, 0xe1, 0x19, 0xb9, 0x34}}
+  gPlatformItsAcpiInfoGuid = {0x2f23d2a6, 0x8f7c, 0x422f, {0x93, 0xdc, 0x34, 0xe4, 0xae, 0xc1, 0xf3, 0x20}}
+  gShellI2cHiiGuid         = {0x6968ed2a, 0x360c, 0x11eb, {0x9e, 0x53, 0xc3, 0xbe, 0xd4, 0xa0, 0xc1, 0x5c}}
+  gCpuConfigFormSetGuid    = {0x22490520, 0x5c02, 0x11ec, {0x82, 0xa0, 0x6f, 0xb0, 0xb3, 0xe4, 0xef, 0x22}}
+  gAdvancedX100EdpLightVarGuid = {0xc7d004ae, 0xba39, 0x11ec, {0xba, 0x2c, 0x97, 0xe4, 0x29, 0xdc, 0xca, 0x13}}
+  gEfiSmbiosStringTxtGuid = {0x22bbe2de, 0x1c43, 0x4181, { 0xae, 0xc2, 0x47, 0xaf, 0x76, 0x09, 0x70, 0xa5}}
+  gPlatformMemorySmbiosInfoGuid = {0xb478255e, 0x509e, 0x4137, { 0x86, 0x34, 0x64, 0xeb, 0xf9, 0x79, 0x72, 0x51}}
+  gWatchdogGuid = {0xc7d004ae, 0xba39, 0x11ec, {0xba, 0x2c, 0x97, 0xe4, 0x29, 0xdc, 0xca, 0x13}}
+  gBmcInfoFormsetGuid = {0x88d9d86c, 0x85f5, 0x11ea, {0x99, 0xed, 0x4b, 0x46, 0x73, 0xab, 0xbb, 0x7e}}
+  gOemBootVariableGuid     = {0xb6599135, 0xbd6c, 0x87c7, {0xa5, 0x04, 0x75, 0xc6, 0xdc, 0x20, 0x3e, 0x88}}
+  gFeatureFormsetGuid =  {0x377d74ae, 0x3657, 0x11ee, {0x99, 0xed, 0x83, 0x44, 0xeb, 0xf4, 0xaa, 0xcc}}
+  gPasswordConfigVarGuid = {0xccb15322, 0xdcf4, 0x11ed, {0xba, 0x2c, 0x97, 0xe4, 0x29, 0xdc, 0xca, 0x13}}
+  gPasswordConfigFormSetGuid = {0x30803760, 0xdcf5, 0x11ed, {0xac, 0x93, 0xdf, 0x69, 0x7b, 0x48, 0x85, 0x6f}}
+  gPasswordPrivGuid = {0x5f628d62, 0xdcf5, 0x11ed, {0x81, 0x0a, 0x7f, 0xd4, 0x58, 0x1d, 0x58, 0xcf}}
+  gRasConfigFormsetGuid = {0x8a431142, 0x4aef, 0x11ee, {0xbc, 0xb9, 0x5f, 0xe9, 0x11, 0xcc, 0x32, 0xcb}}
+  gCpuDdrConfigVarGuid = {0xdee96122, 0x6187, 0x11ec, {0xac, 0xd5, 0x8b, 0x2c, 0x51, 0x6e, 0x08, 0x4b}}
+  gI2sRegFileGuid = {0x3f41bc6e, 0x5c49, 0x11ee, {0x97, 0x19, 0x53, 0x94, 0x97, 0xf4, 0x24, 0xf0}}
+  gUpdateBiosGuid = {0x1EE29963, 0x014D, 0x6B1C, {0xC5, 0x25, 0x7B, 0x55, 0xD9, 0xB0, 0x81, 0x76}}
+  gShellS3HiiGuid = {0x77363684, 0x64de, 0x11ee, {0x89, 0x47, 0xf3, 0x53, 0xd4, 0xd6, 0x1a, 0xa5}}
+  gShellBiosUpdateHiiGuid = { 0x0025f1c4, 0xeea7, 0x11eb, { 0xaf, 0x7a, 0x03, 0xc9, 0x71, 0xb3, 0x04, 0x2f}}
+  gOpteeTpmGuid = {0x9dda499a, 0x4aeb, 0x11ee, {0xbe, 0x56, 0x02, 0x42, 0xac, 0x12, 0x00, 0x02}}
+  gInformationFormSetGuid = { 0x05b69b9d, 0xbfae, 0x8cc2, { 0xe7, 0x38, 0x5e, 0x7f, 0x9d, 0x99, 0xbc, 0xef}}
+  gSetDateAndTimeFormSetGuid = { 0xb41b7aa9, 0x5085, 0x5e38, { 0xb9, 0xe7, 0x62, 0xfb, 0x53, 0xe4, 0xe8, 0x06 } }
+  gSecurityPageFormSetGuid   = { 0x4d600d05, 0xb147, 0x93a1, { 0xc6, 0x47, 0xca, 0x7f, 0xac, 0x9e, 0x94, 0xc3 } }
+  gEfiIfrSecurityPageGuid    = { 0xd08d2c4d, 0x42be, 0x5c40, { 0x35, 0xc4, 0x1d, 0x99, 0xd1, 0xa4, 0xfb, 0x15 } }
+
+[Ppis]
+  gPeiIpmiTransportPpiGuid    = { 0x5df1b856, 0xdeb0, 0x4c84, {0x97, 0x83, 0x6a, 0xaf, 0x4b, 0x58, 0x58, 0x8a }}
+
+[PcdsFeatureFlag.common]
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedMacBoot|FALSE|BOOLEAN|0x00000018
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedDirCmd|TRUE|BOOLEAN|0x00000019
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedHobCmd|TRUE|BOOLEAN|0x0000001a
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedHwDebugCmd|TRUE|BOOLEAN|0x0000001b
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedIoEnable|FALSE|BOOLEAN|0x0000001c
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedScriptCmd|FALSE|BOOLEAN|0x0000001d
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedPciDebugCmd|FALSE|BOOLEAN|0x0000001e
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedProbeRemovable|TRUE|BOOLEAN|0x0000001f
+  gEmbeddedTokenSpaceGuid.PcdCacheEnable|FALSE|BOOLEAN|0x00000020
+
+[PcdsFixedAtBuild.common]
+  gPhytiumPlatformTokenSpaceGuid.PcdSystemIoBase|0x0|UINT64|0x00000000
+  gPhytiumPlatformTokenSpaceGuid.PcdSystemIoSize|0x0|UINT64|0x00000001
+
+  #
+  # DIE
+  #
+
+  gPhytiumPlatformTokenSpaceGuid.PcdDieNumber|0x0|UINT8|0x00000060
+  gPhytiumPlatformTokenSpaceGuid.PcdDieOffset|0x0|UINT64|0x00000061
+
+  #
+  # PCI configuration address space
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdPciConfigBase|0x0|UINT64|0x00000002
+  gPhytiumPlatformTokenSpaceGuid.PcdPciConfigSize|0x0|UINT64|0x00000003
+
+  gPhytiumPlatformTokenSpaceGuid.PcdSpdI2cControllerBaseAddress|0x0|UINT64|0x00000004
+  gPhytiumPlatformTokenSpaceGuid.PcdSpdI2cControllerSpeed|0x0|UINT32|0x00000005
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerBaseAddress|0x0|UINT64|0x00000006
+
+  #
+  #DDR Info
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrI2cAddress |{ 0x0 }|VOID*|0x00000070
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrChannelCount |0x0|UINT8|0x00000071
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrChannel0DimmI2cAddress |{ 0x0 }|VOID*|0x00000072
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrChannel1DimmI2cAddress |{ 0x0 }|VOID*|0x00000073
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerSpeed|0x0|UINT32|0x00000074
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerSlaveAddress|0x0|UINT32|0x00000075
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrDimmCount | 0x0 |UINT8|0x00000077
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrBusType | 0x0 |UINT8|0x00000007b
+  gPhytiumPlatformTokenSpaceGuid.PcdSpdMatserI3cBaseAddress | 0x0 |UINT64|0x0000007c
+  gPhytiumPlatformTokenSpaceGuid.PcdSpdMatserI2cBaseAddress | 0x0 |UINT64|0x0000007d
+  #
+  # SPI Flash Controller Register Base Address and Size
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiFlashBase|0x0|UINT64|0x0000000d
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiFlashSize|0x0|UINT64|0x0000000e
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerBase|0x0|UINT64|0x0000000f
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerSize|0x0|UINT64|0x00000010
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcBaseAddress|0x0|UINT32|0x00000011
+  #
+  # Logo File Pcd
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdLogoFile | {0xff, 0xd2, 0xac, 0xbc, 0xea, 0xf4, 0x11, 0xec, 0xa3, 0x46, 0x73, 0xde, 0xa0, 0xf5, 0x20, 0xb5}|VOID*|0x00000012
+  #
+  #Lpc Master Register Base Address
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdLpcBaseAddress|0x20000000|UINT64|0x00000030
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress|0x20000000|UINT64|0x00000031
+  #
+  #Ras
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryBase|0xFB000000|UINT64|0x00000032
+  gPhytiumPlatformTokenSpaceGuid.PcdRasEinjTriggerErrorAddress|0x0|UINT64|0x00000033
+  gPhytiumPlatformTokenSpaceGuid.PcdRasEinjExexuteOperationAddress|0x0|UINT64|0x00000034
+  gPhytiumPlatformTokenSpaceGuid.PcdEinjRegionOffset|0x0|UINT64|0x00000035
+  gPhytiumPlatformTokenSpaceGuid.PcdHestRegionOffset|0x100000|UINT64|0x00000036
+  gPhytiumPlatformTokenSpaceGuid.PcdBertRegionOffset|0x80000|UINT64|0x00000037
+  gPhytiumPlatformTokenSpaceGuid.PcdBertRegionSize|0x1000|UINT64|0x00000038
+  gPhytiumPlatformTokenSpaceGuid.PcdTimerTickReadRegister|0x0|UINT64|0x00000039
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryRegionSize|0x1000000|UINT64|0x0000003A
+
+  #
+  # GPIO
+  #
+
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioControllerBase|0x0|UINT64|0x000000062
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioMaxIndexNumber|0x0|UINT8|0x000000063
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioMaxPortNumber|0x0|UINT8|0x000000064
+
+
+  #
+  #I2C
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cClkFreq|{ 0x0 }|UINT32|0x000000040
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclLcnt|{ 0x0 }|UINT32|0x000000041
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclHcnt|{ 0x0 }|UINT32|0x000000042
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclLcnt|{ 0x0 }|UINT32|0x000000043
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclHcnt|{ 0x0 }|UINT32|0x000000044
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclLcnt|{ 0x0 }|UINT32|0x000000045
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclHcnt|{ 0x0 }|UINT32|0x000000046
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSpkLen|{ 0x0 }|UINT32|0x000000047
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSpkLen|{ 0x0 }|UINT32|0x000000048
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSlaveAddress|{ 0x0 }|VOID*|0x000000020
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSlaveBusesNumber|{ 0x0 }|VOID*|0x000000021
+  gPhytiumPlatformTokenSpaceGuid.PcdDevicesAddress|{ 0x0 }|VOID*|0x000000023
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cDevicesBusesNumber|{ 0x0 }|VOID*|0x000000024
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cBusSpeed|{ 0x0 }|UINT32|0x000000025
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cRuntimeBaseAddress|{ 0x0 }|UINT64|0x000000027
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cControllerInformation|{0x0}|I2C_BUS_INFO|0x000000028 {
+    <HeaderFiles>
+      Library/PhytiumStructPcd.h
+    <Packages>
+      Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+  }
+
+  #
+  # Kcs Register
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiIoBaseAddress|0xca2|UINT16|0x00000050
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiIoRegOffset|0x1|UINT16|0x00000051
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiExecuteTime|0x5|UINT8|0x00000052
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiMmBaseAddress|0xca2|UINT16|0x00000053
+
+
+  #
+  # Spi Controller Base Address
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiBaseAddress|0x0|UINT64|0x00000018
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerAddressArray|{0x0}|VOID*|0x00000019
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerClockFrequency|0x0|UINT32|0x0000001A
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerMaxFrequency|0x0|UINT32|0x0000001B
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerInformation|{0x0}|SPI_BUS_INFO|0x000000049 {
+    <HeaderFiles>
+       Library/PhytiumStructPcd.h
+    <Packages>
+       Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+  }
+
+  #
+  # I3C Controller Register Base Address and Size
+  #
+
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI3cModeClkFreq | 0x0 |UINT32|0x00000015
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI2cModeClkFreq | 0x0 |UINT32|0x00000016
+  gPhytiumPlatformTokenSpaceGuid.PcdSysClkFreq | 100000 |UINT32|0x00000017
+
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cRuntimeBaseAddress|{ 0x0 }|UINT64|0x0000002A
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI3cControllerSpeed |400|UINT32|0x0000002B
+  #
+  #Mhu
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdMhuBaseAddress|0x32A00000|UINT64|0x000000172
+  gPhytiumPlatformTokenSpaceGuid.PcdMhuShareMemoryBase|0x32A10000|UINT64|0x00000173
+  gPhytiumPlatformTokenSpaceGuid.PcdMhuConfigBaseAddress|0x32A00000|UINT64|0x000000174
+
+  #
+  # POST Code
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdPostCodeOutputPort | 0 |UINT8|0x00000080
+
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrTrainInfoSaveBaseAddress|0x32A00000|UINT64|0x000000082
+
+  #
+  # default optvalue
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdDefaultPowerDownValue | 0 |UINT32|0x00000175
+  gPhytiumPlatformTokenSpaceGuid.PcdDefaultCrtLower | 0 |UINT32|0x00000176
+
+  #
+  #Ras Strategy Default Configuration
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdRasBmcCperEnable|TRUE|BOOLEAN|0x00000100
+  gPhytiumPlatformTokenSpaceGuid.PcdRasFatalErrorRecord|0x0|UINT8|0x00000101
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryIsoRecord|0x0|UINT8|0x00000102
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyEnable|FALSE|BOOLEAN|0x00000103
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyResetClean|FALSE|BOOLEAN|0x00000104
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyMethod|0x0|UINT8|0x00000105
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyRecord|0x0|UINT8|0x00000106
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyCount|0x0|UINT32|0x00000107
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyEnable|FALSE|BOOLEAN|0x00000108
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyResetClean|FALSE|BOOLEAN|0x00000109
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyMethod|0x0|UINT8|0x0000010A
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyRecord|0x0|UINT8|0x0000010B
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyCount|0x0|UINT8|0x0000010C
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyEnable|FALSE|BOOLEAN|0x0000010D
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyResetClean|FALSE|BOOLEAN|0x0000010E
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyMethod|0x0|UINT8|0x0000010F
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyRecord|0x0|UINT8|0x00000110
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyCount|0x0|UINT32|0x00000111
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyEnable|FALSE|BOOLEAN|0x00000112
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyResetClean|FALSE|BOOLEAN|0x00000113
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyMethod|0x0|UINT8|0x00000114
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyRecord|0x0|UINT8|0x00000115
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeReportStrategyEnable|FALSE|BOOLEAN|0x00000116
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeReportStrategyCount|0x0|UINT32|0x00000117
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuCeReportStrategyEnable|FALSE|BOOLEAN|0x00000118
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuCeReportStrategyCount|0x0|UINT32|0x00000119
+  gPhytiumPlatformTokenSpaceGuid.PcdRasPcieCeReportStrategyEnable|FALSE|BOOLEAN|0x0000011A
+  gPhytiumPlatformTokenSpaceGuid.PcdRasPcieCeReportStrategyCount|0x0|UINT32|0x0000011B
+  gPhytiumPlatformTokenSpaceGuid.PcdRasFatalErrorFlashAddress|0x0|UINT64|0x0000011C
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryRecordFlashAddress|0x0|UINT64|0x0000011D
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuRecordFlashAddress|0x0|UINT64|0x0000011E
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyEnable|FALSE|BOOLEAN|0x0000011F
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyResetClean|FALSE|BOOLEAN|0x00000120
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyType|0|UINT8|0x00000121
+
+  #
+  # PadConfig
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdPadConfigBaseAddress|0x0|UINT64|0x00000201
+
+  #
+  # SataController
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdSataControllerBaseAddress|0x0|UINT64|0x00000202
+
+  #
+  # Hda Controller
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdHdaBaseAddress|0x0|UINT64|0x00000203
+  gPhytiumPlatformTokenSpaceGuid.PcdHdaCorbBaseAddressOffset|0x0|UINT64|0x00000204
+  gPhytiumPlatformTokenSpaceGuid.PcdHdaRirbLBaseAddressOffset|0x0|UINT64|0x00000205
+
+  gPhytiumPlatformTokenSpaceGuid.PcdLsdConfigEnBaseAddress|0x0|UINT64|0x00000206
+  #
+  # I2S regfile base
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdI2sRegFileBase|0x0|UINT64|0x00000207
+  gPhytiumPlatformTokenSpaceGuid.PcdDdrSpdInfoSaveBaseAddress|0x700000|UINT64|0x000000208
+  gPhytiumPlatformTokenSpaceGuid.PcdS3JumpAgainStoreAddress|0x0|UINT64|0x000000209
+
+  #
+  # PWM
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdPwmBaseAddress|0x0|UINT64|0x0000020B
+
+  gPhytiumPlatformTokenSpaceGuid.BoardResourceAuto|FALSE|BOOLEAN|0x0000020C
+
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiFlashBpBit|0x1F|UINT32|0x0000020F
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiWpSetDelay|100|UINT32|0x00000210
+  gPhytiumPlatformTokenSpaceGuid.PcdSeTpmStatusReg|0|UINT64|0x00000211
+
+[PcdsDynamic]
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI3cControllerSlaveAddress|0x68|UINT32|0x00000020A
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiWpEnable|TRUE|BOOLEAN|0x0000020D
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyEnableConfig|FALSE|BOOLEAN|0x00000215
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyResetCleanConfig|FALSE|BOOLEAN|0x00000212
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyTypeConfig|0|UINT8|0x00000213
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryIsoRecordConfig|0x0|UINT8|0x00000214
+
+[Protocols]
+  gSpiMasterProtocolGuid           = { 0xdf093560, 0xf955, 0x11ea, { 0x96, 0x42, 0x43, 0x9d, 0x80, 0xdd, 0x0b, 0x7c}}
+  gEfiGetSetRtcProtocolGuid        = { 0x40b1dd4e, 0x5653, 0x4457, { 0xb2, 0x37, 0x61, 0xda, 0xdc, 0xe, 0xa4, 0xcb }}
+  gEfitTempIdProtocolGuid          = { 0xd2289576, 0xae30, 0x11eb, { 0xbf, 0xe9, 0x1b, 0xea, 0x72, 0x56, 0xd3, 0x57}}
+  gSpiNorFlashProtocolGuid         = { 0x00b4af42, 0xfbd0, 0x11ea, { 0x80, 0x3a, 0x27, 0xea, 0x5e, 0x65, 0xe3, 0xf6}}
+  gPhytiumI2cDevicesIoProtocolGuid = { 0x665ec332, 0x17cb, 0x11eb, { 0x87, 0x06, 0x2f, 0xb0, 0xff, 0x02, 0x01, 0x6d}}
+  gIpmiTransportProtocolGuid       = { 0x50031215, 0x86c5, 0xad7d, { 0xd8, 0x95, 0x63, 0x28, 0x2b, 0x25, 0x77, 0xd5}}
+  gPhytiumSpiMasterProtocolGuid    = { 0xca30be90, 0x35a0, 0x11ed, { 0x8a, 0x64, 0xeb, 0xcf, 0xe6, 0x72, 0xc3, 0xad}}
+  gEfiPhytiumStmmRasProtocolGuid   = {0x9f4786f0, 0xcc14, 0x11ec, {0x8d, 0x37, 0x77, 0x77, 0x36, 0x6a, 0xef, 0x00}}
+  gMmIpmiTransportProtocolGuid     = { 0xEBCB4858, 0x9610,0x07C4,  { 0x02, 0xED, 0x2A, 0x89, 0x48, 0x6B, 0x59, 0x5F}}
+  gEfiPhytiumStmmManageProtocolGuid = {0x9e110f8c, 0x17d6, 0x11ed, {0xa7, 0x97, 0x3f, 0x8e, 0xc6, 0x1c, 0x18, 0x5f}}

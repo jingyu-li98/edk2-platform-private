@@ -1,0 +1,118 @@
+// *++
+//
+//Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+//All intellectual property rights(Copyright, Patent and Trademark) reserved.
+//
+// THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+// WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
+// --*/
+
+#langdef en-US  "English"
+#langdef fr-FR  "Francais"
+#langdef zh-Hans "\wide简体中文"
+
+#string STR_FORM_SET_TITLE             #language en-US "Main Information"
+                                       #language fr-FR "Main Information"
+                                       #language zh-Hans  "\wide基本信息"
+#string STR_FORM_SET_TITLE_HELP        #language en-US "This selection will take you to System Summary"
+                                       #language fr-FR "This selection will take you to System Summary"
+                                       #language zh-Hans  "\wide此选择将进入系统概要"
+
+#string STR_EMPTY                        #language en-US " "
+                                         #language zh-Hans ""
+
+#string STR_DEVICE_PATH                #language en-US ""
+                                       #language fr-FR ""
+                                       #language zh-Hans  ""
+
+
+#string STR_FIRMWARE_INFO                  #language en-US "Firmware Info"
+                                           #language zh-Hans "固件信息"
+#string STR_BIOS_VENDOR                    #language en-US "Bios Vendor"
+                                           #language zh-Hans "\wide固件厂商\narrow"
+#string STR_BIOS_VENDOR_VALUE        #language en-US "PHYTIUM"
+                                     #language zh-Hans "飞腾"
+
+#string STR_BIOS_VERSION                     #language en-US "Bios Version"
+                                             #language zh-Hans "\wide固件版本\narrow"
+#string STR_BIOS_VERSION_VALUE         #language en-US "N/A"
+                                       #language zh-Hans "N/A"
+
+#string STR_BIOS_BUILD_TIME                #language en-US "Bios Build Time"
+                                           #language zh-Hans "\wide固件编译时间\narrow"
+#string STR_BIOS_BUILD_TIME_VALUE      #language en-US "N/A"
+                                       #language zh-Hans "N/A"
+
+#string STR_PBF_VERSION                    #language en-US "PBF Version"
+                                           #language zh-Hans "PBF\wide版本\narrow"
+#string STR_PBF_VERSION_VALUE        #language en-US "N/A"
+                                     #language zh-Hans "N/A"
+
+#string STR_EC_VERSION                       #language en-US "EC Version"
+                                             #language zh-Hans "EC\wide版本\narrow"
+#string STR_EC_VERSION_VALUE         #language en-US "N/A"
+                                     #language zh-Hans "N/A"
+
+#string STR_BMC_VERSION            #language en-US "BMC Version"
+                                   #language zh-Hans "BMC\wide版本\narrow"
+#string STR_BMC_VERSION_VALUE        #language en-US "N/A"
+                                     #language zh-Hans "N/A"
+#string STR_X100_SE_VERSION                  #language en-US "X100 SE Version"
+                                             #language zh-Hans "X100\wide版本\narrow"
+#string STR_X100_SE_VERSION_VALUE            #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_X100_SE_BUILDTIME                #language en-US "X100 SE Build Time"
+                                             #language zh-Hans "X100固件编译时间"
+
+#string STR_MM_VERSION                       #language en-US "STMM Version"
+                                             #language zh-Hans "STMM\wide版本\narrow"
+#string STR_MM_DESCRIPTION                   #language en-US "STMM Description"
+                                             #language zh-Hans "STMM\wide描述\narrow"
+
+#string STR_BASEBOARD_INFO                   #language en-US "Baseboard Info"
+                                             #language zh-Hans "\wide主板信息\narrow"
+#string STR_BASEBOARD_PRODUCT                #language en-US "Baseboard Product"
+                                             #language zh-Hans "\wide主板型号\narrow"
+#string STR_BASEBOARD_PRODUCT_VALUE          #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+#string STR_BASEBOARD_MANUFACTORY            #language en-US "Baseboard Manufactory"
+                                             #language zh-Hans "\wide主板厂商\narrow"
+#string STR_BASEBOARD_MANUFACTORY_VALUE      #language en-US "N/A"
+                                             #language zh-Hans ""
+
+#string STR_PROCESSOR_INFO                   #language en-US "Processor Info"
+                                             #language zh-Hans "处理器信息"
+#string STR_PROCESSOR_MODEL                  #language en-US "Processor Name"
+                                             #language zh-Hans "处理器名称"
+#string STR_PROCESSOR_MODEL_VALUE            #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+#string STR_PROCESSOR_FREQUENCY              #language en-US "Speed"
+                                             #language zh-Hans "CPU主频"
+#string STR_PROCESSOR_FREQUENCY_VALUE        #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+#string STR_PROCESSOR_CORE_COUNTS            #language en-US "Core Counts"
+                                             #language zh-Hans "核数"
+#string STR_PROCESSOR_CORE_COUNTS_VALUE      #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_MEMORY_INFO                      #language en-US "Memory Info"
+                                             #language zh-Hans "内存信息"
+#string STR_MEMORY_NUMBER                    #language en-US "Device Number"
+                                             #language zh-Hans "内存数量"
+#string STR_MEMORY_NUMBER_VALUE              #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+#string STR_MEMORY_SPEED                     #language en-US "Speed"
+                                             #language zh-Hans "频率"
+#string STR_MEMORY_SPEED_VALUE               #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+#string STR_MEMORY_TOTAL_SIZE                #language en-US "Total Size"
+                                             #language zh-Hans "总容量"
+#string STR_MEMORY_TOTAL_SIZE_VALUE          #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+
+#string STR_NONE                             #language en-US " "
+                                             #language zh-Hans " "
+

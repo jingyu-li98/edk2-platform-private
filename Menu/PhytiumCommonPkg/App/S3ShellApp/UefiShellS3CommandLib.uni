@@ -1,0 +1,34 @@
+/** @file
+  S3 module test command library.
+
+  Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+/=#
+
+#langdef   en-US "english"
+
+#string STR_GET_HELP_S3            #language en-US ""
+".TH s3 0 "Basic S3 command."\r\n"
+".SH NAME\r\n"
+"Simple test for S3\r\n"
+
+".SH SYNOPSIS\r\n"
+"s3\n"
+
+".SH OPTIONS\r\n"
+
+".SH EXAMPLES\r\n"
+"EXAMPLES:\r\n"
+"s3\n"
+" \r\n"
+
+".SH RETURNVALUES\r\n"
+"RETURN VALUES:\r\n"
+"  SHELL_SUCCESS        The action was completed as requested.\r\n"
+"  SHELL_ABORTED        Error while processing command\r\n"
+
+

@@ -1,0 +1,54 @@
+## @file
+# RTC operation interfaces
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I2cRtcLib
+  FILE_GUID                      = 470DFB96-E205-4515-A75E-2E60F853E79D
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RealTimeClockLib|DXE_RUNTIME_DRIVER
+
+[Sources.common]
+  I2cRtcLib.c
+  I2cRtcLib.h
+
+[Packages]
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  DxeServicesTableLib
+  IoLib
+  PcdLib
+  RealTimeClockLib
+  SerialPortLib
+  TimeBaseLib
+  TimerLib
+  UefiLib
+  UefiRuntimeLib
+  I2cRuntimeLib
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[Protocols]
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerSpeed
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI2cControllerSlaveAddress
+
+[Depex]
+  TRUE

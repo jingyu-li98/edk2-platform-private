@@ -1,0 +1,56 @@
+## @file
+# Dxe Phase Ipmi Init.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation. <BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = DxeIpmiInit
+  FILE_GUID                      = 2E5F9606-88C8-4BD8-93D8-63D0CDC73561
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = IpmiInterfaceInit
+
+[Sources]
+  ../Common/IpmiKcsBmc.c
+  ../Common/IpmiKcsBmc.h
+  DxeIpmiBmc.c
+  DxeIpmiInit.c
+  DxeIpmiInit.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  BmcBaseLib
+  DebugLib
+  IoLib
+  IpmiBaseLib
+  IpmiCommandLib
+  MemoryAllocationLib
+  PcdLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Protocols]
+  gIpmiTransportProtocolGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiExecuteTime
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiIoBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiIoRegOffset
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress
+
+[Depex]
+  TRUE

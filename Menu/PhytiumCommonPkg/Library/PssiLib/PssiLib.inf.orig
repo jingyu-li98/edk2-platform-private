@@ -1,0 +1,34 @@
+## @file
+# PSSI(Phytium System service interface) Libary.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = PssiLib
+  FILE_GUID                      = 46f7b040-e88b-11ec-9931-5b0a4323d77d
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PssiLib
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmLib
+  ArmSmcLib
+  DebugLib
+  BaseMemoryLib
+  MemoryAllocationLib
+
+[Sources.common]
+  PssiLib.c

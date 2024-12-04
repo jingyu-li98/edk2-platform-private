@@ -1,0 +1,24 @@
+--- edk2-platforms/Silicon/Phytium/PhytiumCommonPkg/Library/PssiLib/PssiLib.c
++++ edk2-platforms/Silicon/Phytium/PhytiumCommonPkg/Library/PssiLib/PssiLib.c
+@@ -12,6 +12,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ #include <Library/BaseMemoryLib.h>
+ #include <Uefi/UefiBaseType.h>
+ #include <Library/PssiLib.h>
++#include <Library/ParameterTable.h>
+ 
+ /**
+   Get Pssi(Phytium System service interface) version.
+@@ -156,6 +157,13 @@ PssiGetCpuVersion (
+     PrintChipId (CpuVersion->CpuId[1], CpuVersion->CpuId[0]);
+   }
+ 
++  // Currently(PBF 0.85 + UEFI 1.4.0-25) this
++  // interface works not very well, so update the
++  // CPU type by parameter table
++  GetCpuTypeFromParTable(&CpuVersion->CpuType);
++  DEBUG ((DEBUG_INFO, "========Cpu Version Updated========\n"));
++  DEBUG ((DEBUG_INFO, "    CpuType:0x%x \n", CpuVersion->CpuType));
++
+   return ArmSmcArgs.Arg0;
+ }
+ 

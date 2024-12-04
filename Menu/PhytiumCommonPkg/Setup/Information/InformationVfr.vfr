@@ -1,0 +1,108 @@
+///** @file
+//
+//  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+//  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+//
+//**/
+
+#include "InformationNv.h"
+
+#define INFO_PAGE_FORM_ID             0x2000
+#define LABEL_DYNAMIC                  0x2001
+#define LABEL_END                      0xffff
+
+formset
+  guid      = INFORMATION_SET_FORMSET_GUID,
+  title     = STRING_TOKEN(STR_FORM_SET_TITLE),
+  help      = STRING_TOKEN(STR_FORM_SET_TITLE_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+  //
+  // Define a Form (EFI_IFR_FORM)
+  //
+  form formid = INFO_PAGE_FORM_ID,
+    title = STRING_TOKEN(STR_FORM_SET_TITLE);
+
+    //grayoutif TRUE;
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+    subtitle text = STRING_TOKEN(STR_FIRMWARE_INFO);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_VENDOR),
+      text   = STRING_TOKEN(STR_BIOS_VENDOR_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_VERSION),
+      text   = STRING_TOKEN(STR_BIOS_VERSION_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BIOS_BUILD_TIME),
+      text   = STRING_TOKEN(STR_BIOS_BUILD_TIME_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PBF_VERSION),
+      text   = STRING_TOKEN(STR_PBF_VERSION_VALUE);
+
+    label LABEL_DYNAMIC;
+    label LABEL_END;
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_BASEBOARD_INFO);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BASEBOARD_PRODUCT),
+      text   = STRING_TOKEN(STR_BASEBOARD_PRODUCT_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BASEBOARD_MANUFACTORY),
+      text   = STRING_TOKEN(STR_BASEBOARD_MANUFACTORY_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_PROCESSOR_INFO);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_MODEL),
+      text   = STRING_TOKEN(STR_PROCESSOR_MODEL_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_FREQUENCY),
+      text   = STRING_TOKEN(STR_PROCESSOR_FREQUENCY_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_PROCESSOR_CORE_COUNTS),
+      text   = STRING_TOKEN(STR_PROCESSOR_CORE_COUNTS_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_MEMORY_INFO);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_NUMBER),
+      text   = STRING_TOKEN(STR_MEMORY_NUMBER_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_SPEED),
+      text   = STRING_TOKEN(STR_MEMORY_SPEED_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_MEMORY_TOTAL_SIZE),
+      text   = STRING_TOKEN(STR_MEMORY_TOTAL_SIZE_VALUE);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    //endif;
+  endform;
+
+endformset;

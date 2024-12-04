@@ -1,0 +1,44 @@
+## @file
+# Implementation for X100 Config Lib interfaces.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = X100ConfigLib
+  FILE_GUID                      = 94f4693a-951d-11ec-8b58-dfad325e8083
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = X100ConfigLib
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  IoLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  UefiLib
+
+[Sources.common]
+  X100ConfigLib.c
+
+[Guids]
+  gAdvancedX100VarGuid
+  gX100PciInfoVarGuid
+
+[FeaturePcd]
+
+[FixedPcd]
+
+[Pcd]
+

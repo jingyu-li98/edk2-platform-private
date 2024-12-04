@@ -1,0 +1,54 @@
+## @file
+# RTC operation interfaces
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I3cRtcLib
+  FILE_GUID                      = b113a986-6583-11ee-9870-afd549b1dbbc
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RealTimeClockLib|DXE_RUNTIME_DRIVER
+
+[Sources.common]
+  I3cRtcLib.c
+  I3cRtcLib.h
+
+[Packages]
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  DxeServicesTableLib
+  I3cRuntimeLib
+  IoLib
+  PcdLib
+  RealTimeClockLib
+  SerialPortLib
+  TimeBaseLib
+  TimerLib
+  UefiLib
+  UefiRuntimeLib
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[Protocols]
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI3cControllerSlaveAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cRuntimeBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdRtcI3cControllerSpeed
+
+[Depex]
+  TRUE

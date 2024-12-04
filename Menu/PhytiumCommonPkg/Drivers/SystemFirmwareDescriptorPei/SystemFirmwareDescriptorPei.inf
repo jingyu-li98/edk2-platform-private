@@ -1,0 +1,43 @@
+## @file
+#  Set the System Firmware descriptor.
+#
+#  Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001b
+  BASE_NAME                      = SystemFirmwareDescriptor
+  FILE_GUID                      = AFD8AF2E-3A74-11EE-8775-577E925AE602
+  MODULE_TYPE                    = PEIM
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = SystemFirmwareDescriptorPeimEntry
+
+[Sources]
+  SystemFirmwareDescriptorPei.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  SignedCapsulePkg/SignedCapsulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  PcdLib
+  PeimEntryPoint
+  PeiServicesLib
+
+[FixedPcd]
+  gArmTokenSpaceGuid.PcdFdSize
+
+[Pcd]
+  gEfiSignedCapsulePkgTokenSpaceGuid.PcdEdkiiSystemFirmwareImageDescriptor
+
+[Depex]
+  TRUE

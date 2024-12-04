@@ -1,0 +1,51 @@
+## @file
+# Support Bmc Set Boot Type Libary.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright (C) 2017, Hisilicon Limited All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = BmcConfigBootLib
+  FILE_GUID                      = 67F2569D-1DFB-3C1C-8B70-42642A4FC3F3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = BmcConfigBootLib
+
+[Sources.common]
+  BmcConfigBootLib.c
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  IpmiBaseLib
+  IpmiCommandLib
+  PcdLib
+  PrintLib
+  PlatformBootManagerLib
+  UefiBootManagerLib
+
+[Guids]
+  gEfiEventReadyToBootGuid
+  gOemBootVariableGuid
+  gUiAppFileGuid
+
+[Protocols]
+  gEfiDevicePathToTextProtocolGuid              ## CONSUMES
+  gEfiDevicePathProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid              ## CONSUMES
+  gIpmiTransportProtocolGuid
+
+[Depex]
+  TRUE

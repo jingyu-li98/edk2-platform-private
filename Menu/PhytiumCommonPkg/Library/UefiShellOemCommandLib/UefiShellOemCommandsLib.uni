@@ -1,0 +1,70 @@
+/** @file
+The definition of strings for commands.
+
+Copyright (C) 2022-2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+/=#
+
+#langdef   en-US "english"
+#string STR_GEN_TOO_MANY                   #language en-US "%H%s%N: Too many arguments.\r\n"
+#string STR_GEN_TOO_FEW                    #language en-US "%H%s%N: Too few arguments.\r\n"
+#string STR_GEN_PARAM_INV                  #language en-US "%H%s%N: Invalid argument - '%H%s%N'\r\n"
+#string STR_GEN_PROBLEM                    #language en-US "%H%s%N: Unknown flag - '%H%s%N'\r\n"
+#string STR_GEN_LOAD_FILE_FAIL             #language en-US "%H%s%N: Load file fail at '%H%s%N'.\r\n"
+#string STR_GEN_ENV_NOT_FOUND              #language en-US "%H%s%N: Image_size Environment Variable not found.\r\n"
+
+#string STR_GET_HELP_OEM_MEMCP             #language en-US "memcp <dst> <src> <size>\r\n"
+#string STR_GET_HELP_OEM_BOOTEFI           #language en-US "bootefi <address>\r\n"
+
+#string STR_UPDATE_BIOS_ERROR_INFO         #language en-US "Fail to get the BIOS.FD form the U disk."
+#string STR_F5_UPDATE_BIOS_ERROR_INFO      #language en-US "Fail to get the BIOS.ROM form the U disk."
+#string STR_BIOS_FILE_ERROR                #language en-US "Invaild File."
+#string STR_PRESS_ENTER_CONTINUE           #language en-US "Press <Enter> to continue..."
+#string STR_PRESS_ENTER_RESTART            #language en-US "Press <Enter> to reset system!"
+#string STR_CHECK_BIOS_SIGNATURE_ERROR     #language en-US "CHeck Bios Signature error !"
+#string STR_CHECK_BIOS_MD5_ERROR           #language en-US "CHeck Bios md5 value error !"
+
+#string STR_GEN_CRLF                       #language en-US "\r\n"
+
+#string STR_TFTP_ERR_NO_NIC                #language en-US "No network interface card found.\r\n"
+#string STR_TFTP_ERR_NIC_NAME              #language en-US "Failed to get the name of the network interface card number %d - %r\r\n"
+#string STR_TFTP_ERR_OPEN_PROTOCOL         #language en-US "Unable to open MTFTP4 protocol on '%H%s%N' - %r\r\n"
+#string STR_TFTP_ERR_CONFIGURE             #language en-US "Unable to configure MTFTP4 protocol on '%H%s%N' - %r\r\n"
+#string STR_TFTP_ERR_FILE_SIZE             #language en-US "Unable to get the size of the file '%H%s%N' on '%H%s%N' - %r\r\n"
+#string STR_TFTP_ERR_DOWNLOAD              #language en-US "Unable to download the file '%H%s%N' on '%H%s%N' - %r\r\n"
+#string STR_TFTP_ERR_WRITE                 #language en-US "Unable to write into file '%H%s%N' - %r\r\n"
+#string STR_TFTP_ERR_NIC_NOT_FOUND         #language en-US "Network Interface Card '%H%s%N' not found.\r\n"
+#string STR_TFTP_DOWNLOADING               #language en-US "Downloading the file '%H%s%N'\r\n"
+#string STR_TFTP_STRING                    #language en-US "%s"
+
+#string STR_GET_HELP_BIOSUPDATE  #language en-US ""
+".TH updatebios 0 "update bios by network."\r\n"
+".SH NAME\r\n"
+"Update bios by network.\r\n"
+".SH SYNOPSIS\r\n"
+" \r\n"
+"updatebios ipaddr biosname\r\n"
+".SH OPTIONS\r\n"
+" \r\n"
+"  ipaddr  - Specifies the ip address with bios firmware.\r\n"
+"  biosname - Specifies the file name of the firmware file. eg. bios.fd\r\n"
+".SH EXAMPLES\r\n"
+" \r\n"
+"EXAMPLES:\r\n"
+"  * To update bios by network ip 1.1.1.1 with firmware name 'bios.fd'\r\n"
+"    fs0:\> updatebios 1.1.1.1 bios.fd\r\n"
+
+
+#string STR_GET_HELP_BOOT  #language en-US ""
+".TH boot 0 "Auto boot every options."\r\n"
+".SH NAME\r\n"
+"Auto boot every options.\r\n"
+".SH EXAMPLES\r\n"
+" \r\n"
+"EXAMPLES:\r\n"
+"  * To boot by PXE\r\n"
+"    fs0:\> boot pxe\r\n"

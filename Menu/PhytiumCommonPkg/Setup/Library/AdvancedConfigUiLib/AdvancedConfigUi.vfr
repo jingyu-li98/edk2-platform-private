@@ -1,0 +1,397 @@
+///**
+//Advanced config formset.
+//
+//Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+//
+//SPDX-License-Identifier: BSD-2-Clause-Patent
+//**/
+#include "AdvancedConfigFormGuid.h"
+#include "PasswordConfigFormGuid.h"
+#include "AdvancedConfigData.h"
+#include "PasswordConfigData.h"
+
+formset
+  guid = ADVANCEDCONFIG_FORMSET_GUID,
+  title = STRING_TOKEN (STR_FORM_ADVANCEDCONFIG_TITLE),
+  help = STRING_TOKEN (STR_ADVANCEDCONFIG_MANAGER_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+
+  varstore ADVANCED_CONFIG_DATA,
+    varid = VARSTORE_ID_ADVANCED_CONFIG,
+    name = AdvancedConfigSetup,
+    guid = ADVANCEDCONFIG_FORMSET_GUID;
+
+  varstore PASSWORD_CONFIG_DATA,
+    varid = VARSTORE_ID_PASSWORD_CONFIG,
+    name = PasswordConfigSetup,
+    guid = PASSWORDCONFIG_FORMSET_GUID;
+
+  form formid = FORM_ADVANCEDCONFIG_ID,
+    title = STRING_TOKEN (STR_FORM_ADVANCEDCONFIG_TITLE);
+
+    // Add this invisible text in order to indicate enter advanced config form.
+    // To trigger the form open action.
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = FORM_ADVANCEDCONFIG_OPEN;
+    endif;
+
+    goto FORM_USBDEVICEINFO_ID,
+      prompt = STRING_TOKEN (STR_FORM_USBDEVICEINFO_TITLE),
+      help   = STRING_TOKEN (STR_FORM_USBDEVICEINFO_HELP),
+      flags  = INTERACTIVE,
+      key    = FORM_USBDEVICEINFO_ID;
+
+
+    goto FORM_PCIEDEVICEINFO_ID,
+      prompt = STRING_TOKEN (STR_FORM_PCIEDEVICEINFO_TITLE),
+      help   = STRING_TOKEN (STR_FORM_PCIEDEVICEINFO_HELP),
+      flags  = INTERACTIVE,
+      key    = FORM_PCIEDEVICEINFO_ID;
+
+    goto FORM_HDDINFO_ID,
+      prompt = STRING_TOKEN (STR_FORM_HDDINFO_TITLE),
+      help   = STRING_TOKEN (STR_FORM_HDDINFO_TITLE_HELP),
+      flags  = INTERACTIVE,
+      key    = FORM_HDDINFO_ID;
+
+
+    //label LABEL_FORM_PASSWORDCONFIG_START;
+    //
+    // This is where we will dynamically add a Action type op-code to set
+    // bios passowrd.
+    //
+    //label LABEL_FORM_PASSWORDCONFIG_END;
+
+    label LABEL_FORM_ADVANCEDCONFIG_START;
+    //
+    // This is where we will dynamically add a Action type op-code to show
+    // the platform information.
+    //
+    label LABEL_FORM_ADVANCEDCONFIG_END;
+    
+  endform;
+
+
+
+  form formid = FORM_USBDEVICEINFO_ID,
+    title = STRING_TOKEN (STR_FORM_USBDEVICEINFO_TITLE);
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = FORM_USBDEVICEINFO_OPEN;
+    endif;
+
+    subtitle text = STRING_TOKEN (STR_USB_CONTROLLER_LIST);
+
+    label LABEL_FORM_USBCONTROLLERINFO_START;
+    label LABEL_FORM_USBCONTROLLERINFO_END;
+
+    subtitle text = STRING_TOKEN (STR_NONE);
+
+    subtitle text = STRING_TOKEN (STR_USB_DEVICE_LIST);
+
+    label LABEL_FORM_USBDEVICEINFO_START;
+    label LABEL_FORM_USBDEVICEINFO_END;
+  endform;
+
+  form formid = FORM_PCIEDEVICEINFO_ID,
+    title = STRING_TOKEN (STR_FORM_PCIEDEVICEINFO_TITLE);
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = FORM_PCIEDEVICEINFO_OPEN;
+    endif;
+
+    label LABEL_FORM_PCIEDEVICEINFO_START;
+    //
+    // This is where we will dynamically add a Action type op-code to show
+    // the platform information.
+    //
+    label LABEL_FORM_PCIEDEVICEINFO_END;
+  endform;
+
+  form formid = FORM_HDDINFO_ID,
+    title = STRING_TOKEN (STR_FORM_HDDINFO_TITLE);
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = FORM_HDDINFO_OPEN;
+    endif;
+
+    label LABEL_FORM_HDDDEVICEINFO_START;
+    label LABEL_FORM_HDDDEVICEINFO_END;
+  endform;
+
+  form formid = FORM_X100CONFIG_ID,
+    title = STRING_TOKEN (STR_FORM_X100CONFIG_TITLE);
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = FORM_X100CONFIG_OPEN;
+    endif;
+
+    //
+    //X100 Se Version
+    //
+    text
+      help   = STRING_TOKEN(STR_NONE),
+      text   = STRING_TOKEN(STR_X100_SE_VERSION),
+      text   = STRING_TOKEN(STR_X100_SE_VERSION_VALUE);
+
+    //
+    //X100 Se Build Time
+    //
+    text
+      help   = STRING_TOKEN(STR_NONE),
+      text   = STRING_TOKEN(STR_X100_SE_BUILDTIME),
+      text   = STRING_TOKEN(STR_X100_SE_BUILDTIME_VALUE);
+    subtitle text = STRING_TOKEN(STR_NONE);
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.UsbEnable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_USB),
+      help      = STRING_TOKEN (STR_ENABLE_X100_USB_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags = RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags = DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    subtitle text = STRING_TOKEN(STR_NONE);
+
+    oneof name = X100SataEnable,
+      varid = ADVANCED_CONFIG_DATA.X100Config.SataEnable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_SATA),
+      help      = STRING_TOKEN (STR_ENABLE_X100_SATA_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    //sata port 0 eanble switch
+    suppressif questionref (X100SataEnable) == 0;
+      grayoutif TRUE;
+        oneof name = X100SataPort0IsUsed,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[0].IsUsed,
+          prompt = STRING_TOKEN (STR_SATA_PORT0_USED),
+          help = STRING_TOKEN (STR_SATA_PORT0_USED_HELP),
+          option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+        endoneof;
+      endif;
+      grayoutif questionref (X100SataPort0IsUsed) == 0;
+        oneof name = X100SataPort0Enable,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[0].Enable,
+          prompt    = STRING_TOKEN (STR_SATA_PORT0_ENABLE),
+          help      = STRING_TOKEN (STR_SATA_PORT0_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+    endif;
+
+    //sata port 1 eanble switch
+    suppressif questionref (X100SataEnable) == 0;
+      grayoutif TRUE;
+        oneof name = X100SataPort1IsUsed,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[1].IsUsed,
+          prompt = STRING_TOKEN (STR_SATA_PORT1_USED),
+          help = STRING_TOKEN (STR_SATA_PORT1_USED_HELP),
+          option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+        endoneof;
+      endif;
+      grayoutif questionref (X100SataPort1IsUsed) == 0;
+        oneof name = X100SataPort1Enable,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[1].Enable,
+          prompt    = STRING_TOKEN (STR_SATA_PORT1_ENABLE),
+          help      = STRING_TOKEN (STR_SATA_PORT1_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+    endif;
+
+    //sata port 2 eanble switch
+    suppressif questionref (X100SataEnable) == 0;
+      grayoutif TRUE;
+        oneof name = X100SataPort2IsUsed,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[2].IsUsed,
+          prompt = STRING_TOKEN (STR_SATA_PORT2_USED),
+          help = STRING_TOKEN (STR_SATA_PORT2_USED_HELP),
+          option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+        endoneof;
+      endif;
+      grayoutif questionref (X100SataPort2IsUsed) == 0;
+        oneof name = X100SataPort2Enable,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[2].Enable,
+          prompt    = STRING_TOKEN (STR_SATA_PORT2_ENABLE),
+          help      = STRING_TOKEN (STR_SATA_PORT2_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+    endif;
+
+    //sata port 3 eanble switch
+    suppressif questionref (X100SataEnable) == 0;
+      grayoutif TRUE;
+        oneof name = X100SataPort3IsUsed,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[3].IsUsed,
+          prompt = STRING_TOKEN (STR_SATA_PORT3_USED),
+          help = STRING_TOKEN (STR_SATA_PORT3_USED_HELP),
+          option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+        endoneof;
+      endif;
+      grayoutif questionref (X100SataPort3IsUsed) == 0;
+        oneof name = X100SataPort3Enable,
+          varid = ADVANCED_CONFIG_DATA.X100Config.SataPort[3].Enable,
+          prompt    = STRING_TOKEN (STR_SATA_PORT3_ENABLE),
+          help      = STRING_TOKEN (STR_SATA_PORT3_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+    endif;
+
+    subtitle text = STRING_TOKEN(STR_NONE);
+
+    oneof name = X100DisplayEnable,
+      varid = ADVANCED_CONFIG_DATA.X100Config.DisplayEnable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_DISPLAY),
+      help      = STRING_TOKEN (STR_ENABLE_X100_DISPLAY_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    suppressif TRUE;
+      oneof name = X100Dp0IsUsed,
+        varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[0].IsUsed,
+        prompt = STRING_TOKEN (STR_X100_DP0_USED),
+        help = STRING_TOKEN (STR_X100_DP0_USED_HELP),
+        option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+        option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+      endoneof;
+
+      oneof name = X100Dp1IsUsed,
+        varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[1].IsUsed,
+        prompt = STRING_TOKEN (STR_X100_DP1_USED),
+        help = STRING_TOKEN (STR_X100_DP1_USED_HELP),
+        option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+        option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+      endoneof;
+
+      oneof name = X100Dp2IsUsed,
+        varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[2].IsUsed,
+        prompt = STRING_TOKEN (STR_X100_DP2_USED),
+        help = STRING_TOKEN (STR_X100_DP2_USED_HELP),
+        option text = STRING_TOKEN (STR_YES), value = 1, flags = DEFAULT | RESET_REQUIRED;
+        option text = STRING_TOKEN (STR_NO), value = 0, flags = RESET_REQUIRED;
+      endoneof;
+    endif;
+
+    suppressif questionref (X100DisplayEnable) == 0;
+      suppressif questionref (X100Dp0IsUsed) == 0;
+        oneof varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[0].DownSpreadEnable,
+          prompt = STRING_TOKEN (STR_X100_DP0_DOWNSPREAD_ENABLE),
+          help = STRING_TOKEN (STR_X100_DP0_DOWNSPREAD_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_DISABLE), value = 0, flags = DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+
+      suppressif questionref (X100Dp1IsUsed) == 0;
+        oneof varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[1].DownSpreadEnable,
+          prompt = STRING_TOKEN (STR_X100_DP1_DOWNSPREAD_ENABLE),
+          help = STRING_TOKEN (STR_X100_DP1_DOWNSPREAD_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_DISABLE), value = 0, flags = DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+
+      suppressif questionref (X100Dp2IsUsed) == 0;
+        oneof varid = ADVANCED_CONFIG_DATA.X100Config.X100DpConfig[2].DownSpreadEnable,
+          prompt = STRING_TOKEN (STR_X100_DP2_DOWNSPREAD_ENABLE),
+          help = STRING_TOKEN (STR_X100_DP2_DOWNSPREAD_ENABLE_HELP),
+          option text = STRING_TOKEN (STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+          option text = STRING_TOKEN (STR_DISABLE), value = 0, flags = DEFAULT | RESET_REQUIRED;
+        endoneof;
+      endif;
+
+      numeric varid   = ADVANCED_CONFIG_DATA.X100EdpLight,
+        prompt  = STRING_TOKEN (STR_X100_EDPLIGHTVALUE),
+        help    = STRING_TOKEN (STR_X100_EDPLIGHTVALUE_HELP),
+        flags   = DISPLAY_UINT_DEC | RESET_REQUIRED,
+        minimum = 1,
+        maximum = 100,
+        step    = 1,
+        default = 50,
+      endnumeric;
+    endif;
+
+    subtitle text = STRING_TOKEN(STR_NONE);
+    subtitle text = STRING_TOKEN(STR_PCIE_SWITCH);
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX2Dn4Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX2_0_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX2_0_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX2Dn5Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX2_1_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX2_1_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX1Dn6Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_0_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_0_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX1Dn7Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_1_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_1_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX1Dn8Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_2_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_2_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    oneof varid = ADVANCED_CONFIG_DATA.X100Config.PcieX1Dn9Enable,
+      prompt    = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_3_ENABLE),
+      help      = STRING_TOKEN (STR_ENABLE_X100_PCIEX1_3_ENABLE_HELP),
+      option text = STRING_TOKEN (STR_DISABLE), value=0, flags= RESET_REQUIRED;
+      option text = STRING_TOKEN (STR_ENABLE), value=1, flags= DEFAULT | RESET_REQUIRED;
+    endoneof;
+
+    label FORM_X100CONFIG_ID;
+    label LABEL_END;
+  endform;
+
+endformset;

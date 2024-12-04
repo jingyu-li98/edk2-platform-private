@@ -1,0 +1,43 @@
+## @file
+# Spi Base function Library
+#
+# This lib provides commands that can operate transfer base function interface.
+#
+# Copyright (C) 2023, Phytium Technology Co,Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = SpiLib
+  FILE_GUID                      = 2cb1f7b4-76a1-11ed-b24a-0b83727b0b68
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = SpiLib
+
+[Sources.common]
+  SpiLib.c
+  SpiLibInternal.h
+
+[FeaturePcd]
+
+[Pcd]
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  TimerLib
+  TimerLib
+  PcdLib
+  BaseLib
+

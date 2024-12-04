@@ -1,0 +1,53 @@
+## @file
+# Generic IPMI MM Driver.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 2010 - 2021 Intel Corporation. <BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                         = 0x0001001B
+  BASE_NAME                           = MmGenericIpmi
+  FILE_GUID                           = F4F8B348-8673-4561-8856-CE807730FE84
+  MODULE_TYPE                         = MM_STANDALONE
+  PI_SPECIFICATION_VERSION            = 0x00010032
+  VERSION_STRING                      = 1.0
+  ENTRY_POINT                         = InitializeMmGenericIpmi
+
+[Sources]
+  ../Common/IpmiKcsBmc.c
+  ../Common/IpmiKcsBmc.h
+  MmGenericIpmi.c
+  MmIpmiBmc.c
+  MmIpmiBmc.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  StandaloneMmPkg/StandaloneMmPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BmcBaseLib
+  DebugLib
+  IoLib
+  IpmiBaseLib
+  IpmiCommandLib
+  MemoryAllocationLib
+  MmServicesTableLib
+  ReportStatusCodeLib
+  TimerLib
+  StandaloneMmDriverEntryPoint
+
+[Protocols]
+  gMmIpmiTransportProtocolGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdIpmiMmBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress
+
+[Depex]
+  TRUE

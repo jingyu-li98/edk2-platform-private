@@ -1,0 +1,45 @@
+## @file
+# POST(Power On Self Test) Code function Library
+#
+# Copyright (C) 2023, Phytium Technology Co,Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = PostCodeLib
+  FILE_GUID                      = 5E1AE14A-1628-11EE-8E0D-EF26806967F6
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PostCodeLib
+
+[Sources]
+  PostCodeLib.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  BmcBaseLib
+  DebugLib
+  HobLib
+  IoLib
+  TimerLib
+  PrintLib
+  SerialPortLib
+  MemoryAllocationLib
+
+[Guids]
+
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdPostCodeOutputPort
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress
+

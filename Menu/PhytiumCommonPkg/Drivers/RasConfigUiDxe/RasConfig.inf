@@ -1,0 +1,98 @@
+## @file
+#  Provides the capbility to configure ras in a setup browser
+#  By this module, user may change the ras configuration.
+#
+#  Copyright (c) 2024, Phytium Technology Co., Ltd. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001b
+  BASE_NAME                      = RasConfig
+  MODULE_UNI_FILE                = RasConfig.uni
+  FILE_GUID                      = 6ffb59cc-4aed-11ee-8374-a33acde201d0
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = RasConfigDriverEntryPoint
+  UNLOAD_IMAGE                   = RasConfigDriverUnload
+#
+# The following information is for reference only and not required by the build tools.
+#
+
+[Sources]
+  RasConfig.c
+  RasConfig.h
+  RasConfigFormGuid.h
+  RasConfigUi.vfr
+  RasConfig.uni
+  RasConfigDriver.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+  Silicon/Phytium/S5000CPkg/PhytiumS5000CPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  MemoryAllocationLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Guids]
+  gEfiIfrTianoGuid                              ## CONSUMES ## GUID (Extended IFR Guid Opcode)
+  gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID
+  gPasswordPrivGuid
+  gRasConfigFormsetGuid
+  gRasConfigVarGuid
+  gRasConfigFormsetGuid
+
+[Protocols]
+  gEfiHiiConfigAccessProtocolGuid               ## CONSUMES
+  gEfiDevicePathToTextProtocolGuid              ## CONSUMES
+  gEdkiiFormBrowserEx2ProtocolGuid              ## CONSUMES
+  gEfiHiiConfigRoutingProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdRasBmcCperEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasFatalErrorRecord
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryIsoRecord
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyResetClean
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyMethod
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyResetClean
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyMethod
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyResetClean
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyMethod
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyResetClean
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyMethod
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyRecord
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeReportStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeReportStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuCeReportStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuCeReportStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasPcieCeReportStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasPcieCeReportStrategyCount
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyEnable
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyResetClean
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryAddressIsolationStrategyType
+
+[Depex]
+  gEfiHiiConfigRoutingProtocolGuid  AND
+  gEfiHiiDatabaseProtocolGuid       AND
+  gEfiVariableArchProtocolGuid      AND
+  gEfiVariableWriteArchProtocolGuid

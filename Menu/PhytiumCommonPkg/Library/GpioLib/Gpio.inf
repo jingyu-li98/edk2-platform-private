@@ -1,0 +1,34 @@
+## @file
+#  Phytium gpio controller library.
+#
+#  Copyright (C) 2023, Phytium Technology Co Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = GpioLib
+  FILE_GUID                      = 93A9358A-6239-11ED-B763-4BFE0B77155F
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = GpioLib
+
+[Sources]
+  Gpio.c
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdDieOffset
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioControllerBase
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioMaxIndexNumber
+  gPhytiumPlatformTokenSpaceGuid.PcdGpioMaxPortNumber
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib

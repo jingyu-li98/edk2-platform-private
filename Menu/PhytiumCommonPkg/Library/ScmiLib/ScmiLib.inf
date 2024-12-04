@@ -1,0 +1,38 @@
+## @file
+#  Phytium SCMI communication layer library.
+#
+#  Copyright (C) 2022, Phytium Technology Co, Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = ScmiLib
+  FILE_GUID                      = DD3D8AFC-28FA-11ED-A5FA-2B2CA2F4EDD4
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ScmiLib
+
+[Sources]
+  Scmi.c
+  Scmi.h
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdMhuBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdMhuShareMemoryBase
+
+[LibraryClasses]
+  ArmLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  TimerLib

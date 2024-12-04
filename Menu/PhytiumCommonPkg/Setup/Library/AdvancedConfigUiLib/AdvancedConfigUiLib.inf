@@ -1,0 +1,93 @@
+## @file
+#  Phytium advanced manager library used by UiApp.
+#
+#  Copyright (c) 2023-2024, Phytium Technology Co., Ltd. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = AdvancedConfigUi
+  MODULE_UNI_FILE                = AdvancedConfigUi.uni
+  FILE_GUID                      = 595babd4-0af0-11ec-8ab1-e3f7f251071f
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = NULL|DXE_DRIVER UEFI_APPLICATION
+  CONSTRUCTOR                    = AdvancedConfigUiConstructor
+  DESTRUCTOR                     = AdvancedConfigUiDestructor
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 EBC
+#
+
+[Sources]
+  AdvancedConfig.c
+  AdvancedConfig.h
+  AdvancedConfigFormGuid.h
+  AdvancedConfigUi.vfr
+  AdvancedConfigUi.uni
+  DeviceInfo.c
+  DeviceInfo.h
+  X100Config.c
+  X100Config.h
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmSmcLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  HobLib
+  MemoryAllocationLib
+  PrintLib
+  ReportStatusCodeLib
+  TimeBaseLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gAdvancedConfigVarGuid
+  gAdvancedX100EdpLightVarGuid
+  gAdvancedX100VarGuid
+  gCpuConfigFormSetGuid
+  gEfiDiskInfoNvmeInterfaceGuid
+  gEfiHiiPlatformSetupFormsetGuid
+  gEfiIfrTianoGuid                              ## CONSUMES ## GUID (Extended IFR Guid Opcode)
+  gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID
+  gPcieConfigFormSetGuid
+  gBmcInfoFormsetGuid
+  gFeatureFormsetGuid
+  gPasswordConfigFormSetGuid
+  gPasswordPrivGuid
+  gRasConfigFormsetGuid
+
+[Protocols]
+  gEdkiiFormBrowserEx2ProtocolGuid              ## CONSUMES
+  gEfiDevicePathProtocolGuid
+  gEfiDevicePathToTextProtocolGuid              ## CONSUMES
+  gEfiFirmwareVolume2ProtocolGuid
+  gEfiHiiConfigAccessProtocolGuid               ## CONSUMES
+  gEfiHiiConfigRoutingProtocolGuid
+  gEfiUsb2HcProtocolGuid
+
+[FeaturePcd]
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow                         ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn                      ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution         ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution           ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn                 ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow                    ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution    ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution      ## CONSUMES
+

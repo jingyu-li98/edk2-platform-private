@@ -1,0 +1,92 @@
+## @file
+#
+#  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+#  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = Information
+  MODULE_UNI_FILE                = Information.uni
+  FILE_GUID                      = AD40DB56-C5ff-7B71-9B84-62CDF2694D5A
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = InformInit
+  UNLOAD_IMAGE                   = InformUnload
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC LOONGARCH64
+#
+[Sources]
+  Information.c
+  Information.h
+  InformationVfr.vfr
+  InformationStrings.uni
+  SetupFormInit.h
+  SetupFormInit.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  CryptoPkg/CryptoPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  PrintLib
+  UefiLib
+  DevicePathLib
+  HobLib
+  UefiBootManagerLib
+  ArmSmcLib
+  BaseCryptLib
+  UefiHiiServicesLib
+  #PhytiumEcLib
+  TimeBaseLib
+  MmInterfaceLib
+  MmFrameLib
+
+[Guids]
+  gInformationFormSetGuid
+  gEfiIfrFrontPageGuid
+  gFrontPageFormSetGuid
+  gEfiIfrTianoGuid
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiSmbiosProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
+  gEfiAtaPassThruProtocolGuid
+  gEfiNvmExpressPassThruProtocolGuid
+  gEfiDevicePathToTextProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid              ## CONSUMES
+  gEfiHiiConfigAccessProtocolGuid               ## PRODUCES
+  gEfiPciIoProtocolGuid
+  gEfiUsbIoProtocolGuid
+
+[Depex]
+  gEfiHiiConfigRoutingProtocolGuid  AND 
+  gEfiHiiDatabaseProtocolGuid       AND 
+  gEfiVariableArchProtocolGuid      AND 
+  gEfiVariableWriteArchProtocolGuid AND 
+  gEfiPciIoProtocolGuid
+

@@ -1,0 +1,77 @@
+/** @file
+  The System Resoure Affinity Table.
+
+  Copyright (C) 2022, Phytium Technology Co., Ltd. All rights reserved.<BR>
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#include <IndustryStandard/Acpi.h>
+#include <Library/AcpiLib.h>
+#include <Platform.h>
+
+//
+// Static Resource Affinity Table definition
+//
+EFI_ACPI_STATIC_RESOURCE_AFFINITY_TABLE Srat = {
+  {
+    {
+      EFI_ACPI_6_4_SYSTEM_RESOURCE_AFFINITY_TABLE_SIGNATURE,
+      sizeof (EFI_ACPI_STATIC_RESOURCE_AFFINITY_TABLE),
+      EFI_ACPI_6_4_SYSTEM_RESOURCE_AFFINITY_TABLE_REVISION,
+      0x00,                         // Checksum will be updated at runtime
+      {EFI_ACPI_ARM_OEM_ID},
+      EFI_ACPI_ARM_OEM_TABLE_ID,
+      EFI_ACPI_ARM_OEM_REVISION,
+      EFI_ACPI_ARM_CREATOR_ID,
+      EFI_ACPI_ARM_CREATOR_REVISION
+    },
+    /*Reserved*/
+    0x00000001,                  // Reserved to be 1 for backward compatibility
+    EFI_ACPI_RESERVED_QWORD
+  },
+  //
+  // Processor
+  //
+  {
+    0x00,                 // Subtable Type:Processor Local APIC/SAPIC Affinity
+    sizeof (
+      EFI_ACPI_6_4_PROCESSOR_LOCAL_APIC_SAPIC_AFFINITY_STRUCTURE
+      ),                  // Length
+    0x00,                 // Proximity Domain Low(8)
+    0x00,                 // Apic ID
+    0x00000001,           // Flags
+    0x00,                 // Local Sapic EID
+    {0, 0, 0},            // Proximity Domain High(24)
+    0x00000000,           // ClockDomain
+  },
+  //
+  // Memory Affinity
+  //
+  {
+    EFI_ACPI_6_4_MEMORY_AFFINITY_STRUCTURE_INIT (
+      0x00000000,
+      (UINT64)0x0000000080000000,
+      (UINT64)0x000000007A000000,
+      0x00000001
+      ),
+  },
+  //
+  // Processor Affinity
+  //
+  {
+    EFI_ACPI_6_4_GICC_AFFINITY_STRUCTURE_INIT (
+      0x00000000,
+      0x00000000,
+      0x00000001,
+      0x00000000
+      ),
+  },
+};
+
+//
+// Reference the table being generated to prevent the optimizer from removing the
+// data structure from the executable
+//
+VOID* CONST ReferenceAcpiTable = &Srat;

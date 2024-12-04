@@ -1,0 +1,438 @@
+/** @file
+VFR file used by the bmc configuration component.
+
+Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
+#include <BmcSetup.h>
+#include <Guid/HiiPlatformSetupFormset.h>
+
+formset
+  guid      = BMC_INFO_FORMSET_GUID,
+  title     = STRING_TOKEN(STR_BMC_INFO_FORM),
+  help      = STRING_TOKEN(STR_BMC_INFO_FORM_HELP),
+  classguid = EFI_HII_PLATFORM_SETUP_FORMSET_GUID,
+
+  varstore BMC_CONFIG,
+    varid = VARSTORE_BMC_ID,
+    name = BmcSetup,
+    guid = BMC_INFO_FORMSET_GUID;
+
+  form formid = BMC_INFO_FORM_ID,
+    title     = STRING_TOKEN(STR_BMC_INFO_FORM);
+
+    subtitle text  = STRING_TOKEN(STR_BMC_DEVICE_INFO);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_ID),
+      text   = STRING_TOKEN(STR_BMC_ID_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_VER),
+      text   = STRING_TOKEN(STR_BMC_VER_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_CHECK),
+      text   = STRING_TOKEN(STR_BMC_CHECK_VALUE);
+
+    text
+      help  = STRING_TOKEN(STR_LAST_STRING ),
+      text  = STRING_TOKEN(STR_LAST_STRING ),
+      flags = INTERACTIVE,
+      key   = KEY_MAIN;
+
+  subtitle text  = STRING_TOKEN(STR_EMPTY);
+  subtitle text  = STRING_TOKEN(STR_BMC_FM_INFO);
+/*
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_FM_VENDER),
+      text   = STRING_TOKEN(STR_BMC_FM_VENDER_VALUE);
+*/
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_FM_VER),
+      text   = STRING_TOKEN(STR_BMC_FM_VER_VALUE);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_IPMI_VER),
+      text   = STRING_TOKEN(STR_BMC_IPMI_VER_VALUE);
+
+//zhjmxl off have problem
+/**
+subtitle text  = STRING_TOKEN(STR_EMPTY);
+subtitle text  = STRING_TOKEN(STR_POWERPOLICY);
+
+    oneof varid = BMC_CONFIG.RestorePolicy,
+      prompt   = STRING_TOKEN(STR_RESTORE_AC),
+      help     = STRING_TOKEN(STR_RESTORE_AC_HELP),
+      option text = STRING_TOKEN(STR_PWRUP), value = POWER_UP, flags = 0;
+      option text = STRING_TOKEN(STR_RESTORE), value = POWER_RESTORE, flags = 0;
+      option text = STRING_TOKEN(STR_PWROFF), value = POWER_OFF, flags = 0;
+      option text = STRING_TOKEN(STR_UNKNOWN), value = POWER_UNKNOWN, flags = 0;
+      default value = POWER_OFF,
+    endoneof;
+
+subtitle text  = STRING_TOKEN(STR_EMPTY);
+subtitle text  = STRING_TOKEN(STR_WATCHDOG_POST);
+
+    oneof varid = BMC_CONFIG.WatchdogPost,
+      prompt   = STRING_TOKEN(STR_WDT_ENABLE),
+      help     = STRING_TOKEN(STR_WDT_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = 0;
+      option text = STRING_TOKEN(STR_DISABLE), value = 2, flags = 0;
+      default value = 2,
+    endoneof;
+
+    numeric varid = BMC_CONFIG.WatchdogTimeoutPost,
+      prompt   = STRING_TOKEN(STR_WDT_TIMEOUT),
+      help     = STRING_TOKEN(STR_WDT_TIMEOUT_HELP),
+      flags    = INTERACTIVE ,
+      minimum  = 300,
+      maximum  = 65535,
+      default  = 600,
+    endnumeric;
+
+    oneof varid = BMC_CONFIG.WatchdogTimeoutActionPost,
+      prompt   = STRING_TOKEN(STR_WDT_TIMEOUT_ACTION),
+      help     = STRING_TOKEN(STR_WDT_TIMEOUT_ACTION_HELP),
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT1), value = 1, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT2), value = 2, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT3), value = 3, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT4), value = 4, flags = 0;
+      default value = 1,
+    endoneof;
+
+subtitle text  = STRING_TOKEN(STR_EMPTY);
+subtitle text  = STRING_TOKEN(STR_WATCHDOG_OS);
+
+
+    oneof varid = BMC_CONFIG.WatchdogOS,
+      prompt   = STRING_TOKEN(STR_WDT_ENABLE_OS),
+      help     = STRING_TOKEN(STR_WDT_ENABLE_OS_HELP),
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = 0;
+      option text = STRING_TOKEN(STR_DISABLE), value = 2, flags = 0;
+      default value = 2,
+    endoneof;
+
+    numeric varid = BMC_CONFIG.WatchdogTimeoutOS,
+      prompt   = STRING_TOKEN(STR_WDT_TIMEOUT_OS),
+      help     = STRING_TOKEN(STR_WDT_TIMEOUT_OS_HELP),
+      flags    = INTERACTIVE ,
+      minimum  = 300,
+      maximum   = 65535,
+      default  = 300,
+    endnumeric;
+
+    oneof varid = BMC_CONFIG.WatchdogTimeoutActionOS,
+      prompt   = STRING_TOKEN(STR_WDT_TIMEOUT_ACTION_OS),
+      help     = STRING_TOKEN(STR_WDT_TIMEOUT_ACTION_OS_HELP),
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT1), value = NO_ACTION, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT2), value = HARD_RESET, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT3), value = POWER_DONW, flags = 0;
+      option text = STRING_TOKEN(STR_WDT_TIMEOUT_ACT4), value = POWER_CYCLE, flags = 0;
+      default value = 1,
+    endoneof;
+
+  subtitle text  = STRING_TOKEN(STR_EMPTY);
+  subtitle text  = STRING_TOKEN(STR_BMC_ACCOUNT);
+
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_1,
+      minsize  = 6,
+      maxsize  = 20,
+    endpassword;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_2);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_2,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+    suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_3);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_3,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+    suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_4);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_4,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_5);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_5,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_6);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_6,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_7);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_7,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_8);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_8,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_9);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_9,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_10);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_10,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9 10;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_11);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_11,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9 10 11;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_12);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_12,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9 10 11 12;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_13);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_13,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9 10 11 12 13;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_14);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_14,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+
+  suppressif ideqvallist BMC_CONFIG.UserTotalNum == 1 2 3 4 5 6 7 8 9 10 11 12 13 14;
+    subtitle text  = STRING_TOKEN(STR_EMPTY);
+    text
+      help   = STRING_TOKEN(STR_EMPTY),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME),
+      text   = STRING_TOKEN(STR_BMC_USER_NAME_VAL_15);
+
+    password
+      prompt   = STRING_TOKEN(STR_BMC_USER_PASSWORD),
+      help     = STRING_TOKEN(STR_EMPTY),
+      flags    = INTERACTIVE ,
+      key      = KEY_PASSWORD_15,
+      minsize  = 6,
+      maxsize  = 20,
+      endpassword;
+  endif;
+**/
+
+  subtitle text  = STRING_TOKEN(STR_EMPTY);
+  subtitle text  = STRING_TOKEN(STR_BMC_NETWORK);
+
+    oneof varid = BMC_CONFIG.NicIpSource,
+      prompt   = STRING_TOKEN(STR_IP_ADDRESS_SOURCE),
+      help     = STRING_TOKEN(STR_IP_ADDRESS_SOURCE_HELP),
+      option text = STRING_TOKEN(STR_STATIC), value = 1, flags = 0;
+      option text = STRING_TOKEN(STR_DHCP), value = 2, flags = 0;
+    endoneof;
+
+  grayoutif ideqval BMC_CONFIG.NicIpSource == 2;
+    string    varid    = BMC_CONFIG.IpAddress,
+      prompt   = STRING_TOKEN(STR_IP_ADDRESS_LABEL),
+      help     = STRING_TOKEN(STR_IP_ADDRESS_HELP),
+      flags    = INTERACTIVE ,
+      key      = KEY_IP,
+      minsize  = 6,
+      maxsize  = 20,
+    endstring;
+
+    string    varid    = BMC_CONFIG.SubnetMask,
+      prompt   = STRING_TOKEN(STR_SUBNETMASK),
+      help     = STRING_TOKEN(STR_SUBNETMASK_HELP),
+      flags    = INTERACTIVE ,
+      key      = KEY_SUBNETMASK,
+      minsize  = 6,
+      maxsize  = 20,
+    endstring;
+
+    string    varid    = BMC_CONFIG.GatewayIp,
+      prompt   = STRING_TOKEN(STR_GATEWAY),
+      help     = STRING_TOKEN(STR_GATEWAY_HELP),
+      flags    = INTERACTIVE ,
+      key      = KEY_GW,
+      minsize  = 6,
+      maxsize  = 20,
+    endstring;
+  endif;
+
+  endform;
+endformset;

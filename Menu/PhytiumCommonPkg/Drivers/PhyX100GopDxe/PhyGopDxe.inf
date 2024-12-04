@@ -1,0 +1,73 @@
+## @file
+# PhyGopDxe.inf
+# Copyright (c) 2020 - 2022, Phytium Technology Co., Ltd. All rights reserved.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+
+
+[Defines]
+  INF_VERSION         = 0x0001001B
+  BASE_NAME           = PhyGraphicsOutput
+  FILE_GUID           = 3ebfa0ac-0d01-11eb-bdc9-1b472dc35807
+  MODULE_TYPE         = UEFI_DRIVER
+  VERSION_STRING      = 1.0
+  ENTRY_POINT          = PhyGraphicsOutputDriverEntryPoint
+
+[Sources]
+  PhyGopDxe.c
+  PhyGopDxe.h
+  #PhyGopDxe.uni
+  PhyGraphicsOutput.c
+  PhyGraphicsOutput.h
+  ComponentName.c
+  Dc/DcCore.c
+  Dc/DcCore.h
+  Dc/DcHw.c
+  Dc/DcHw.h
+  Dc/DcReq.c
+  Dc/DcReq.h
+  Dc/DcStru.h
+  Dc/DcType.h
+  Dc/DcUtil.c
+  Dc/DcUtil.h
+  Dp/Dp.c
+  Dp/Dp.h
+  Dp/DpDrv.c
+  Dp/DpDrv.h
+  Dp/DpFun.c
+  Dp/DpFun.h
+  Dp/DpPhy.c
+  Dp/DpPhy.h
+  Dp/DpType.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  UefiLib
+  UefiDriverEntryPoint
+  DebugLib
+  BaseMemoryLib
+  DevicePathLib
+  TimerLib
+  IoLib
+  UefiRuntimeServicesTableLib
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution
+
+[Protocols]
+  gEfiDriverSupportedEfiVersionProtocolGuid     # PROTOCOL ALWAYS_PRODUCED
+  gEfiUgaDrawProtocolGuid          # PROTOCOL BY_START
+  gEfiGraphicsOutputProtocolGuid   # PROTOCOL BY_START
+  gEfiEdidDiscoveredProtocolGuid   # PROTOCOL BY_START
+  gEfiEdidActiveProtocolGuid       # PROTOCOL BY_START
+  gEfiDevicePathProtocolGuid       # PROTOCOL BY_START
+  gEfiPciIoProtocolGuid            # PROTOCOL TO_START
+  gEfiEdidOverrideProtocolGuid     # PROTOCOL TO_START
+

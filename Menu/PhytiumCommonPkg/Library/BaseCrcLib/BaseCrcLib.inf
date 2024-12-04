@@ -1,0 +1,24 @@
+## @file
+# Base implementation of the CRC library class.
+#
+# Copyright 2016 Intel Corporation. <BR>
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                   = 0x0001001B
+  BASE_NAME                     = BaseCrcLib
+  FILE_GUID                     = F3BE9A28-78A2-4B02-AB26-D27EE85D9256
+  MODULE_TYPE                   = BASE
+  VERSION_STRING                = 1.0
+  LIBRARY_CLASS                 = CrcLib
+
+[Sources]
+  BaseCrcLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+

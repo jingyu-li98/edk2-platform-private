@@ -1,0 +1,38 @@
+## @file
+# Iort table Generator Libary.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = IortGeneratorLib
+  FILE_GUID                      = 405b2307-6838-4d52-aeb9-bece6425281F
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IortGeneratorLib|DXE_DRIVER
+
+[Sources.common]
+  IortGeneratorLib.c
+  IortGeneratorLib.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  DynamicTablesPkg/DynamicTablesPkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  PcdLib
+  IoLib
+  UefiRuntimeServicesTableLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gEfiAcpiTableProtocolGuid

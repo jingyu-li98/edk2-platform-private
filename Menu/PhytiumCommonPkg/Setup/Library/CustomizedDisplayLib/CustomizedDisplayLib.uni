@@ -1,0 +1,82 @@
+// *++
+//
+// Copyright (c) 2004 - 2013, Intel Corporation. All rights reserved.<BR>
+// SPDX-License-Identifier: BSD-2-Clause-Patent
+//
+// Module Name:
+//
+//   SetupBrowserStr.uni
+//
+// Abstract:
+//
+//   String definitions for Browser.
+//
+// --*/
+
+
+/=#
+
+#langdef en-US "English"
+#langdef fr-FR "Français"
+#langdef zh-Hans "\wide简体中文"
+
+#string ENTER_STRING                   #language en-US  "<Enter>=Select Entry"
+                                       #language fr-FR  "<Enter>=Choisir l'Entrée"
+                                       #language zh-Hans  "\narrow<Enter>=\wide选择条目"
+#string ENTER_COMMIT_STRING            #language en-US  "<Enter>=Complete Entry"
+                                       #language fr-FR  "<Enter>=Compléter l'Entrée"
+                                       #language zh-Hans  "\narrow<Enter>=\wide完成条目"
+#string ENTER_ESCAPE_STRING            #language en-US  "Esc=Exit Entry"
+                                       #language fr-FR  "Esc=Sortir l'Entrée"
+                                       #language zh-Hans  "\narrowEsc=\wide退出条目"
+#string ESCAPE_STRING                  #language en-US  "Esc=Exit"
+                                       #language fr-FR  "Esc=Sortir"
+                                       #language zh-Hans  "\narrowEsc=\wide退出"
+#string ADJUST_NUMBER                  #language en-US  "+/- =Adjust Value"
+                                       #language fr-FR  "+/- =Ajuster la valeur"
+                                       #language zh-Hans  "\narrow+/- =\wide调整数值"
+#string PLUS_STRING                    #language en-US  "+ =Move Selection Up"
+                                       #language fr-FR  "+ =Relever le choix"
+                                       #language zh-Hans  "\narrow+ =\wide向上移动所选择的内容"
+#string MINUS_STRING                   #language en-US  "- =Move Selection Down"
+                                       #language fr-FR  "- =Abaisser le choix"
+                                       #language zh-Hans  "\narrow- =\wide向下移动所选择的内容"
+#string MOVE_HIGHLIGHT                 #language en-US  "=Move Highlight"
+                                       #language fr-FR  "=Essentiel de mouvement"
+                                       #language zh-Hans  "\narrow=\wide移动高亮"
+#string DEC_NUMERIC_INPUT              #language en-US  "0123456789 are valid inputs"
+                                       #language fr-FR  "0123456789 sont des données valides"
+                                       #language zh-Hans  "\narrow0123456789 \wide是有效的输入"
+#string HEX_NUMERIC_INPUT              #language en-US  "0-9 a-f are valid inputs"
+                                       #language fr-FR  "0-9 a-f sont des données valides"
+                                       #language zh-Hans  "\narrow0-9 a-f \wide是有效的输入"
+#string TOGGLE_CHECK_BOX               #language en-US  "<Spacebar>Toggle Checkbox"
+                                       #language fr-FR  "<Spacebar>Bascule la Case de pointage"
+                                       #language zh-Hans  "\narrow<Spacebar>\wide切换复选框"
+#string NV_UPDATE_MESSAGE              #language en-US  "Configuration changed"
+                                       #language fr-FR  "Configuration changed"
+                                       #language zh-Hans  "\wide配置已更改"
+#string INPUT_ERROR_MESSAGE            #language en-US  "!!"
+                                       #language fr-FR  "!!"
+                                       #language zh-Hans  "!!"
+#string EMPTY_STRING                   #language en-US  ""
+                                       #language fr-FR  ""
+                                       #language zh-Hans  ""
+#string ARE_YOU_SURE_YES               #language en-US  "Y"
+                                       #language fr-FR  "Y"
+                                       #language zh-Hans  "Y"
+#string ARE_YOU_SURE_NO                #language en-US  "N"
+                                       #language fr-FR  "N"
+                                       #language zh-Hans  "N"
+#string SAVE_CHANGES                   #language en-US  "Changes have not saved. Save Changes and exit?"
+                                       #language fr-FR  "Enregistrer les modifications et quitter?"
+                                       #language zh-Hans  "\wide更改尚未保存\narrow,\wide保存更改并退出\narrow? "
+#string ARE_YOU_SURE                   #language en-US  "Press 'Y' to save and exit, 'N' to discard and exit, 'ESC' to cancel."
+                                       #language fr-FR  "Pressez 'Y' pour sauvegarder et quitter, 'N' de se défaire et de sortie"
+                                       #language zh-Hans  "\wide按\narrow'Y'\wide保存并退出\narrow,'N'\wide丢弃并退出\narrow,'ESC'\wide取消"
+#string FUNCTION_NINE_STRING           #language en-US  "F9=Reset to Defaults"
+                                       #language fr-FR  "F9=Reset à Défauts"
+                                       #language zh-Hans  "\narrowF9=\wide重置默认值"
+#string FUNCTION_TEN_STRING            #language en-US  "F10=Save"
+                                       #language fr-FR  "F10=Économiser"
+                                       #language zh-Hans  "\narrowF10=\wide保存"

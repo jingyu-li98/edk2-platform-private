@@ -1,0 +1,31 @@
+## @file
+# Dxe Phase IpmiBase layer library.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = IpmiBaseLib
+  FILE_GUID                      = 3FC2EFF8-73BE-43D4-93C2-4B98AB66A04F
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IpmiBaseLib
+
+[sources]
+  IpmiBaseLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gIpmiTransportProtocolGuid

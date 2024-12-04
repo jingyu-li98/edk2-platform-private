@@ -1,0 +1,57 @@
+## @file
+# This file implements basic functions of using I3C bus to communicate with
+# slave devives.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I3cRuntimeLib
+  FILE_GUID                      = 76ef9a68-657d-11ee-bcc8-cb0dfddcd009
+  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = I3cRuntimeLib | DXE_RUNTIME_DRIVER
+  CONSTRUCTOR                    = I3cRuntimeLibConstruct
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
+  DxeServicesTableLib
+  IoLib
+  MemoryAllocationLib
+  PcdLib
+  TimeBaseLib
+  TimerLib
+  UefiLib
+
+[Sources.common]
+  I3cLib.h
+  I3cRuntimeLib.c
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[FixedPcd]
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI3cModeClkFreq
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cBusI2cModeClkFreq
+  gPhytiumPlatformTokenSpaceGuid.PcdSysClkFreq
+  gPhytiumPlatformTokenSpaceGuid.PcdI3cRuntimeBaseAddress
+
+[Depex]
+TRUE
+

@@ -1,0 +1,62 @@
+## @file
+# Device Information library class interfaces.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = IpmiDeviceInfoToBmc
+  FILE_GUID                      = 9494F942-DB4c-593D-F812-D241E9260FA3
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IpmiDeviceInfoToBmcLib|DXE_DRIVER
+
+[Sources]
+  IpmiDeviceInfoToBmc.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  ArmLib
+  BaseLib
+  BaseMemoryLib
+  CrcLib
+  DebugLib
+  DevicePathLib
+  DxeServicesLib
+  HobLib
+  IpmiBaseLib
+  IpmiCommandLib
+  IoLib
+  MemoryAllocationLib
+  ReportStatusCodeLib
+  PcdLib
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  UefiDriverEntryPoint
+
+[Guids]
+  gEfiDiskInfoNvmeInterfaceGuid
+  gPlatformPciHostInforGuid
+  gPlatformCpuInforGuid
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiPciRootBridgeIoProtocolGuid
+  gEfiDiskInfoProtocolGuid
+  gEfiNvmExpressPassThruProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiCpuArchProtocolGuid
+  gEfiSmbiosProtocolGuid
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString

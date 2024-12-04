@@ -1,0 +1,243 @@
+/** @file
+VFR file used by the ras configuration component.
+
+Copyright (c) 2024, Phytium Technology Co., Ltd. All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
+#include "RasConfigFormGuid.h"
+#include <RasConfigUiData.h>
+#include <Guid/HiiPlatformSetupFormset.h>
+
+formset
+  guid = RAS_FORMSET_GUID,
+  title = STRING_TOKEN (STR_RAS_FORM),
+  help = STRING_TOKEN (STR_RAS_FORM_HELP),
+  classguid = EFI_HII_PLATFORM_SETUP_FORMSET_GUID,
+
+  varstore RAS_CONFIG,
+    varid = VARSTORE_ID_RAS,
+    name = RasConfigSetup,
+    guid = RAS_FORMSET_GUID;
+
+  form formid = FORM_RAS_ID,
+    title = STRING_TOKEN (STR_RAS_FORM);
+
+    // Add this invisible text in order to indicate enter ras config form.
+    // To trigger the form open action.
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NONE),
+        text  = STRING_TOKEN (STR_NONE),
+        flags = INTERACTIVE,
+        key   = TRIGGER_ID;
+    endif;
+
+    //subtitle text  = STRING_TOKEN(STR_RAS_STRATEGY);
+
+    oneof varid = RAS_CONFIG.RasStrategy.BmcCperEnable,
+      prompt = STRING_TOKEN (STR_BMC_CPER_ENABLE),
+      help   = STRING_TOKEN (STR_BMC_CPER_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED | DEFAULT;
+    endoneof;
+
+    oneof varid = RAS_CONFIG.RasStrategy.FatalErrorRecord,
+      prompt = STRING_TOKEN (STR_FATAL_ERROR_RECORD_TYPE),
+      help   = STRING_TOKEN (STR_FATAL_ERROR_RECORD_HELP),
+      option text = STRING_TOKEN(STR_RECORD_TYPE_NO_RECORD), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_RECORD_TYPE_FLASH), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    subtitle text  = STRING_TOKEN(STR_NONE);
+    subtitle text  = STRING_TOKEN(STR_STRATEGY_MEM_ISO);
+
+    oneof varid = RAS_CONFIG.RasStrategy.MemoryIsoRecord,
+      prompt = STRING_TOKEN (STR_MEM_ISO_RECORD),
+      help   = STRING_TOKEN (STR_MEM_ISO_RECORD_HELP),
+      option text = STRING_TOKEN(STR_RECORD_TYPE_NO_RECORD), value = 0, flags = RESET_REQUIRED;
+      option text = STRING_TOKEN(STR_RECORD_TYPE_FLASH), value = 1, flags = RESET_REQUIRED | DEFAULT;
+    endoneof;
+
+    //
+    //Memory fatal uce isolation strategy
+    //
+    subtitle text  = STRING_TOKEN(STR_MEM_FATAL_UCE_STRATEGY);
+    oneof varid = RAS_CONFIG.RasStrategy.MemFatalUceIsoStrategy.Enable,
+      prompt = STRING_TOKEN (STR_STRATEGY_ISO_ENABLE),
+      help   = STRING_TOKEN (STR_MEM_FATAL_UCE_ISO_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.MemFatalUceIsoStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.MemFatalUceIsoStrategy.Count,
+        questionid = QUESTION_ID_MEM_FATAL_UCE_IOS_COUNT,
+        prompt = STRING_TOKEN (STR_STRATEGY_ISO_THRESHOLD),
+        help   = STRING_TOKEN (STR_MEM_NON_FATAL_UCE_ISO_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 65536,
+        step    = 1,
+        default = 1,
+      endnumeric;
+    endif;
+
+    //
+    //Memory non-fatal uce isolation strategy
+    //
+    subtitle text  = STRING_TOKEN(STR_MEM_NONFATAL_UCE_STRATEGY);
+    oneof varid = RAS_CONFIG.RasStrategy.MemNonFatalUceIsoStrategy.Enable,
+      prompt = STRING_TOKEN (STR_STRATEGY_ISO_ENABLE),
+      help   = STRING_TOKEN (STR_MEM_NON_FATAL_UCE_ISO_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.MemNonFatalUceIsoStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.MemNonFatalUceIsoStrategy.Count,
+        questionid = QUESTION_ID_MEM_NONFATAL_UCE_IOS_COUNT,
+        prompt = STRING_TOKEN (STR_STRATEGY_ISO_THRESHOLD),
+        help   = STRING_TOKEN (STR_MEM_NON_FATAL_UCE_ISO_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 65536,
+        step    = 1,
+        default = 10,
+      endnumeric;
+    endif;
+
+    //
+    //Memory ce isolation strategy
+    //
+    subtitle text  = STRING_TOKEN(STR_MEM_CE_STRATEGY);
+    oneof varid = RAS_CONFIG.RasStrategy.MemCeIsoStrategy.Enable,
+      prompt = STRING_TOKEN (STR_STRATEGY_ISO_ENABLE),
+      help   = STRING_TOKEN (STR_MEM_CE_ISO_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.MemCeIsoStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.MemCeIsoStrategy.Count,
+        questionid = QUESTION_ID_MEM_CE_IOS_COUNT,
+        prompt = STRING_TOKEN (STR_STRATEGY_ISO_THRESHOLD),
+        help   = STRING_TOKEN (STR_MEM_CE_ISO_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 1000000,
+        step    = 1,
+        default = 100,
+      endnumeric;
+    endif;
+    //
+    //Memory Address Isolation strategy
+    //
+    subtitle text  = STRING_TOKEN(STR_MEM_ADDR_ISO_STRATEGY);
+    oneof varid = RAS_CONFIG.RasStrategy.MemAddrIsoStrategy.Enable,
+      prompt = STRING_TOKEN (STR_MEM_ADDR_ISO_STRATEGY_ENABLE),
+      help   = STRING_TOKEN (STR_MEM_ADDR_ISO_STRATEGY_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.MemAddrIsoStrategy.Enable == 0;
+      oneof varid = RAS_CONFIG.RasStrategy.MemAddrIsoStrategy.Type,
+        prompt = STRING_TOKEN (STR_MEM_ADDR_ISO_STRATEGY_TYPE),
+        help   = STRING_TOKEN (STR_MEM_ADDR_ISO_STRATEGY_TYPE_HELP),
+        option text = STRING_TOKEN(STR_ISOLATION_TYPE_512MB), value = 0, flags = RESET_REQUIRED | DEFAULT;
+        option text = STRING_TOKEN(STR_ISOLATION_TYPE_128MB), value = 1, flags = RESET_REQUIRED;
+      endoneof;
+    endif;
+
+    subtitle text  = STRING_TOKEN(STR_NONE);
+
+    //
+    //core isolation strategy
+    //
+    subtitle text  = STRING_TOKEN(STR_CPU_FATAL_UCE_STRATEGY);
+    oneof varid = RAS_CONFIG.RasStrategy.CpuFatalStrategy.Enable,
+      prompt = STRING_TOKEN (STR_STRATEGY_ISO_ENABLE),
+      help   = STRING_TOKEN (STR_CPU_FATAL_UCE_ISO_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.CpuFatalStrategy.Enable == 0;
+      oneof varid = RAS_CONFIG.RasStrategy.CpuFatalStrategy.Record,
+        prompt = STRING_TOKEN (STR_ISO_RECORD),
+        help   = STRING_TOKEN (STR_CPU_FATAL_UCE_ISO_RECORD_HELP),
+        option text = STRING_TOKEN(STR_RECORD_TYPE_NO_RECORD), value = 0, flags = RESET_REQUIRED;
+        option text = STRING_TOKEN(STR_RECORD_TYPE_FLASH), value = 1, flags = RESET_REQUIRED | DEFAULT;
+      endoneof;
+    endif;
+
+    subtitle text  = STRING_TOKEN(STR_NONE);
+
+    subtitle text  = STRING_TOKEN(STR_STRATEGY_CE_REPORT);
+    subtitle text  = STRING_TOKEN(STR_MEM_CE_REPORT);
+    oneof varid = RAS_CONFIG.RasStrategy.MemCeReportStrategy.Enable,
+      prompt = STRING_TOKEN (STR_RERORT_FILTER_ENABLE),
+      help   = STRING_TOKEN (STR_MEM_REPORT_FILTER_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.MemCeReportStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.MemCeReportStrategy.Count,
+        questionid = QUESTION_ID_MEM_CE_REPORT_COUNT,
+        prompt = STRING_TOKEN (STR_REPORT_FILTER_THRESHOLD),
+        help   = STRING_TOKEN (STR_MEM_REPORT_FILTER_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 1000000,
+        step    = 1,
+        default = 100,
+      endnumeric;
+    endif;
+
+    subtitle text  = STRING_TOKEN(STR_PCIE_CE_REPORT);
+    oneof varid = RAS_CONFIG.RasStrategy.PcieCeReportStrategy.Enable,
+      prompt = STRING_TOKEN (STR_RERORT_FILTER_ENABLE),
+      help   = STRING_TOKEN (STR_PCIE_REPORT_FILTER_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.PcieCeReportStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.PcieCeReportStrategy.Count,
+        questionid = QUESTION_ID_PCIE_CE_REPORT_COUNT,
+        prompt = STRING_TOKEN (STR_REPORT_FILTER_THRESHOLD),
+        help   = STRING_TOKEN (STR_PCIE_REPORT_FILTER_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 1000000,
+        step    = 1,
+        default = 100,
+      endnumeric;
+    endif;
+
+    subtitle text  = STRING_TOKEN(STR_CPU_CE_REPORT);
+    oneof varid = RAS_CONFIG.RasStrategy.CpuCeReportStrategy.Enable,
+      prompt = STRING_TOKEN (STR_RERORT_FILTER_ENABLE),
+      help   = STRING_TOKEN (STR_CPU_REPORT_FILTER_ENABLE_HELP),
+      option text = STRING_TOKEN(STR_DISABLE), value = 0, flags = RESET_REQUIRED | DEFAULT;
+      option text = STRING_TOKEN(STR_ENABLE), value = 1, flags = RESET_REQUIRED;
+    endoneof;
+
+    suppressif ideqval RAS_CONFIG.RasStrategy.CpuCeReportStrategy.Enable == 0;
+      numeric varid = RAS_CONFIG.RasStrategy.CpuCeReportStrategy.Count,
+        questionid = QUESTION_ID_CPU_CE_REPORT_COUNT,
+        prompt = STRING_TOKEN (STR_REPORT_FILTER_THRESHOLD),
+        help   = STRING_TOKEN (STR_CPU_REPORT_FILTER_THRESHOLD_HELP),
+        flags = RESET_REQUIRED,
+        minimum = 1,
+        maximum = 1000000,
+        step    = 1,
+        default = 100,
+      endnumeric;
+    endif;
+
+  endform;
+
+endformset;

@@ -1,0 +1,29 @@
+## @file
+# Bmc base function.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = BmcBaseLib
+  FILE_GUID                      = F3886E04-29ED-11EE-BD92-6705ECA053E3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = BmcBaseLib
+
+[sources]
+  BmcBase.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  ParameterTableLib

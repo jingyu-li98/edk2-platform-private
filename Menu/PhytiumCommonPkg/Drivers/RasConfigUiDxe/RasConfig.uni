@@ -1,0 +1,90 @@
+/** @file
+String definitions for ras Configuration form.
+
+Copyright (c) 2024, Phytium Technology Co., Ltd. All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
+/=#
+#langdef    en-US  "English"
+
+#string STR_RAS_FORM         #language en-US "Ras Configuration"
+#string STR_RAS_FORM_HELP    #language en-US "Select this option to see and config RasConfig information"
+
+#string STR_NONE                 #language en-US " "
+#string STR_ENABLE               #language en-US "Enable"
+#string STR_DISABLE              #language en-US "Disable"
+
+#string STR_RAS_STRATEGY               #language en-US "Ras Strategy"
+#string STR_BMC_CPER_ENABLE            #language en-US "BMC CPER"
+#string STR_BMC_CPER_ENABLE_HELP       #language en-US "BMC CPER enable or disable."
+#string STR_FATAL_ERROR_RECORD_TYPE    #language en-US "Fatal Error Record"
+#string STR_FATAL_ERROR_RECORD_HELP    #language en-US "Fatal Error Record type, no record, flash."
+#string STR_MEM_ISO_RECORD             #language en-US "Memory Isolation Record"
+#string STR_MEM_ISO_RECORD_HELP        #language en-US "Memory Isolation Record Type, no record, flash."
+
+#string STR_MEM_FATAL_UCE_STRATEGY     #language en-US "Memory Fatal UCE Isolation Strategy"
+#string STR_MEM_NONFATAL_UCE_STRATEGY  #language en-US "Memory Non-Fatal UCE Isolation Strategy"
+#string STR_MEM_CE_STRATEGY            #language en-US "Memory CE Isolation Strategy"
+#string STR_MEM_ADDR_ISO_STRATEGY      #language en-US "Memory Address Isolation Strategy"
+#string STR_CPU_FATAL_UCE_STRATEGY     #language en-US "CPU CORE FATAL UCE Isolation Strategy"
+#string STR_MEM_CE_REPORT              #language en-US "Memory CE Report Strategy"
+#string STR_PCIE_CE_REPORT             #language en-US "PCIe CE Report Strategy"
+#string STR_CPU_CE_REPORT              #language en-US "CPU CORE CE Report Strategy"
+
+#string STR_STRATEGY_MEM_ISO           #language en-US "Memory Isolation Strategy"
+#string STR_STRATEGY_CE_REPORT         #language en-US "CE Report Strategy"
+#string STR_STRATEGY_ISO_ENABLE             #language en-US "Isolation Enable"
+#string STR_STRATEGY_ISO_CLEAN              #language en-US "Record Clean After Reset"
+#string STR_STRATEGY_ISO_THRESHOLD          #language en-US "Isolation Threshold"
+#string STR_STRATEGY_ISO_STRATEGY           #language en-US "Isolation Strategy"
+
+#string STR_MEM_FATAL_UCE_ISO_ENABLE_HELP       #language en-US "Memory Fatal UCE isolation strategy enable or disable."
+#string STR_MEM_FATAL_UCE_CLEAN_HELP            #language en-US "Memory Fatal UCE isolation record automatically clean after reset, enable or disable."
+#string STR_MEM_FATAL_UCE_ISO_THRESHOLD_HELP    #language en-US "Memory Fatal UCE isolation threshold count. If the total count of fatal uce in a memory channel exceeds the threshold, the channel will be isolated after restarting. The statistics will not automatically reset to clean after restarting."
+#string STR_MEM_FATAL_UCE_STRATEGY_HELP         #language en-US "Memory Fatal UCE isolation strategy. Level 0 - nothing to do, Level 1 - Print debug information, Level 2 - Isolation."
+
+#string STR_MEM_NON_FATAL_UCE_ISO_ENABLE_HELP   #language en-US "Memory Non-Fatal UCE isolation strategy enable or disable."
+#string STR_MEM_NON_FATAL_UCE_CLEAN_HELP        #language en-US "Memory Non-Fatal UCE isolation record automatically clean after reset, enable or disable."
+#string STR_MEM_NON_FATAL_UCE_ISO_THRESHOLD_HELP    #language en-US "Memory Non-Fatal UCE isolation threshold count. If the total count of non-fatal uce in a memory channel exceeds the threshold, the channel will be isolated after restarting. The statistics will not automatically reset to clean after restarting."
+#string STR_MEM_NON_FATAL_UCE_STRATEGY_HELP     #language en-US "Memory Non-Fatal UCE isolation strategy. Level 0 - nothing to do, Level 1 - Print debug information, Level 2 - Isolation."
+
+#string STR_MEM_CE_ISO_ENABLE_HELP              #language en-US "Memory CE isolation strategy enable or disable."
+#string STR_MEM_CE_CLEAN_HELP                   #language en-US "Memory CE isolation record automatically clean after reset, enable or disable."
+#string STR_MEM_CE_ISO_THRESHOLD_HELP           #language en-US "Memory CE isolation threshold count. If the total count of ce in a memory channel exceeds the threshold, the channel will be isolated after restarting. The statistics will not automatically reset to clean after restarting."
+#string STR_MEM_CE_STRATEGY_HELP                #language en-US "Memory CE isolation strategy. Level 0 - nothing to do, Level 1 - Print debug information, Level 2 - Isolation."
+
+#string STR_MEM_ADDR_ISO_STRATEGY_ENABLE        #language en-US "Memory Address Isolation Enable."
+#string STR_MEM_ADDR_ISO_STRATEGY_TYPE          #language en-US "Memory address isolation type"
+#string STR_ISOLATION_TYPE_512MB                #language en-US "512 MB"
+#string STR_ISOLATION_TYPE_128MB                #language en-US "128 MB"
+
+#string STR_MEM_ADDR_ISO_STRATEGY_ENABLE_HELP   #language en-US "Memory Address Isolation Enable. If Enabled, memory fatal-UCE and non-fatal-UCE address can be isolation after reset."
+#string STR_MEM_ADDR_ISO_STRATEGY_CLEAN_HELP    #language en-US "Memory Address Isolation record clean after reset, enable or disable."
+#string STR_MEM_ADDR_ISO_STRATEGY_TYPE_HELP     #language en-US "Memory address isolation type, 128MB or 512MB."
+
+#string STR_ISO_RECORD                          #language en-US "Isolation record type"
+
+#string STR_CPU_FATAL_UCE_ISO_RECORD_HELP       #language en-US "Cpu CORE Fatal UCE isolation record yype, no record, flash."
+#string STR_CPU_FATAL_UCE_ISO_ENABLE_HELP       #language en-US "Cpu CORE Fatal UCE isolation strategy enable or disable, the threshold is 1."
+#string STR_CPU_FATAL_UCE_CLEAN_HELP            #language en-US "Cpu CORE Fatal UCE isolation record automatically clean after reset, enable or disable."
+#string STR_CPU_FATAL_UCE_ISO_THRESHOLD_HELP    #language en-US "Cpu CORE Fatal UCE isolation threshold count. If the total count of fatal uce in a memory channel exceeds the threshold, the channel will be isolated after restarting. The statistics will not automatically reset to clean after restarting."
+#string STR_CPU_FATAL_UCE_STRATEGY_HELP         #language en-US "Cpu CORE Fatal UCE isolation strategy. Level 0 - nothing to do, Level 1 - Print debug information, Level 2 - Isolation."
+
+#string STR_RERORT_FILTER_ENABLE                #language en-US "Filter Enable"
+#string STR_REPORT_FILTER_THRESHOLD             #language en-US "Filter Threshold"
+
+#string STR_MEM_REPORT_FILTER_ENABLE_HELP       #language en-US "Memory CE report filter enable or disable."
+#string STR_MEM_REPORT_FILTER_THRESHOLD_HELP    #language en-US "Memory CE report threshold. If the filter is enabled, every time the memory CE reaches the threshold, it will be reported to the OS and BMC if neccessary."
+#string STR_PCIE_REPORT_FILTER_ENABLE_HELP      #language en-US "PCIe CE report filter enable or disable."
+#string STR_PCIE_REPORT_FILTER_THRESHOLD_HELP   #language en-US "PCIe CE report threshold. If the filter is enabled, every time the PCIe CE reaches the threshold, it will be reported to the OS and BMC if neccessary."
+#string STR_CPU_REPORT_FILTER_ENABLE_HELP       #language en-US "CPU CORE CE report filter enable or disable."
+#string STR_CPU_REPORT_FILTER_THRESHOLD_HELP    #language en-US "CPU CORE CE report threshold. If the filter is enabled, every time the cpu CE reaches the threshold, it will be reported to the OS and BMC if neccessary."
+
+#string STR_RECORD_TYPE_NO_RECORD               #language en-US "NO RECORD"
+#string STR_RECORD_TYPE_FLASH                   #language en-US "FLASH"
+#string STR_RECORD_TYPE_BMC                     #language en-US "BMC"
+
+#string STR_ISO_STRATEGY_NOTHING                #language en-US "NOTHING"
+#string STR_ISO_STRATEGY_DEBUG                  #language en-US "DEBUG"
+#string STR_ISO_STRATEGY_ISO                    #language en-US "ISOLATION"

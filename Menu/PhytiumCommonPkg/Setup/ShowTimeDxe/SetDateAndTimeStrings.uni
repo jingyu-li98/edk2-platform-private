@@ -1,0 +1,50 @@
+// *++
+//
+//Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+//All intellectual property rights(Copyright, Patent and Trademark) reserved.
+//
+// Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
+// This program and the accompanying materials
+// are licensed and made available under the terms and conditions of the BSD License
+// which accompanies this distribution.  The full text of the license may be found at
+// http://opensource.org/licenses/bsd-license.php
+//
+// THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+// WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
+// --*/
+
+#langdef en-US  "English"
+#langdef fr-FR  "Francais"
+#langdef   zh-Hans "简体中文"
+
+#string STR_FORM_SET_TITLE             #language en-US "Set Date And Time"
+                                       #language fr-FR "Set Date And Time"
+                                       #language zh-Hans  "设置日期时间"
+#string STR_FORM_SET_TITLE_HELP        #language en-US "This selection will take you to Set Date And Time"
+                                       #language fr-FR "This selection will take you to Set Date And Time"
+                                       #language zh-Hans  "设置日期和时间"
+#string STR_FORM_TITLE                 #language en-US "Set Date And Time"
+                                       #language fr-FR "Set Date And Time"
+                                       #language zh-Hans  "设置日期和时间"
+#string STR_SUBTITLE_TEXT2             #language en-US " "
+                                       #language fr-FR " "
+                                       #language zh-Hans  " "
+#string STR_DATE_PROMPT                #language en-US "System Date"
+                                       #language fr-FR "Fecha del sistema"
+                                       #language zh-Hans  "系统日期"
+#string STR_DATE_HELP                  #language en-US "This is the help for the Date (month/day/year). (Error checking will be done against month/day/year combinations that are not supported.)"
+                                       #language fr-FR "Esto es la ayuda para el Fecha (mes/día/las). (Verificar de error se hará contra vez mes/día/las combinaciones de año que no se sostienen.)"
+                                       #language zh-Hans  "日期格式(月/日/年)"
+#string STR_TIME_PROMPT                #language en-US "System Time"
+                                       #language fr-FR "Tiempo del sistema"
+                                       #language zh-Hans  "系统时间"
+#string STR_TIME_HELP                  #language en-US "This is the help for the Time (hour/minute/second).(Error checking will be done against month/day/year combinations that are not supported.)"
+                                       #language fr-FR "Esto es la ayuda para el Tiempo (hora/minuto/segundo).(Verificar de error se hará contra vez mes/día/las combinaciones de año que no se sostienen.)"
+                                       #language zh-Hans  "时间格式(时:分:秒)"
+#string STR_DEVICE_PATH                #language en-US ""
+                                       #language fr-FR ""
+                                       #language zh-Hans  ""
+#string STR_ERROR_POPUP                #language en-US "You typed in something bad!"
+                                       #language fr-FR "Esto es un mensaje de error del popup."
+                                       #language zh-Hans  "输入格式错误!"

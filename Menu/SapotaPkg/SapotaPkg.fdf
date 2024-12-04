@@ -1,0 +1,447 @@
+## @file
+# This package provides common open source Phytium Platform modules.
+#
+# Copyright (C) 2022-2024, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier:BSD-2-Clause-Patent
+#
+##
+
+################################################################################
+#
+# FD Section
+# The [FD] Section is made up of the definition statements and a
+# description of what goes into  the Flash Device Image.  Each FD section
+# defines one flash "device" image.  A flash device image may be one of
+# the following: Removable media bootable image (like a boot floppy
+# image,) an Option ROM image (that would be "flashed" into an add-in
+# card,) a System "Flash"  image (that would be burned into a system's
+# flash) or an Update ("Capsule") image that will be used to update and
+# existing system flash.
+#
+################################################################################
+
+[FD.PHYTIUM]
+BaseAddress   = 0x00500000|gArmTokenSpaceGuid.PcdFdBaseAddress
+Size          = 0x01000000|gArmTokenSpaceGuid.PcdFdSize
+ErasePolarity = 1
+
+# This one is tricky, it must be: BlockSize * NumBlocks = Size
+BlockSize     = 0x10000
+NumBlocks     = 0x100
+
+################################################################################
+#
+# Following are lists of FD Region layout which correspond to the locations of different
+# images within the flash device.
+#
+# Regions must be defined in ascending order and may not overlap.
+#
+# A Layout Region start with a eight digit hex offset (leading "0x" required) followed by
+# the pipe "|" character, followed by the size of the region, also in hex with the leading
+# "0x" characters. Like:
+# Offset|Size
+# PcdOffsetCName|PcdSizeCName
+# RegionType <FV, DATA, or FILE>
+#
+################################################################################
+
+0x00000000|0x280000
+gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
+FV = FVMAIN_COMPACT
+
+################################################################################
+#
+# FV Section
+#
+# [FV] section is used to define what components or modules are placed within a flash
+# device file.  This section also defines order the components and modules are positioned
+# within the image.  The [FV] section consists of define statements, set statements and
+# module statements.
+#
+################################################################################
+[FV.FVMAIN_COMPACT]
+BlockSize          = 0x10000
+NumBlocks          = 0x28
+FvAlignment        = 16
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+  APRIORI PEI {
+    INF MdeModulePkg/Universal/PCD/Pei/Pcd.inf
+    INF MdeModulePkg/Universal/Variable/Pei/VariablePei.inf
+  }
+
+  INF ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+!if $(CAPSULE_ENABLE)
+  #
+  # FMP Image Descriptor
+  #
+  INF RuleOverride = FMP_IMAGE_DESC $(CAPSULE_DIR)/SystemFirmwareDescriptor/SystemFirmwareDescriptor.inf
+!endif
+
+  INF MdeModulePkg/Core/Pei/PeiMain.inf
+  INF ArmPkg/Drivers/CpuPei/CpuPei.inf
+  INF $(SILICON_PACKAGE)/PlatformPei/PlatformPeim.inf
+  INF ArmPlatformPkg/MemoryInitPei/MemoryInitPeim.inf
+  INF MdeModulePkg/Universal/PCD/Pei/Pcd.inf
+  INF MdeModulePkg/Universal/FaultTolerantWritePei/FaultTolerantWritePei.inf
+  INF MdeModulePkg/Universal/Variable/Pei/VariablePei.inf
+  INF MdeModulePkg/Core/DxeIplPeim/DxeIpl.inf
+  INF $(GENERAL_PACKAGE)/Drivers/GenericIpmi/Pei/PeiGenericIpmi.inf
+  FILE FREEFORM = 22BBE2DE-1C43-4181-AEC2-47AF760970A5 {
+    SECTION RAW = $(SILICON_PACKAGE)/Library/PlatformSmbiosLib/SmbiosInfo.json
+  }
+
+  FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
+    SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+      SECTION FV_IMAGE = FVMAIN
+    }
+  }
+
+[FV.FvMain]
+FvAlignment        = 16         # FV alignment and FV attributes setting.
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+FvNameGuid         = 87940482-fc81-41c3-87e6-399cf85ac8a0
+
+  APRIORI DXE {
+    INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+    INF ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+    INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+    INF $(SILICON_PACKAGE)/Drivers/SpiDxe/SpiDxe.inf
+    INF $(SILICON_PACKAGE)/Drivers/SpiNorFlashDxe/SpiNorFlashDxe.inf
+    INF $(GENERAL_PACKAGE)/Drivers/FlashFvbDxe/FlashFvbDxe.inf
+    INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+  }
+
+  INF MdeModulePkg/Core/Dxe/DxeMain.inf
+  INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+
+  #
+  # PI DXE Drivers producing Architectural Protocols (EFI Services)
+  #
+  INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+  INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+  INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
+  INF EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
+  INF EmbeddedPkg/ResetRuntimeDxe/ResetRuntimeDxe.inf
+  INF EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
+
+  INF $(SILICON_PACKAGE)/Drivers/SpiDxe/SpiDxe.inf
+  INF $(SILICON_PACKAGE)/Drivers/SpiNorFlashDxe/SpiNorFlashDxe.inf
+
+  INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+  INF MdeModulePkg/Universal/MonotonicCounterRuntimeDxe/MonotonicCounterRuntimeDxe.inf
+
+  INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
+  INF ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+  INF ArmPkg/Drivers/GenericWatchdogDxe/GenericWatchdogDxe.inf
+
+  #
+  # Variable services
+  #
+  INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
+  INF MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
+  INF $(GENERAL_PACKAGE)/Drivers/FlashFvbDxe/FlashFvbDxe.inf
+  INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+  #
+  # ACPI
+  #
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF RuleOverride=ACPITABLE $(PLATFORM_PACKAGE)/AcpiTables/AcpiTables.inf
+  INF $(GENERAL_PACKAGE)/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  INF Silicon/Phytium/S5000CPkg/Drivers/AcpiUpdateDxe/AcpiUpdateDxe.inf
+  !if $(DYNAMIC_TABLES_FRAMEWORK) == TRUE
+  !include DynamicTablesPkg/DynamicTables.fdf.inc
+  INF $(GENERAL_PACKAGE)/ConfigurationManager/ConfigurationManagerDxe/ConfigurationManagerDxe.inf
+  !endif
+
+  #
+  # Multiple Console IO support
+  #
+  INF MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
+  INF $(GENERAL_PACKAGE)/Console/ConSplitterDxe/ConSplitterDxe.inf
+  INF $(GENERAL_PACKAGE)/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
+  INF $(GENERAL_PACKAGE)/Console/TerminalDxe/TerminalDxe.inf
+  INF MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
+
+  #
+  # FAT filesystem + GPT/MBR partitioning
+  #
+  INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+  INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+  INF FatPkg/EnhancedFatDxe/Fat.inf
+  INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+
+  #
+  # PCI Support
+  #
+  INF ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf
+  INF MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
+  INF MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
+
+  #
+  # SATA Controller
+  #
+  INF MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
+  INF MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
+  INF MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
+  INF MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
+  INF MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
+
+  INF MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
+  INF MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  INF MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+  INF MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
+
+!if $(PRINT_SCREEN_SUPPORT) == TRUE
+  INF MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxeScreen.inf
+!else
+  INF MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
+!endif
+
+  INF MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
+  INF MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+
+  #
+  # Platform Init Dxe
+  #
+  INF $(PLATFORM_PACKAGE)/Drivers/PlatformDxe/PlatformDxe.inf
+
+  #
+  # Spi Dxe
+  #
+!if $(SPIM_DXE_ENABLE) == TRUE
+  INF $(GENERAL_PACKAGE)/Drivers/PhytiumSpiM/PhytiumSpiM.inf
+!endif
+
+  #
+  # NVMe boot devices
+  #
+  INF MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+
+  #
+  # I2C Driver
+  #
+!if $(I2C_DXE_ENABLE) == TRUE
+  INF $(GENERAL_PACKAGE)/Drivers/I2c/PhytiumI2cDxe/PhytiumI2cDxe.inf
+  INF MdeModulePkg/Bus/I2c/I2cDxe/I2cDxe.inf
+  INF $(GENERAL_PACKAGE)/Drivers/I2c/PhytiumI2cDevicesIo/PhytiumI2cDevicesIo.inf
+!endif
+
+  #
+  # UEFI applications
+  #
+  INF ShellPkg/Application/Shell/Shell.inf
+  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
+
+  #
+  # SMBIOS
+  #
+  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  INF $(GENERAL_PACKAGE)/Drivers/CommonSmbiosDxe/CommonSmbiosDxe.inf
+
+!if $(APEI_ENABLE) == TRUE
+  INF ArmPkg/Drivers/MmCommunicationDxe/MmCommunication.inf
+  INF $(SILICON_PACKAGE)/Drivers/Apei/Apei.inf
+!endif
+
+
+
+  #
+  # IPMI driver
+  #
+  INF $(GENERAL_PACKAGE)/Drivers/GenericIpmi/Dxe/DxeIpmiInit.inf
+
+!if $(NETWORK_ENABLE) == TRUE
+  INF NetworkPkg/SnpDxe/SnpDxe.inf
+  INF NetworkPkg/DpcDxe/DpcDxe.inf
+  INF NetworkPkg/MnpDxe/MnpDxe.inf
+  INF NetworkPkg/ArpDxe/ArpDxe.inf
+  INF NetworkPkg/Dhcp4Dxe/Dhcp4Dxe.inf
+  INF NetworkPkg/Ip4Dxe/Ip4Dxe.inf
+  INF NetworkPkg/Mtftp4Dxe/Mtftp4Dxe.inf
+  INF NetworkPkg/Udp4Dxe/Udp4Dxe.inf
+  #INF NetworkPkg/VlanConfigDxe/VlanConfigDxe.inf
+!endif
+
+!if $(NETWORK_IP6_ENABLE) == TRUE
+  INF NetworkPkg/Ip6Dxe/Ip6Dxe.inf
+  INF NetworkPkg/Udp6Dxe/Udp6Dxe.inf
+  INF NetworkPkg/Dhcp6Dxe/Dhcp6Dxe.inf
+  INF NetworkPkg/Mtftp6Dxe/Mtftp6Dxe.inf
+  INF NetworkPkg/TcpDxe/TcpDxe.inf
+!endif
+
+!if $(INTEL_NETWORK_ENABLE) == TRUE
+  FILE DRIVER = 692A793A-3CEA-4372-B1F2-F055AE18DA0D {
+    SECTION PE32 = $(SILICON_PACKAGE)/ThirdParty/GigUndiDxe.efi
+    SECTION UI   = "GigUndiDxe"
+  }
+  FILE DRIVER = 3B6ED8A9-2430-40a8-8458-A6A3AB021BED {
+    SECTION PE32 = $(SILICON_PACKAGE)/ThirdParty/XGigUndiDxe.efi
+    SECTION UI   = "XGigUndiDxe"
+  }
+!endif
+
+!if $(PXE_ENABLE) == TRUE
+  INF NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf
+!endif
+
+  #
+  # Phytium Bmc Gop
+  #
+  INF $(GENERAL_PACKAGE)/Drivers/BmcGopDxe/PhyGopDxe.inf
+
+  #
+  # Phytium X100 Gop
+  #
+  INF $(GENERAL_PACKAGE)/Drivers/PhyX100GopDxe/PhyGopDxe.inf
+
+!if $(CAPSULE_ENABLE)
+  # Firmware Update Libraries
+  INF MdeModulePkg/Universal/EsrtDxe/EsrtDxe.inf
+  INF SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareReportDxe.inf
+  FILE FREEFORM = PCD(gEfiSignedCapsulePkgTokenSpaceGuid.PcdEdkiiPkcs7TestPublicKeyFileGuid) {
+     SECTION RAW = BaseTools/Source/Python/Pkcs7Sign/TestRoot.cer
+     SECTION UI = "Pkcs7TestRoot"
+  }
+!endif
+
+  #
+  # Ast2500 Gop
+  #
+  FILE DRIVER = c2fa7a80-6064-4590-b617-0caba626640b {
+    SECTION PE32 = Drivers/ASpeed/ASpeedGopBinPkg/AArch64/ASpeedAst2500Gop.efi
+    SECTION UI   = "Ast2500"
+  }
+
+  #
+  # AMD GOP Support
+  #
+  FILE DRIVER = 3b0e97cd-876a-905b-f7e4-52393ace5e46 {
+    SECTION PE32 = $(GENERAL_PACKAGE)/ThirdParty/Arm64Gop_1_68.efi
+    SECTION UI   = "AMDGOP"
+  }
+
+  #
+  #Bios Update Spi NorFlash
+  #
+  INF $(GENERAL_PACKAGE)/App/UpdateBiosSpiNorflashApp/UpdateBiosApp.inf
+
+  #
+  # Logo File
+  # sunrui change Logo
+  FILE FREEFORM = PCD(gPhytiumPlatformTokenSpaceGuid.PcdLogoFile) {
+    SECTION RAW = $(GENERAL_PACKAGE)/Library/LogoLib/chaoyues_made.bmp
+  }
+
+  #
+  # Bds
+  #
+  INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+  INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  INF $(GENERAL_PACKAGE)/Setup/DisplayEngineDxe/DisplayEngineDxe.inf
+  INF $(GENERAL_PACKAGE)/Setup/SetupBrowserDxe/SetupBrowserDxe.inf
+  #INF $(GENERAL_PACKAGE)/Setup/DriverSampleDxe/DriverSampleDxe.inf
+  INF $(GENERAL_PACKAGE)/Setup/UiApp/UiApp.inf
+  #INF MdeModulePkg/Application/UiApp/UiApp.inf
+  INF $(GENERAL_PACKAGE)/Setup/Information/Information.inf
+  INF $(GENERAL_PACKAGE)/Setup/ShowTimeDxe/ShowTime.inf
+  !if $(BIOS_PASSWORD)
+      INF $(GENERAL_PACKAGE)/Setup/PasswordConfigDxe/PasswordConfigUiDxe.inf
+  !endif
+
+  INF $(GENERAL_PACKAGE)/Setup/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
+  #sunrui - Ras configuration INF $(GENERAL_PACKAGE)/Drivers/RasConfigUiDxe/RasConfig.inf
+  #
+  # Secure Boot Key Enroll
+  #
+!if $(SECURE_BOOT_ENABLE) == TRUE
+  INF SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigDxe.inf
+!endif
+  INF $(GENERAL_PACKAGE)/Setup/Security/Security.inf
+  #sunrui - Andvanced config Feature 
+  INF $(GENERAL_PACKAGE)/Setup/BmcInfoUiDxe/BmcInfoUiDxe.inf
+  INF $(SILICON_PACKAGE)/Drivers/FeatureUiDxe/FeatureUiDxe.inf
+
+!include $(GENERAL_PACKAGE)/PhytiumCommonPkg.fdf.inc
+
+!if $(CAPSULE_ENABLE)
+[FV.SystemFirmwareDescriptor]
+  FvAlignment        = 16
+  ERASE_POLARITY     = 1
+  MEMORY_MAPPED      = TRUE
+  STICKY_WRITE       = TRUE
+  LOCK_CAP           = TRUE
+  LOCK_STATUS        = TRUE
+  WRITE_DISABLED_CAP = TRUE
+  WRITE_ENABLED_CAP  = TRUE
+  WRITE_STATUS       = TRUE
+  WRITE_LOCK_CAP     = TRUE
+  WRITE_LOCK_STATUS  = TRUE
+  READ_DISABLED_CAP  = TRUE
+  READ_ENABLED_CAP   = TRUE
+  READ_STATUS        = TRUE
+  READ_LOCK_CAP      = TRUE
+  READ_LOCK_STATUS   = TRUE
+
+  INF RuleOverride = FMP_IMAGE_DESC $(CAPSULE_DIR)/SystemFirmwareDescriptor/SystemFirmwareDescriptor.inf
+
+[FV.CapsuleDispatchFv]
+  FvAlignment        = 16
+  ERASE_POLARITY     = 1
+  MEMORY_MAPPED      = TRUE
+  STICKY_WRITE       = TRUE
+  LOCK_CAP           = TRUE
+  LOCK_STATUS        = TRUE
+  WRITE_DISABLED_CAP = TRUE
+  WRITE_ENABLED_CAP  = TRUE
+  WRITE_STATUS       = TRUE
+  WRITE_LOCK_CAP     = TRUE
+  WRITE_LOCK_STATUS  = TRUE
+  READ_DISABLED_CAP  = TRUE
+  READ_ENABLED_CAP   = TRUE
+  READ_STATUS        = TRUE
+  READ_LOCK_CAP      = TRUE
+  READ_LOCK_STATUS   = TRUE
+
+  INF  SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareUpdateDxe.inf
+
+[Rule.Common.PEIM.FMP_IMAGE_DESC]
+  FILE PEIM = $(NAMED_GUID) {
+     RAW BIN                  |.acpi
+     PEI_DEPEX PEI_DEPEX Optional        $(INF_OUTPUT)/$(MODULE_NAME).depex
+     PE32      PE32    Align=4K          $(INF_OUTPUT)/$(MODULE_NAME).efi
+     UI       STRING="$(MODULE_NAME)" Optional
+     VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+  }
+
+!endif

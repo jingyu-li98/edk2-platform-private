@@ -1,0 +1,76 @@
+///** @file
+//
+//  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+//  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+//
+//  Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
+//  This program and the accompanying materials
+//  are licensed and made available under the terms and conditions of the BSD License
+//  which accompanies this distribution.  The full text of the license may be found at
+//  http://opensource.org/licenses/bsd-license.php
+//
+//  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
+//**/
+
+#include "SetTimeNv.h"
+
+#define CONFIGURATION_VARSTORE_ID    0x1234
+
+formset
+  guid      = TIME_SET_FORMSET_GUID,
+  title     = STRING_TOKEN(STR_FORM_SET_TITLE),
+  help      = STRING_TOKEN(STR_FORM_SET_TITLE_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+  //
+  // Define a Form (EFI_IFR_FORM)
+  //
+  form formid = 1,
+      title = STRING_TOKEN(STR_FORM_TITLE);
+
+      date
+        name    = Date,
+        prompt  = STRING_TOKEN(STR_DATE_PROMPT),
+        help    = STRING_TOKEN(STR_DATE_HELP),
+        flags   = STORAGE_TIME,
+        default = 2004/1/1,
+
+        inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+          ideqval Date.Day == 31
+          AND
+          ideqvallist Date.Month == 2 4 6 9 11
+        endif;
+
+        //
+        // If the day is 30 AND month is 2
+        //
+        inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+          ideqval Date.Day == 30
+          AND
+          ideqval Date.Month == 2
+        endif;
+
+        //
+        // If the day is 29 AND month is 2 AND it year is NOT a leapyear
+        //
+        inconsistentif prompt = STRING_TOKEN(STR_ERROR_POPUP),
+          ideqval Date.Day == 0x1D
+          AND
+          ideqval Date.Month == 2
+          AND
+          NOT
+          ideqvallist Date.Year == 2004 2008 20012 20016 2020 2024 2028 2032 2036
+        endif;
+
+      enddate;
+
+      time
+        prompt  = STRING_TOKEN(STR_TIME_PROMPT),
+        help    = STRING_TOKEN(STR_TIME_HELP),
+        flags   = STORAGE_TIME,
+      endtime;
+  endform;
+
+endformset;

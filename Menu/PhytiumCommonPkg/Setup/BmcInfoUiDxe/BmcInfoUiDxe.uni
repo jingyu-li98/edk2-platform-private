@@ -1,0 +1,201 @@
+/** @file
+String definitions for bmc configuration Configuration form.
+
+Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
+/=#
+/=#
+#langdef   en-US "English"
+#langdef    zh-Hans  "简体中文"
+
+#string STR_BMC_INFO_FORM                    #language en-US "BMC Information"
+                                             #language zh-Hans "\narrowBMC\wide信息"
+#string STR_BMC_INFO_FORM_HELP               #language en-US "Select this option to see and config BMC information."
+                                             #language zh-Hans "\narrowBMC\wide配置信息"
+#string STR_BMC_ID                           #language en-US "Device ID"
+                                             #language zh-Hans "\wide设备\narrowID"
+#string STR_BMC_ID_VALUE                     #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_VER                          #language en-US "Device Rev"
+                                             #language zh-Hans "\wide设备版本"
+#string STR_BMC_VER_VALUE                    #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_CHECK                        #language en-US "Self Test"
+                                             #language zh-Hans "\wide自测"
+#string STR_BMC_CHECK_VALUE                  #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_FM_VENDER                    #language en-US "Manufacturer ID"
+                                             #language zh-Hans "\wide制造商\narrowID"
+
+#string STR_BMC_FM_VENDER_VALUE              #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_FM_VER                       #language en-US "Firmware Rev"
+                                             #language zh-Hans "\wide固件版本"
+#string STR_BMC_FM_VER_VALUE                 #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_IPMI_VER                     #language en-US "IPMI Rev"
+                                             #language zh-Hans "\narrowIPMI\wide版本"
+#string STR_BMC_IPMI_VER_VALUE               #language en-US "N/A"
+                                             #language zh-Hans "N/A"
+
+#string STR_BMC_FM_INFO                      #language en-US "BMC Firmware"
+                                             #language zh-Hans "\narrowBMC\wide固件"
+
+#string STR_BMC_DEVICE_INFO                  #language en-US "BMC Device"
+                                             #language zh-Hans "\narrowBMC\wide设备"
+
+#string STR_EMPTY                            #language en-US " "
+                                             #language zh-Hans " "
+
+#string STR_LAST_STRING                      #language en-US " "
+                                             #language zh-Hans " "
+
+#string STR_BMC_NETWORK                      #language en-US "BMC Network"
+                                             #language zh-Hans "\narrowBMC\wide网络"
+
+#string STR_BMC_ACCOUNT                      #language en-US "BMC Account"
+                                             #language zh-Hans "\narrowBMC\wide账号"
+
+#string STR_IP_ADDRESS_SOURCE                #language en-US "ip source"
+                                             #language zh-Hans "\narrowIP\wide源"
+
+#string STR_IP_ADDRESS_SOURCE_HELP           #language en-US "get or config bmc ip source"
+                                             #language zh-Hans "\wide获取或配置\narrowBMC IP\wide源"
+
+#string STR_IP_ADDRESS_LABEL                 #language en-US "ip address"
+                                             #language zh-Hans "\narrowIP\wide地址"
+
+#string STR_IP_ADDRESS_HELP                  #language en-US "get or config bmc ip address"
+                                             #language zh-Hans "\wide获取或设置\narrowBMC IP\wide地址"
+
+#string STR_SUBNETMASK                       #language en-US "subnet mask"
+                                             #language zh-Hans "\wide子网掩码"
+
+#string STR_SUBNETMASK_HELP                  #language en-US "get or config bmc subnet mask"
+                                             #language zh-Hans "\wide获取或设置子网掩码"
+
+#string STR_GATEWAY                          #language en-US "GatewayIp"
+                                             #language zh-Hans "\wide网关"
+
+#string STR_GATEWAY_HELP                     #language en-US "get or config bmc GatewayIp"
+                                             #language zh-Hans "\wide获取或设置网关"
+
+#string STR_PWRUP                            #language en-US "Power Up"
+                                             #language zh-Hans "\wide开机"
+
+#string STR_RESTORE                          #language en-US "Restore Previous State"
+                                             #language zh-Hans "\wide恢复上次状态\wide"
+
+#string STR_PWROFF                           #language en-US "Power Off"
+                                             #language zh-Hans "\wide关机"
+
+#string STR_POWERPOLICY                      #language en-US "Power Policy"
+                                             #language zh-Hans "\wide电源策略"
+
+
+#string STR_RESTORE_AC                       #language en-US "Restore On Ac Power Loss"
+                                             #language zh-Hans "\wide掉电恢复策略"
+
+#string STR_RESTORE_AC_HELP                  #language en-US "Config Restore On Ac Power Loss"
+                                             #language zh-Hans "\wide设置掉电恢复策略"
+
+#string STR_WATCHDOG_POST                    #language en-US "Watchdog for POST"
+                                             #language zh-Hans "\wide设置\narrowPOST\wide启动过程看门狗"
+
+#string STR_WATCHDOG_OS                      #language en-US "Watchdog for OS"
+                                             #language zh-Hans "\wide设置\narrowOS\wide启动过程看门狗"
+
+
+#string STR_WDT_ENABLE                       #language en-US "Watchdog Enable for POST"
+                                             #language zh-Hans "\wide使能\narrowPOST\wide启动过程看门狗"
+#string STR_WDT_ENABLE_HELP                  #language en-US "Watchdog Enable for POST"
+                                             #language zh-Hans "\wide使能\narrowPOST\wide启动过程看门狗"
+
+#string STR_WDT_TIMEOUT                      #language en-US "Watchdog Timeout for POST"
+                                             #language zh-Hans "\narrowPOST\wide看门狗超时设置"
+#string STR_WDT_TIMEOUT_HELP                 #language en-US "Watchdog Timeout for POST, at least 300s"
+                                             #language zh-Hans "\narrowPOST\wide看门狗超时设置\narrow,\wide至少\narrow300s"
+
+#string STR_WDT_TIMEOUT_ACTION               #language en-US "Watchdog Timeout Action for POST"
+                                             #language zh-Hans "\narrowPOST\wide超时策略选择"
+#string STR_WDT_TIMEOUT_ACTION_HELP          #language en-US "Watchdog Timeout Action for POST"
+                                             #language zh-Hans "\narrowPOST\wide超时策略选择"
+
+#string STR_WDT_TIMEOUT_ACT1                 #language en-US "No Action"
+                                             #language zh-Hans "\wide不做操作"
+#string STR_WDT_TIMEOUT_ACT2                 #language en-US "Hard Reset"
+                                             #language zh-Hans "\wide强制复位"
+#string STR_WDT_TIMEOUT_ACT3                 #language en-US "Power Down"
+                                             #language zh-Hans "\wide系统下电"
+#string STR_WDT_TIMEOUT_ACT4                 #language en-US "Power Cycle"
+                                             #language zh-Hans "\wide下电重启"
+
+#string STR_WDT_ENABLE_OS                    #language en-US "Watchdog Enable for OS"
+                                             #language zh-Hans "\wide使能\narrowOS\wide启动过程看门狗"
+#string STR_WDT_ENABLE_OS_HELP               #language en-US "Watchdog Enable for OS"
+                                             #language zh-Hans "\wide使能\narrowOS\wide启动过程看门狗"
+
+#string STR_WDT_TIMEOUT_OS                   #language en-US "Watchdog Timeout for OS"
+                                             #language zh-Hans "\narrowOS\wide看门狗超时设置"
+#string STR_WDT_TIMEOUT_OS_HELP              #language en-US "Watchdog Timeout for OS,at least 300s"
+                                             #language zh-Hans "\narrowOS\wide看门狗超时设置"
+
+#string STR_WDT_TIMEOUT_ACTION_OS            #language en-US "Watchdog Timeout Action for OS"
+                                             #language zh-Hans "\narrowOS\wide超时策略选择"
+#string STR_WDT_TIMEOUT_ACTION_OS_HELP       #language en-US "Watchdog Timeout Action for OS"
+                                             #language zh-Hans "\narrowOS\wide超时策略选择"
+
+#string STR_ENABLE                           #language en-US "Enable"
+                                             #language zh-Hans "\wide使能"
+#string STR_DISABLE                          #language en-US "Disable"
+                                             #language zh-Hans "\wide禁用"
+
+#string STR_BMC_USER_NAME                    #language en-US "BMC User Name"
+                                             #language zh-Hans "\narrowBMC\wide用户名"
+#string STR_BMC_USER_PASSWORD                #language en-US "BMC User Password"
+                                             #language zh-Hans "\narrowBMC\wide用户密码"
+#string STR_BMC_USER_NAME_VAL                #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_2              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_3              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_4              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_5              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_6              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_7              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_8              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_9              #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_10             #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_11             #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_12             #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_13             #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_14             #language en-US " "
+                                             #language zh-Hans " "
+#string STR_BMC_USER_NAME_VAL_15             #language en-US " "
+                                             #language zh-Hans " "
+
+#string STR_DHCP                             #language en-US "DHCP"
+                                             #language zh-Hans "\wide动态主机配置\wide"
+#string STR_STATIC                           #language en-US "STATIC"
+                                             #language zh-Hans "\wide静态"
+#string STR_UNKNOWN                          #language en-US "UNKNOWN"
+                                             #language zh-Hans "\wide未知"
+

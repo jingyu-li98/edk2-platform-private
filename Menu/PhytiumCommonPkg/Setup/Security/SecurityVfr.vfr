@@ -1,0 +1,45 @@
+///** @file
+//
+//  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+//  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+//
+//  Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
+//  This program and the accompanying materials
+//  are licensed and made available under the terms and conditions of the BSD License
+//  which accompanies this distribution.  The full text of the license may be found at
+//  http://opensource.org/licenses/bsd-license.php
+//
+//  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
+//**/
+
+#include "SecurityNv.h"
+
+formset
+  guid      = SECURITY_PAGE_FORMSET_GUID,
+  title     = STRING_TOKEN(STR_FORM_SET_TITLE),
+  help      = STRING_TOKEN(STR_FORM_SET_TITLE_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+  form formid = SECURITY_PAGE_FORM_ID,
+      title = STRING_TOKEN(STR_FORM_TITLE);
+
+    // Add this invisible text in order to indicate enter Security config form.
+    // To trigger the form open action.
+
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN (STR_NULL_STRING),
+        text  = STRING_TOKEN (STR_NULL_STRING),
+        flags = INTERACTIVE,
+        key   = FORM_SECURITY_OPEN;
+    endif;
+
+     label LABEL_SECURITYPAGE_INFORMATION;
+
+     label LABEL_END;
+
+  endform;
+
+endformset;

@@ -1,0 +1,29 @@
+--- edk2-platforms/Platform/Phytium/SapotaPkg/AcpiTables/Pptt.aslc
++++ edk2-platforms/Platform/Phytium/SapotaPkg/AcpiTables/Pptt.aslc
+@@ -46,7 +46,7 @@ typedef struct {
+ 
+ typedef struct {
+   EFI_ACPI_6_4_PPTT_STRUCTURE_PROCESSOR                     Socket;
+-  PHYTIUM_PPTT_DIE                                          Dies[4];
++  PHYTIUM_PPTT_DIE                                          Dies[2];
+ } PHYTIUM_PPTT_SOCKET;
+ 
+ typedef struct {
+@@ -69,7 +69,7 @@ typedef struct {
+     },                                                                        \
+     FIELD_OFFSET (PHYTIUM_PPTT_TABLE,                                         \
+                   Socket[SocketId].Dies[DieId]), /* Parent */                 \
+-    64 * SocketId + 16 * (DieId) + (CoreId),      /* AcpiProcessorId */       \
++    32 * SocketId + 16 * (DieId) + (CoreId),      /* AcpiProcessorId */       \
+     3,                                      /* NumberOfPrivateResources*/     \
+   }, {                                                                        \
+     FIELD_OFFSET (PHYTIUM_PPTT_TABLE,                                         \
+@@ -238,8 +238,6 @@ typedef struct {
+   }, {                                                                        \
+     PPTT_DIE (SocketId, 0),                                                   \
+     PPTT_DIE (SocketId, 1),                                                   \
+-    PPTT_DIE (SocketId, 2),                                                   \
+-    PPTT_DIE (SocketId, 3),                                                   \
+   }                                                                           \
+ }
+ 

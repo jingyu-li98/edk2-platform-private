@@ -1,0 +1,294 @@
+## @file
+# This package provides   Phytium StandaloneMM Platform modules.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier:BSD-2-Clause-Patent
+#
+##
+################################################################################
+#
+# Defines Section - statements that will be processed to create a Makefile.
+#
+################################################################################
+[Defines]
+  PLATFORM_NAME                  = SapotaStandaloneMM
+  PLATFORM_GUID                  = 3B471014-AC0E-11ED-928A-039FA39D4153
+  PLATFORM_VERSION               = 1.0
+  DSC_SPECIFICATION              = 0x0001001C
+  OUTPUT_DIRECTORY               = Build/$(PLATFORM_NAME)
+  SUPPORTED_ARCHITECTURES        = ARM|AARCH64
+  BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
+  SKUID_IDENTIFIER               = DEFAULT
+  FLASH_DEFINITION               = Platform/Phytium/SapotaPkg/SapotaStmm.fdf
+  GENERAL_PACKAGE                = Silicon/Phytium/PhytiumCommonPkg
+  #DEFINE DEBUG_MESSAGE           = NO_DEBUG
+  DEFINE DEBUG_MESSAGE           = MM_DEBUG
+  #DEFINE DEBUG_MESSAGE           = TEE_DEBUG
+  DEFINE SECURE_VARIABLE         = FALSE
+
+!include MdePkg/MdeLibs.dsc.inc
+
+################################################################################
+#
+# Library Class section - list of all Library Classes needed by this Platform.
+#
+################################################################################
+[LibraryClasses]
+  ArmSvcLib|ArmPkg/Library/ArmSvcLib/ArmSvcLib.inf
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
+  BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
+  SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
+  VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
+  DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+  ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
+  FvLib|StandaloneMmPkg/Library/FvLib/FvLib.inf
+  HobLib|StandaloneMmPkg/Library/StandaloneMmCoreHobLib/StandaloneMmCoreHobLib.inf
+  IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsic.inf
+  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
+  MemLib|StandaloneMmPkg/Library/StandaloneMmMemLib/StandaloneMmMemLib.inf
+  MemoryAllocationLib|StandaloneMmPkg/Library/StandaloneMmCoreMemoryAllocationLib/StandaloneMmCoreMemoryAllocationLib.inf
+  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  PeCoffLib|MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
+  PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLib.inf
+  ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
+
+  #
+  # Entry point
+  #
+  StandaloneMmCoreEntryPoint|StandaloneMmPkg/Library/StandaloneMmCoreEntryPoint/StandaloneMmCoreEntryPoint.inf
+  StandaloneMmDriverEntryPoint|MdePkg/Library/StandaloneMmDriverEntryPoint/StandaloneMmDriverEntryPoint.inf
+
+  StandaloneMmMmuLib|ArmPkg/Library/StandaloneMmMmuLib/ArmMmuStandaloneMmLib.inf
+  CacheMaintenanceLib|MdePkg/Library/BaseCacheMaintenanceLibNull/BaseCacheMaintenanceLibNull.inf
+  PeCoffExtraActionLib|StandaloneMmPkg/Library/StandaloneMmPeCoffExtraActionLib/StandaloneMmPeCoffExtraActionLib.inf
+  RngLib|MdePkg/Library/BaseRngLibNull/BaseRngLibNull.inf
+
+  #
+  # It is not possible to prevent the ARM compiler for generic intrinsic functions.
+  # This library provides the intrinsic functions generate by a given compiler.
+  # NULL means link this library into all ARM images.
+  #
+  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
+
+  #
+  #Debug Library
+  #
+!if $(TARGET) == RELEASE
+  DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+  #SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
+  PL011UartLib|ArmPlatformPkg/Library/PL011UartLib/PL011UartLib.inf
+  SerialPortLib|ArmPlatformPkg/Library/PL011SerialPortLib/PL011SerialPortLib.inf
+  PL011UartClockLib|ArmPlatformPkg/Library/PL011UartClockLib/PL011UartClockLib.inf
+!else
+!if $(DEBUG_MESSAGE) == "MM_DEBUG"
+  #
+  #S2500 debug
+  #
+  #PciLib|MdePkg/Library/BasePciLibCf8/BasePciLibCf8.inf
+  #PciCf8Lib|MdePkg/Library/BasePciCf8Lib/BasePciCf8Lib.inf
+  #DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+  #SerialPortLib|MdeModulePkg/Library/BaseSerialPortLib16550/BaseSerialPortLib16550.inf
+  #PlatformHookLib|MdeModulePkg/Library/BasePlatformHookLibNull/BasePlatformHookLibNull.inf
+  #
+  #PL011
+  #
+  DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+  PL011UartLib|ArmPlatformPkg/Library/PL011UartLib/PL011UartLib.inf
+  SerialPortLib|ArmPlatformPkg/Library/PL011SerialPortLib/PL011SerialPortLib.inf
+  PL011UartClockLib|ArmPlatformPkg/Library/PL011UartClockLib/PL011UartClockLib.inf
+!elseif $(DEBUG_MESSAGE) == "TEE_DEBUG"
+  #DebugLib|Silicon/Phytium/PhytiumCommonPkg/Library/MmPbteeDebugLib/MmPbteeDebugLib.inf
+!elseif $(DEBUG_MESSAGE) == "NO_DEBUG"
+  PL011UartLib|ArmPlatformPkg/Library/PL011UartLib/PL011UartLib.inf
+  SerialPortLib|ArmPlatformPkg/Library/PL011SerialPortLib/PL011SerialPortLib.inf
+  PL011UartClockLib|ArmPlatformPkg/Library/PL011UartClockLib/PL011UartClockLib.inf
+  DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+!endif
+!endif
+
+  IpmiCommandLib|Silicon/Phytium/PhytiumCommonPkg/Library/IpmiCommandLib/IpmiCommandLib.inf
+
+  TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
+  #BMC
+  BmcBaseLib|Silicon/Phytium/S5000CPkg/Library/BmcBaseLib/BmcBaseLib.inf
+  SiliconLib|Silicon/Phytium/S5000CPkg/Library/SiliconLib/SiliconLib.inf
+  ParameterTableLib|Silicon/Phytium/S5000CPkg/Library/ParameterTableLib/ParameterTable.inf
+  GpioLib|$(GENERAL_PACKAGE)/Library/GpioLib/Gpio.inf
+
+[LibraryClasses.ARM]
+  ArmSoftFloatLib|ArmPkg/Library/ArmSoftFloatLib/ArmSoftFloatLib.inf
+
+[LibraryClasses.common.MM_STANDALONE]
+  HobLib|StandaloneMmPkg/Library/StandaloneMmHobLib/StandaloneMmHobLib.inf
+  MmServicesTableLib|MdePkg/Library/StandaloneMmServicesTableLib/StandaloneMmServicesTableLib.inf
+  MemoryAllocationLib|StandaloneMmPkg/Library/StandaloneMmMemoryAllocationLib/StandaloneMmMemoryAllocationLib.inf
+
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
+  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
+  PlatformSecureLib|SecurityPkg/Library/PlatformSecureLibNull/PlatformSecureLibNull.inf
+  SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
+  #TimerLib|MdePkg/Library/BaseTimerLibNullTemplate/BaseTimerLibNullTemplate.inf
+  ArmGenericTimerCounterLib|ArmPkg/Library/ArmGenericTimerPhyCounterLib/ArmGenericTimerPhyCounterLib.inf
+  TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
+  IpmiBaseLib|Silicon/Phytium/PhytiumCommonPkg/Library/MmIpmiBaseLib/MmIpmiBaseLib.inf
+  #
+  # I2c Lib
+  #
+  I2cLib|Silicon/Phytium/PhytiumCommonPkg/Library/I2cLib/I2cLib.inf
+  I2cRuntimeLib|Silicon/Phytium/PhytiumCommonPkg/Library/I2cLib/I2cRuntimeLib.inf
+
+################################################################################
+#
+# Pcd Section - list of all EDK II PCD Entries defined by this Platform
+#
+################################################################################
+[PcdsFeatureFlag.common]
+  gArmTokenSpaceGuid.PcdFfaEnable|FALSE
+
+[PcdsFixedAtBuild.common]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString|L"$(FIRMWARE_VER)"
+  gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x0f
+
+  gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x2
+  #
+  # ParaTable Base
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterTableBase|0xc8000
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterPllOffset|0x0
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterCommonOffset|0x100
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterDdrOffset|0x200
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterBoardOffset|0xe00
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterSecureOffset|0x400
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterC2COffset|0x500
+  gPhytiumPlatformTokenSpaceGuid.PcdParameterPcieOffset|0x600
+  #
+  # Ras Strategy
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdRasBmcCperEnable|TRUE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasFatalErrorRecord|0x0
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryIsoRecord|0x0
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemFatalUceIsoStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemNonFatalUceIsoStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeIsoStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuFatalIsoStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemCeReportStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuCeReportStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasPcieCeReportStrategyEnable|FALSE
+  gPhytiumPlatformTokenSpaceGuid.PcdRasFatalErrorFlashAddress|0x7D0000
+  gPhytiumPlatformTokenSpaceGuid.PcdRasCpuRecordFlashAddress|0x7E0000
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryRecordFlashAddress|0x7F0000
+
+  #
+  # Qspi
+  #
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiFlashBase|0
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiFlashSize|0x1000000
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerBase|0x1A100000
+  gPhytiumPlatformTokenSpaceGuid.PcdSpiControllerSize|0x1000
+  #
+  #Debug Pcd
+  #
+!if $(DEBUG_MESSAGE) == "MM_DEBUG"
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000046
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2f
+  # NS16550 - Serial Terminal S2500
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialUseMmio|TRUE
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialUseHardwareFlowControl|FALSE
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x28001000
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|50000000
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterStride|0x4
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdSerialBaudRate|115200
+  #gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|115200
+  #gEfiMdePkgTokenSpaceGuid.PcdUartDefaultDataBits|8
+  #gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity|1
+  #gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits|1
+  #PL011
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x20001000
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultReceiveFifoDepth|0
+  gArmPlatformTokenSpaceGuid.PL011UartClkInHz|48000000
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|115200
+!elseif $(DEBUG_MESSAGE) == "NO_DEBUG"
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000046
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2f
+!elseif $(DEBUG_MESSAGE) == "TEE_DEBUG"
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x0
+!endif
+  gPhytiumPlatformTokenSpaceGuid.PcdRasMemoryBase|0xFB000000
+  gPhytiumPlatformTokenSpaceGuid.PcdEinjRegionOffset|0x0
+  gPhytiumPlatformTokenSpaceGuid.PcdRasEinjTriggerErrorAddress|0x1a101ebc
+  gPhytiumPlatformTokenSpaceGuid.PcdRasEinjExexuteOperationAddress|0x1B00002C
+  gPhytiumPlatformTokenSpaceGuid.PcdTimerTickReadRegister|0x1a107000
+  gPhytiumPlatformTokenSpaceGuid.PcdKcsBaseAddress|0x8000000
+
+[PcdsPatchableInModule]
+
+###################################################################################################
+#
+# Components Section - list of the modules and components that will be processed by compilation
+#                      tools and the EDK II tools to generate PE32/PE32+/Coff image files.
+#
+# Note: The EDK II DSC file is not used to specify how compiled binary images get placed
+#       into firmware volume images. This section is just a list of modules to compile from
+#       source into UEFI-compliant binaries.
+#       It is the FDF file that contains information on combining binary files into firmware
+#       volume images, whose concept is beyond UEFI and is described in PI specification.
+#       Binary modules do not need to be listed in this section, as they should be
+#       specified in the FDF file. For example: Shell binary (Shell_Full.efi), FAT binary (Fat.efi),
+#       Logo (Logo.bmp), and etc.
+#       There may also be modules listed in this section that are not required in the FDF file,
+#       When a module listed here is excluded from FDF file, then UEFI-compliant binary will be
+#       generated for it, but the binary will not be put into any firmware volume.
+#
+###################################################################################################
+[Components.common]
+  #
+  # Standalone MM components
+  #
+  StandaloneMmPkg/Core/StandaloneMmCore.inf
+  StandaloneMmPkg/Drivers/StandaloneMmCpu/StandaloneMmCpu.inf
+  Silicon/Phytium/PhytiumCommonPkg/Drivers/PhytiumStmmManage/PhytiumStmmManage.inf
+  Silicon/Phytium/PhytiumCommonPkg/Drivers/GenericIpmi/Mm/MmGenericIpmi.inf
+  Silicon/Phytium/S5000CPkg/Drivers/SpiMm/SpiMm.inf
+  Silicon/Phytium/S5000CPkg/Drivers/SpiNorFlashMm/SpiNorFlashMm.inf
+  Silicon/Phytium/PhytiumCommonPkg/Drivers/PhytiumStmmRas/PhytiumStmmRas.inf
+
+!if $(SECURE_VARIABLE) == TRUE
+  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteStandaloneMm.inf {
+    <LibraryClasses>
+      NULL|Silicon/Phytium/PhytiumCommonPkg/Stmm/PhytiumStmmFvb/FixupPcd.inf
+  }
+  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableStandaloneMm.inf {
+    <LibraryClasses>
+      AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
+      BaseCryptLib|CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf
+      DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+      VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
+      NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
+      NULL|Silicon/Phytium/PhytiumCommonPkg/Stmm/PhytiumStmmFvb/FixupPcd.inf
+      #VarCheckPolicyLibStandaloneMm|MdeModulePkg/Library/VarCheckPolicyLib/VarCheckPolicyLibStandaloneMm.inf
+      NULL|MdeModulePkg/Library/VarCheckPolicyLib/VarCheckPolicyLibStandaloneMm.inf
+  }
+!endif
+  #Silicon/Phytium/PhytiumCommonPkg/Stmm/PhytiumStmmFvb/StmmFvb.inf
+  #Silicon/Phytium/PhytiumCommonPkg/Stmm/PhytiumStmmHandleDxe/PhytiumStmmHandleDxe.inf
+
+###################################################################################################
+#
+# BuildOptions Section - Define the module specific tool chain flags that should be used as
+#                        the default flags for a module. These flags are appended to any
+#                        standard flags that are defined by the build process. They can be
+#                        applied for any modules or only those modules with the specific
+#                        module style (EDK or EDKII) specified in [Components] section.
+#
+###################################################################################################
+[BuildOptions.AARCH64]
+GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000 -march=armv8-a+nofp
+GCC:*_*_*_CC_FLAGS = -mstrict-align -fno-pic
+
+[BuildOptions.ARM]
+GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000 -march=armv7-a
+GCC:*_*_*_CC_FLAGS = -fno-stack-protector

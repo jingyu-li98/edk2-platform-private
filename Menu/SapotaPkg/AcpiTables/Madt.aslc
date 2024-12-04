@@ -1,0 +1,50 @@
+/** @file
+  The Mutiple APIC Description Table.
+
+  Copyright (C) 2022, Phytium Technology Co., Ltd. All rights reserved.<BR>
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#include <Library/AcpiLib.h>
+#include <Library/ArmLib.h>
+#include <Library/PcdLib.h>
+#include <IndustryStandard/Acpi.h>
+#include <Platform.h>
+
+//
+// Multiple APIC Description Table
+//
+EFI_ACPI_6_4_MULTIPLE_APIC_DESCRIPTION_TABLE Madt = {
+  {
+    ARM_ACPI_HEADER (
+      EFI_ACPI_6_4_MULTIPLE_APIC_DESCRIPTION_TABLE_SIGNATURE,
+      EFI_ACPI_6_4_MULTIPLE_APIC_DESCRIPTION_TABLE,
+      EFI_ACPI_6_4_MULTIPLE_APIC_DESCRIPTION_TABLE_REVISION
+    ),
+    //
+    // MADT specific fields
+    //
+    0, // LocalApicAddress
+    0, // Flags
+  },
+
+  {
+    EFI_GICC_STRUCTURE(0x00, PLATFORM_GET_MPID(0x0, 0x0, 0), 0x000000)
+  },
+
+  EFI_ACPI_6_4_GIC_DISTRIBUTOR_INIT(
+    0,
+    GICD_BASE,
+    0,
+    0x3
+    ),
+};
+
+
+//
+// Reference the table being generated to prevent the optimizer from removing the
+// data structure from the executable
+//
+VOID* CONST ReferenceAcpiTable = &Madt;

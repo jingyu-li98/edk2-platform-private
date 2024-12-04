@@ -1,0 +1,32 @@
+## @file
+# MM Phase IpmiBase layer library.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+# Copyright 1999 - 2021 Intel Corporation.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = MmIpmiBaseLib
+  FILE_GUID                      = 3266AD75-2AD9-4591-8168-0601FCDB0827
+  MODULE_TYPE                    = MM_STANDALONE
+  PI_SPECIFICATION_VERSION       = 0x00010032
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = IpmiBaseLib
+
+[sources]
+  MmIpmiBaseLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  MmServicesTableLib
+
+[Protocols]
+  gMmIpmiTransportProtocolGuid

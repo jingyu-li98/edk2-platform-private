@@ -1,0 +1,73 @@
+## @file
+#
+#  Copyright (c) 2018 Loongson Technology Corporation Limited (www.loongson.cn).
+#  All intellectual property rights(Copyright, Patent and Trademark) reserved.
+#
+#  Copyright (c) 2007 - 2017, Intel Corporation. All rights reserved.<BR>
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SecurityPage
+  MODULE_UNI_FILE                = SecurityPage.uni
+  FILE_GUID                      = 871E0012-4481-27A9-57D2-2189448008D0
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = SecurityPageInit
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC LOONGARCH64
+#
+[Sources]
+  Security.c
+  Security.h
+  SecurityVfr.vfr
+  SecurityPageStrings.uni
+  SecurityString.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  PrintLib
+  UefiLib
+  DevicePathLib
+
+[Guids]
+  gSecurityPageFormSetGuid
+  gEfiIfrFrontPageGuid
+  gEfiIfrTianoGuid
+  gEfiIfrSecurityPageGuid
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid              ## CONSUMES
+  gEfiHiiConfigAccessProtocolGuid               ## PRODUCES
+
+[Depex]
+  gEfiHiiConfigRoutingProtocolGuid  AND
+  gEfiHiiDatabaseProtocolGuid       AND
+  gEfiVariableArchProtocolGuid      AND
+  gEfiVariableWriteArchProtocolGuid AND
+  gEfiPciIoProtocolGuid
+

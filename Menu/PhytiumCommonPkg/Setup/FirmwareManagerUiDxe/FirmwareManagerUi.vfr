@@ -1,0 +1,25 @@
+///**
+//Firmware manager config formset.
+//
+//Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+//
+//SPDX-License-Identifier: BSD-2-Clause-Patent
+//**/
+#include "FirmwareManagerFormGuid.h"
+
+formset
+  guid = FIRMWARE_MANAGER_FORMSET_GUID,
+  title = STRING_TOKEN (STR_FORM_FIRMWAREMANAGER_TITLE),
+  help = STRING_TOKEN (STR_FIRMWAREMANAGER_MANAGER_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+  form formid = FORM_FIRMWAREMANAGER_ID,
+    title = STRING_TOKEN (STR_FORM_FIRMWAREMANAGER_TITLE);
+    goto FORM_FIRMWAREMANAGER_ID,
+      prompt = STRING_TOKEN(STR_UPDATEBIOS_TITLE),
+      help = STRING_TOKEN(STR_UPDATEBIOS_HELP),
+      flags = INTERACTIVE,
+      key = UPDATEBIOS_KEY;
+  endform;
+
+endformset;

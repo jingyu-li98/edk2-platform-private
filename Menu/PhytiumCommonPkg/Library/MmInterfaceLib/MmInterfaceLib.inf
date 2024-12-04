@@ -1,0 +1,36 @@
+## @file
+#  Phytium MM interface library. The library implements interface call.
+#
+#  Copyright (C) 2023, Phytium Technology Co Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = MmInterfaceLib
+  FILE_GUID                      = 008480BE-0907-11EE-ABF3-C3360F301905
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = MmInterfaceLib
+
+[Sources]
+  MmInterface.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[Protocols]
+  gEfiMmCommunication2ProtocolGuid
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  MemoryAllocationLib
+  MmFrameLib
+
+[Pcd]
+  gArmTokenSpaceGuid.PcdMmBufferSize

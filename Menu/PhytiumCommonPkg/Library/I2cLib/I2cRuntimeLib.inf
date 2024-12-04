@@ -1,0 +1,58 @@
+## @file
+# I2C Runtime operation interfaces.
+#
+# Copyright (C) 2023, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = I2cRuntimeLib
+  FILE_GUID                      = 552acbf8-a36f-11ed-b286-ff1ec6b00257
+  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = I2cRuntimeLib | DXE_RUNTIME_DRIVER
+  CONSTRUCTOR                    = I2cRuntimeLibConstruct
+
+[Sources.common]
+  I2cRuntimeLib.c
+  I2cLibInternal.h
+
+
+[Packages]
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  DxeServicesTableLib
+  IoLib
+  PcdLib
+  SerialPortLib
+  TimeBaseLib
+  TimerLib
+  UefiLib
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[Pcd]
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cRuntimeBaseAddress
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cSsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclLcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSclHcnt
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cHsSpkLen
+  gPhytiumPlatformTokenSpaceGuid.PcdI2cFsSpkLen
+
+[Depex]
+TRUE
+

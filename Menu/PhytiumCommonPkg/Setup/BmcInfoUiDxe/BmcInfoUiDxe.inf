@@ -1,0 +1,82 @@
+## @file
+#  Provides the capbility to configure bmc information in a setup browser
+#  By this module, user may change the bmc information configuration.
+#
+#  Copyright (c) 2023, Phytium Technology Co., Ltd. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001b
+  BASE_NAME                      = BmcInfoUiDxe
+  MODULE_UNI_FILE                = BmcInfoUiDxe.uni
+  FILE_GUID                      = 13c72696-85f6-11ea-8166-33ea28b56a0a
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = BmcInfoUiDriverEntryPoint
+  UNLOAD_IMAGE                   = BmcInfoUiDxeDriverUnload
+#
+# The following information is for reference only and not required by the build tools.
+#
+#
+
+[Sources]
+  BmcInfoDriver.c
+  BmcInfo.c
+  BmcInfo.h
+  BmcInfoUiDxe.uni
+  BmcInfoUiDxe.vfr
+  BmcSetup.h
+  SetupBmcConfig.c
+  SetupBmcConfig.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BmcBaseLib
+  DebugLib
+  HiiLib
+  IpmiCommandLib
+  IpmiBaseLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+  StringBaseLib
+
+[Guids]
+  gEfiIfrTianoGuid                              ## CONSUMES ## GUID (Extended IFR Guid Opcode)
+  gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID
+  gPlatformCpuInforGuid
+  gWatchdogGuid
+
+[Protocols]
+  gEfiHiiConfigAccessProtocolGuid               ## CONSUMES
+  gEfiDevicePathToTextProtocolGuid              ## CONSUMES
+  gEdkiiFormBrowserEx2ProtocolGuid              ## CONSUMES
+  gEfiSmbiosProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid
+
+[FeaturePcd]
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow                         ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn                      ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution         ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution           ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn                 ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow                    ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution    ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution      ## CONSUMES
+
+[Depex]
+  gEfiHiiConfigRoutingProtocolGuid  AND
+  gEfiHiiDatabaseProtocolGuid       AND
+  gEfiVariableArchProtocolGuid      AND
+  gEfiVariableWriteArchProtocolGuid

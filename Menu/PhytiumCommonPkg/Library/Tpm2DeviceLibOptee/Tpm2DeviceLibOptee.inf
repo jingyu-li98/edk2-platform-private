@@ -1,0 +1,41 @@
+## @file
+# This library is Optee interface TPM2 device lib.
+#
+# Copyright (C) 2024, Phytium Technology Co., Ltd. All rights reserved.<BR>
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = Tpm2DeviceLibDTpm
+  FILE_GUID                      = be001e92-b251-43ee-a86e-5464d1b2f9a6
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = Tpm2DeviceLib
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64
+#
+
+[Sources]
+  Tpm2Tis.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ArmPkg/ArmPkg.dec
+  SecurityPkg/SecurityPkg.dec
+  #Silicon/Phytium/E2000Pkg/PhytiumE2000Pkg.dec
+  Silicon/Phytium/PhytiumCommonPkg/PhytiumCommonPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  IoLib
+  DebugLib
+  OpteeLib
+
+[Guids]
+  gOpteeTpmGuid
