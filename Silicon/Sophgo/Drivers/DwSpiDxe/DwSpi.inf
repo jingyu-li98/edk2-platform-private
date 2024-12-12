@@ -8,15 +8,15 @@
 
 [Defines]
   INF_VERSION                    = 0x00010006
-  BASE_NAME                      = SpifmcDxe
-  FILE_GUID                      = C46D01DF-1D9D-48E4-B6B3-B3FC004FE04E
+  BASE_NAME                      = DwSpiDxe
+  FILE_GUID                      = 2344AE6D-FD83-4DBD-B0BE-5D36240B06BB
   MODULE_TYPE                    = DXE_RUNTIME_DRIVER
   VERSION_STRING                 = 1.0
-  ENTRY_POINT                    = SpifmcEntryPoint
+  ENTRY_POINT                    = DwSpiEntryPoint
 
 [Sources.common]
-  SpiFlashMasterController.c
-  SpiFlashMasterController.h
+  DwSpi.c
+  DwSpi.h
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -43,7 +43,6 @@
   gSophgoTokenSpaceGuid.PcdSPIFMC0Base                            ## CONSUMES
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base                            ## CONSUMES
   gSophgoTokenSpaceGuid.PcdSpifmcDmmrEnable                       ## CONSUMES
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode             ## CONSUMES
 
 [Depex]
   gFdtClientProtocolGuid

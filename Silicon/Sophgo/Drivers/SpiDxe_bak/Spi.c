@@ -1,5 +1,5 @@
 /** @file
- *  SPI Flash Master Controller (SPIFMC)
+ *  SPI DW Controller.
  *
  *  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
  *
@@ -8,9 +8,46 @@
  **/
 
 #include <Protocol/FdtClient.h>
-#include "SpiFlashMasterController.h"
+#include "Spi.h"
 
 SPI_MASTER *mSpiMasterInstance;
+
+STATIC
+UINT32
+SpiMmioRead (
+  IN SOPHGO_SPI_DRIVER  *SpiDriver,
+  IN UINT32              Offset
+  )
+{
+  ASSERT ((Offset & 3) == 0);
+
+  return MmioRead32 ((UINTN)(SpiDriver->RegBase + Offset));
+}
+
+STATIC
+VOID
+SpiMmioWrite (
+  IN SOPHGO_SPI_DRIVER  *SpiDriver,
+  IN UINT32              Offset,
+  IN UINT32              Data
+  )
+{
+  ASSERT ((Offset & 3) == 0);
+
+  MemoryFence ();
+
+  MmioWrite32 ((UINTN)(SpiDriver->RegBase + Offset), Data);
+}
+
+STATIC
+VOID
+SpiEnableChip (
+  IN SOPHGO_SPI_DRIVER *SpiDriver,
+  IN BOOLEAN           Enable
+  )
+{
+  SpiMmioWrite (SpiDriver, DW_SPI_SSIENR, (Enable ? 1 : 0));
+}
 
 STATIC
 EFI_STATUS
@@ -53,123 +90,242 @@ SpifmcInitReg (
   return Register;
 }
 
-/**
-  SpifmcReadRegister is a workaround function:
-  AHB bus could only do 32-bit access to SPIFMC fifo,
-  so cmd without 3-byte addr will leave 3-byte data in fifo.
-  Set TX to mark that these 3-byte data would be sent out.
-**/
-EFI_STATUS
-EFIAPI
-SpifmcReadRegister (
-  IN  SPI_NOR *Nor,
-  IN  UINT8   Opcode,
-  IN  UINTN   Length,
-  OUT UINT8   *Buffer
+/*
+ * Return the max entries we can fill into tx fifo
+ */
+STATIC
+UINT32
+SpiTxMax (
+  IN SOPHGO_SPI_DRIVER *SpiDriver
   )
 {
-  INT32      Index;
-  UINTN      SpiBase;
-  UINT32     Register;
-  EFI_STATUS Status;
+  UINT32 TxRoom,
+  UINT32 RxTxGap;
 
-  SpiBase = Nor->SpiBase;
-  Register = SpifmcInitReg (SpiBase);
-  Register |= SPIFMC_TRAN_CSR_BUS_WIDTH_1_BIT;
-  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
-  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
-  Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
+  TxRoom = SpiDriver->FifoLength - SpiMmioRead (SpiDriver, DW_SPI_TXFLR);
 
   //
-  // OPT bit[1]: Disable no address cmd fifo flush
+  // Another concern is about the tx/rx mismatch, we
+  // though to use (SpiDriver->FifoLength - RxFlr - Txflr) as
+  // one maximum value for tx, but it doesn't cover the
+  // data which is out of tx/rx fifo and inside the
+  // shift registers. So a control from sw point of view is taken.
   //
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_OPT), 2);
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
-  MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Opcode);
+  RxTxGap = SpiDriver->FifoLength - (SpiDriver->RxLength - SpiDriver->TxLength);
+  
+  return min3((UINT32)SpiDriver->TxLength, TxRoom, RxTxGap);
+}
 
-  for (Index = 0; Index < Length; Index++) {
-    MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), 0);
+/*
+ * Return the max entries we should read out of rx fifo
+ */
+STATIC
+u32
+SpiRxMax (
+  IN SOPHGO_SPI_DRIVER *SpiDriver
+  )
+{
+  return MIN (SpiDriver->RxLength, SpiMmioRead (SpiDriver, DW_SPI_RXFLR));
+}
+
+STATIC
+EFI_STATUS
+SpiWriter (
+  IN SOPHGO_SPI_DRIVER *SpiDriver,
+  IN VOID              *TxBuffer,
+  IN UINT16            TxLength,
+  IN UINT8             Nbytes
+  )
+{
+  UINT32 Max;
+  UINT16 TxW;
+
+  // Max = Length;
+  Max = SpiTxMax (SpiDriver);
+  TxW = 0;
+
+  while (Max --) {
+    //
+    // Set the tx word if the transfer's original "tx" is not null
+    //
+    if ((TxBuffer) {
+      if (Nbytes == 1) {
+        TxW = *(UINT8 *)(TxBuffer);
+      } else if (Nbytes == 2) {
+	TxW = *(UINT16 *)(TxBuffer);
+      } else {
+	TxW = *(UINT32 *)(TxBuffer);
+      }
+
+      DEBUG ((
+	DEBUG_INFO,
+	"%a: txw: %x tx len: %d\n",
+	__func__,
+        TxW,
+        SpiMmioRead (SpiDriver, DW_SPI_TXFLR)
+	));
+      TxBuffer += Nbytes;
+    } 
+
+    SpiMmioWrite (SpiDriver, DW_SPI_DR, TxW);
+    -- TxLength;
   }
-
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
-  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
-
-  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: Wait Transfer Done %r\n",
-      __func__,
-      Status
-      ));
-    return Status;
-  }
-
-  while (Length--) {
-    *Buffer++ = MmioRead8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT));
-  }
-
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
   return EFI_SUCCESS;
 }
 
+STATIC
 EFI_STATUS
-EFIAPI
-SpifmcWriteRegister (
-  IN SPI_NOR      *Nor,
-  IN UINT8        Opcode,
-  IN CONST UINT8 *Buffer,
-  IN UINTN        Length
+SpiReader (
+  IN SOPHGO_SPI_DRIVER *SpiDriver,
+  IN VOID              *RxBuffer,
+  IN UINT16            RxLength,
+  IN UINT8             Nbytes
   )
 {
-  INT32      Index;
-  UINTN      SpiBase;
-  UINT32     Register;
-  EFI_STATUS Status;
+  UINT32 Max;
+  UINT16 RxW;
 
-  SpiBase = Nor->SpiBase;
+  // Max = RxLength;
+  Max = SpiRxMax (SpiDrvier);
 
-  Register = SpifmcInitReg (SpiBase);
-  Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
-  Register |= SPIFMC_TRAN_CSR_WITH_CMD;
+  while (Max--) {
+    RxW = SpiMmioRead (SpiDriver, DW_SPI_DR)
+    if (RxBuffer) {
+      if (n_bytes == 1) {
+        *(UINT8 *)(RxBuf) = Rxw;
+      } else if (Nbytes == 2) {
+        *(UINT16 *)(RxBuf) = RxW;
+      } else {
+        *(UINT32 *)(RxBuf) = RxW;
+      }
+    
+      DEBUG ((
+        DEBUG_INFO,
+        "rxw: %x tx len: %d\n",
+        RxW,
+        SpiMmioRead (SpiDriver, DW_SPI_RXFLR)
+        );
 
-  //
-  // If write values to the Status Register,
-  // configure TRAN_CSR register as the same as SpifmcReadReg.
-  //
-  if (Opcode == SPINOR_OP_WRSR) {
-    Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
-    MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
+      RxBuffer += Nbytes;
+    }
+    -- RxLength;
   }
-
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
-  MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Opcode);
-
-  for (Index = 0; Index < Length; Index++) {
-    MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Buffer[Index]);
-  }
-
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_INT_STS), 0);
-  Register |= SPIFMC_TRAN_CSR_GO_BUSY;
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
-
-  Status = SpifmcWaitInt (SpiBase, SPIFMC_INT_TRAN_DONE);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: Wait Transfer Done %r\n",
-      __func__,
-      Status
-      ));
-    return Status;
-  }
-
-  MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
   return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+SpiLoopback (
+  IN SOPHGO_SPI_DRIVER *SpiDrvier
+  )
+{
+  UINT32 Max;
+  UINT16 TxW;
+  UINT16 RxW;
+
+  Max = Length;
+	timer_meter_start();
+
+  while (Max > 0) {
+    //
+    // Set the tx word if the transfer's original "tx" is not null
+    //
+    if ((SPI_READ(DW_SPI_RISR) & SPI_RISR_TXOIR) != SPI_RISR_TXOIR) {
+      timer_meter_start();
+
+      if (dws->n_bytes == 1) {
+        txw = *(u8 *)(dws->tx);
+      } else {
+	txw = *(u16 *)(dws->tx);
+      }
+
+      SPI_WRITE(DW_SPI_DR, txw);
+      dws->tx += dws->n_bytes;
+      udelay(10);
+
+      rxw = SPI_READ(DW_SPI_DR);
+      if (dws->n_bytes == 1) {
+        *(u8 *)(dws->rx) = rxw;
+      } else {
+        *(u16 *)(dws->rx) = rxw;
+      }
+
+      dws->rx += dws->n_bytes;
+      Max--;
+    } else if (timer_meter_get_ms() < 100) {
+      udelay(10); /* wait FIFO exit overflow status */
+    } else {
+      DEBUG ((
+        DEBUG_INFO,
+	"%a: SPI TX timeout\n",
+	__func__
+	));
+      return EFI_TIMEOUT;
+    }
+    MemoryFence ();
+  }
+
+  return EFI_SUCCESS;
+}
+
+VOID
+SpiInit (
+  IN UINT8 Nbytes
+  )
+{
+  UINT32 Value;
+  UINT32 SpiMode;
+
+  Ctrl0 = 0;
+  SpiMode = 3;
+  SpiEnableChip (FALSE);
+  Value = SpiMmioRead (SpiDriver, DW_SPI_CTRL0);
+  Value &= ~(DW_PSSI_CTRL0_TMOD_MASK
+           | DW_PSSI_CTRL0_SCPOL
+           | DW_PSSI_CTRL0_SCPHA
+	   | DW_PSSI_CTRL0_FRF_MASK
+           | DW_PSSI_CTRL0_DFS_MASK);
+  if (Nbytes == 1) {
+    SpiMmioWrite (SpiDriver,
+		  DW_SPI_CTRL0,
+		  Value
+		  | DW_SPI_CTRL0_TMOD_TR
+		  | (SpiMode << 6)
+		  | DW_SPI_CTRL0_FRF_MOTO_SPI
+		  | 0x7 // 8-bit serial data transfer 
+		  ); /* Set to SPI frame format */
+  } else if (Nbytes == 2) {
+    SpiMmioWrite (SpiDriver, DW_SPI_CTRL0,
+		  Value
+		  | DW_SPI_CTRL0_TMOD_TR
+		  | (SpiMode << 6)
+		  | SPI_FRF_SPI
+		  | 0xF // 16-bit serial data transfer
+		);
+  }
+
+  SpiMmioWrite (SpiDriver, DW_SPI_BAUDR, SPI_BAUDR_DIV);
+  SpiMmioWrite (SpiDriver, DW_SPI_TXFLTR, 4);
+  SpiMmioWrite (SpiDriver, DW_SPI_RXFLTR, 4);
+  SpiMmioWrite (SpiDriver, DW_SPI_SER, 0x1); /* enable slave 1 device */
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: CS %x\n",
+    __func__,
+    SpiMmioRead (SpiDriver, DW_SPI_SER)
+    ));
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: SPI mode: %d\n",
+    __func__,
+    (SpiMmioRead (SpiDriver, DW_SPI_CTRL0) >> 6) & 0x3
+    ));
+
+  SpiEnableChip (TRUE);
 }
 
 EFI_STATUS
