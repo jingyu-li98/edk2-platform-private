@@ -1,0 +1,69 @@
+## @file
+#  Platform PEI Driver for RISC-V
+#
+#  Copyright (c) 2022, Ventana Micro Systems Inc. All rights reserved.<BR>
+#  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
+#  Copyright (c) 2025, SOPHGO Technologies Inc. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  #INF_VERSION                    = 1.30
+  INF_VERSION                    = 0x0001001b
+  BASE_NAME                      = PeiRiscV64
+  FILE_GUID                      = 4F05BE00-BAF9-4001-B1FC-6E3DA6B40784
+  MODULE_TYPE                    = PEIM
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = InitializePlatform
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = RISCV64
+#
+
+[Sources]
+  PlatformPei.c
+  PlatformPei.h
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  UefiCpuPkg/UefiCpuPkg.dec
+  Silicon/Sophgo/Sophgo.dec
+  Platform/RISC-V/PlatformPkg/RiscVPlatformPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  PeCoffLib
+  LzmaDecompressLib
+  PrePiLib
+  MemoryAllocationLib
+  HobLib
+  MemoryInitPeiLib
+  CpuPeiLib
+  PlatformPeiLib
+  PcdLib
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
+  gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize
+  gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress
+  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvBase
+  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvSize
+  #gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamBase
+  #gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize
+
+[Ppis]
+  gEfiPeiMasterBootModePpiGuid
+
+[Depex]
+  TRUE

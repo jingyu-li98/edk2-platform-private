@@ -42,6 +42,10 @@
   DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
   DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
+  DEFINE FLASH_ENABLE             = TRUE
+  DEFINE ETH_ENABLE               = TRUE
+  DEFINE ACPI_ENABLE              = TRUE
+
   #
   # x64 Emulator
   #
@@ -118,7 +122,6 @@
   !endif
 
 [BuildOptions]
-  GCC:RELEASE_*_*_CC_FLAGS       = -DMDEPKG_NDEBUG
 !ifdef $(SOURCE_DEBUG_ENABLE)
   GCC:*_*_RISCV64_GENFW_FLAGS    = --keepexceptiontable
 !endif
@@ -156,6 +159,7 @@
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
   SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
+  BmpSupportLib|MdeModulePkg/Library/BaseBmpSupportLib/BaseBmpSupportLib.inf
   SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
   CpuLib|MdePkg/Library/BaseCpuLib/BaseCpuLib.inf
   PerformanceLib|MdePkg/Library/BasePerformanceLibNull/BasePerformanceLibNull.inf
@@ -192,6 +196,9 @@
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
   VariableFlashInfoLib|MdeModulePkg/Library/BaseVariableFlashInfoLib/BaseVariableFlashInfoLib.inf
   VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
+  IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
+  ConfigUtilsLib|Silicon/Sophgo/Library/ConfigUtilsLib/ConfigUtilsLib.inf
+  SmbiosInformationLib|Silicon/Sophgo/Library/SmbiosInformation/SmbiosInformationLib.inf
 !ifdef $(SOURCE_DEBUG_ENABLE)
   PeCoffExtraActionLib|SourceLevelDebugPkg/Library/PeCoffExtraActionLibDebug/PeCoffExtraActionLibDebug.inf
   DebugCommunicationLib|SourceLevelDebugPkg/Library/DebugCommunicationLibSerialPort/DebugCommunicationLibSerialPort.inf
@@ -202,18 +209,7 @@
 
   DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
   ImagePropertiesRecordLib|MdeModulePkg/Library/ImagePropertiesRecordLib/ImagePropertiesRecordLib.inf
-!if $(SECURE_BOOT_ENABLE) == TRUE
-  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
-  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
-  TpmMeasurementLib|SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
-  AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
-  SecureBootVariableLib|SecurityPkg/Library/SecureBootVariableLib/SecureBootVariableLib.inf
-  SecureBootVariableProvisionLib|SecurityPkg/Library/SecureBootVariableProvisionLib/SecureBootVariableProvisionLib.inf
-  PlatformPKProtectionLib|SecurityPkg/Library/PlatformPKProtectionLibVarPolicy/PlatformPKProtectionLibVarPolicy.inf
-!else
-  TpmMeasurementLib|MdeModulePkg/Library/TpmMeasurementLibNull/TpmMeasurementLibNull.inf
-  AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
-!endif
+
   VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
 
 !if $(HTTP_BOOT_ENABLE) == TRUE
@@ -224,10 +220,26 @@
   # S3BootScriptLib|MdeModulePkg/Library/PiDxeS3BootScriptLib/DxeS3BootScriptLib.inf
   SmbusLib|MdePkg/Library/BaseSmbusLibNull/BaseSmbusLibNull.inf
   OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
+  AcpiLib|EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
 
 [LibraryClasses.common]
-!if $(SECURE_BOOT_ENABLE) == TRUE
+  #
+  # Secure Boot dependencies
+  #
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
+  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
+
+!if $(SECURE_BOOT_ENABLE) == TRUE
+  TpmMeasurementLib|SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
+  AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
+  SecureBootVariableLib|SecurityPkg/Library/SecureBootVariableLib/SecureBootVariableLib.inf
+  SecureBootVariableProvisionLib|SecurityPkg/Library/SecureBootVariableProvisionLib/SecureBootVariableProvisionLib.inf
+  PlatformPKProtectionLib|SecurityPkg/Library/PlatformPKProtectionLibVarPolicy/PlatformPKProtectionLibVarPolicy.inf
+  PlatformSecureLib|OvmfPkg/Library/PlatformSecureLib/PlatformSecureLib.inf
+!else
+  TpmMeasurementLib|MdeModulePkg/Library/TpmMeasurementLibNull/TpmMeasurementLibNull.inf
+  AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
 !endif
 
 !ifdef $(DEBUG_ON_SERIAL_PORT)
@@ -238,15 +250,16 @@
 
   # RISC-V Architectural Libraries
   RiscVSbiLib|MdePkg/Library/BaseRiscVSbiLib/BaseRiscVSbiLib.inf
+  RiscVFpuLib|UefiCpuPkg/Library/BaseRiscVFpuLib/BaseRiscVFpuLib.inf
   RiscVMmuLib|UefiCpuPkg/Library/BaseRiscVMmuLib/BaseRiscVMmuLib.inf
   CpuExceptionHandlerLib|UefiCpuPkg/Library/BaseRiscV64CpuExceptionHandlerLib/BaseRiscV64CpuExceptionHandlerLib.inf
 
   TimerLib|UefiCpuPkg/Library/BaseRiscV64CpuTimerLib/BaseRiscV64CpuTimerLib.inf
   TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
-  RealTimeClockLib|EmbeddedPkg//Library/VirtualRealTimeClockLib/VirtualRealTimeClockLib.inf
 
   # Flattened Device Tree (FDT) access library
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
+  DtPlatformDtbLoaderLib|EmbeddedPkg/Library/DxeDtPlatformDtbLoaderLibDefault/DxeDtPlatformDtbLoaderLibDefault.inf
 
   # PCIe dependencies
   PciHostBridgeLib|Silicon/Sophgo/SG2044Pkg/Library/PciHostBridgeLib/PciHostBridgeLib.inf
@@ -256,8 +269,21 @@
   # Nor Flash Library
   NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
 
-  #IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
+  # Ds1307 RTC Library
+  RealTimeClockLib|Silicon/Sophgo/Library/Ds1307RealTimeClockLib/Ds1307RealTimeClockLib.inf
 
+  IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
+
+  EfuseLib|Silicon/Sophgo/Library/EfuseLib/EfuseLib.inf
+
+  #
+  # Random Generator Library
+  #
+  TrngLib|Silicon/Sophgo/Library/TrngLib/TrngLib.inf
+  RngLib|Silicon/Sophgo/Library/RngLib/RngLib.inf
+
+  ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
+  DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -265,6 +291,9 @@
   HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
   PrePiHobListPointerLib|OvmfPkg/RiscVVirt/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
   MemoryAllocationLib|EmbeddedPkg/Library/PrePiMemoryAllocationLib/PrePiMemoryAllocationLib.inf
+  MemoryInitPeiLib|Silicon/Sophgo/MemoryInitPei/MemoryInitPeiLib.inf
+  CpuPeiLib|Silicon/Sophgo/CpuPei/CpuPeiLib.inf
+  PlatformPeiLib|Silicon/Sophgo/PlatformPei/PlatformPeiLib.inf
 
 !ifdef $(SOURCE_DEBUG_ENABLE)
   DebugAgentLib|SourceLevelDebugPkg/Library/DebugAgent/SecPeiDebugAgentLib.inf
@@ -286,7 +315,6 @@
   DxeCoreEntryPoint|MdePkg/Library/DxeCoreEntryPoint/DxeCoreEntryPoint.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/RuntimeDxeReportStatusCodeLib/RuntimeDxeReportStatusCodeLib.inf
-  ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
   UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
 !if $(SECURE_BOOT_ENABLE) == TRUE
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
@@ -331,26 +359,40 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
 
+[PcdsFeatureFlag.common]
+  ## Indicates if S3 performance data will be supported in ACPI FPDT table.
+  #   TRUE  - S3 performance data will be supported in ACPI FPDT table.
+  #   FALSE - S3 performance data will not be supported in ACPI FPDT table.
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwarePerformanceDataTableS3Support|FALSE
+
+  #
+  # Activate AcpiSdtProtocol
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
+
 [PcdsFixedAtBuild]
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseMemory|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeMemorySize|1
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
-  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0xF
+  gEfiMdePkgTokenSpaceGuid.PcdRiscVFeatureOverride|0x7
   gEfiMdePkgTokenSpaceGuid.PcdMaximumGuidedExtractHandler|0x10
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize|0x8000
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize|0xe000
+  gEfiMdePkgTokenSpaceGuid.PcdMaximumUnicodeStringLength|1000000
   gEfiMdePkgTokenSpaceGuid.PcdMaximumAsciiStringLength|1000000
+  gEfiMdePkgTokenSpaceGuid.PcdMaximumLinkedListLength|1000000
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0
 
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000004F
-!ifdef $(SOURCE_DEBUG_ENABLE)
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x17
+
+!if $(TARGET) == RELEASE
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x13
 !else
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2B
 !endif
 
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -412,7 +454,7 @@
   # 9 - 48bit mode.
   # 10 - 57bit mode.
   #
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode|0
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuRiscVMmuMaxSatpMode|9
 
   #
   # Terminal Type
@@ -433,20 +475,50 @@
   # 64KB + 64KB + 64KB
   # Flash Offset: 32MB
   #
-  #gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x02800000
-  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x00800000
-
-  #
-  # DDR address of conf.ini file
-  #
+!if $(FLASH_ENABLE) == TRUE
+  gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x7001000000
+  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7005000000
+  gSophgoTokenSpaceGuid.PcdSpifmcDmmrEnable|TRUE
+  gSophgoTokenSpaceGuid.PcdFlashPartitionTableAddress|0x80000
+!endif
   gSophgoTokenSpaceGuid.PcdIniFileRamAddress|0x89000000
+  gSophgoTokenSpaceGuid.PcdIniFileMaxSize|8192
+  gSophgoTokenSpaceGuid.PcdMisa|0x00B4112F
+  gSophgoTokenSpaceGuid.PcdRtcI2cBusNum|2
 
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency|50000000
 
+  gSophgoTokenSpaceGuid.PcdEfuseControllerNum|2
+  gSophgoTokenSpaceGuid.PcdEfuse0Base|0x7040000000
+  gSophgoTokenSpaceGuid.PcdEfuse1Base|0x7040001000
+  gSophgoTokenSpaceGuid.PcdEfuseNumAddrBits|8
+  gSophgoTokenSpaceGuid.PcdEfuseNumCells|128
+  gSophgoTokenSpaceGuid.PcdEfuseCellWidth|4
+
+  #
+  # 1. PcdEfuseWriteEnableGpio set to TRUE indicates that writing data to
+  #    eFuse requires configuring the GPIO level.
+  # 2. PcdEfuseWriteEnableGpioPin indicates the GPIO number that needs to
+  #    be configured.
+  # 3. PcdEfuseIsGpioHighToEnableWrite set to TRUE indicates that eFuse
+  #    writing is enabled when the GPIO level is set to high.
+  #
+  gSophgoTokenSpaceGuid.PcdEfuseWriteEnableGpio|TRUE
+  gSophgoTokenSpaceGuid.PcdEfuseWriteEnableGpioPin|18
+  gSophgoTokenSpaceGuid.PcdEfuseIsGpioHighToEnableWrite|TRUE
+
+!if $(ETH_ENABLE) == TRUE
+  gSophgoTokenSpaceGuid.PcdPhyResetGpio|TRUE
+  gSophgoTokenSpaceGuid.PcdPhyResetGpioPin|28
+  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x12345678ABCD
+!endif
 [PcdsFixedAtBuild.common]
   gSophgoTokenSpaceGuid.PcdSDIOSourceClockFrequency|400000000
   gSophgoTokenSpaceGuid.PcdSDIOTransmissionClockFrequency|25000000
-  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7001000000
+  gSophgoTokenSpaceGuid.PcdTrngBase|0x7040020000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x7030001000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialBaudRate|115200
 
 ################################################################################
 #
@@ -455,10 +527,9 @@
 ################################################################################
 
 [PcdsDynamicDefault]
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
-  gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE
-
-  #gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
+!if $(FLASH_ENABLE) == FALSE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
+!endif
 
   #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0208
   #gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
@@ -476,8 +547,19 @@
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|0
   #gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|0
 
+!if $(FLASH_ENABLE) == TRUE
+  gSophgoTokenSpaceGuid.PcdFlashVariableOffset|0x0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0x0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|0x0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0x0
+!endif
+
 [PcdsDynamicHii]
+!if $(ACPI_ENABLE) == TRUE
+  gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|FALSE|NV,BS
+!else
   gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|TRUE|NV,BS
+!endif
 
 ################################################################################
 #
@@ -489,7 +571,7 @@
   #
   # SEC Phase modules
   #
-  Silicon/Sophgo/Sec/SecMain.inf  {
+  Silicon/Sophgo/PeilessSec/PeilessSec.inf  {
     <LibraryClasses>
       ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
       LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
@@ -523,15 +605,6 @@
 
   MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
 
-!if $(SECURE_BOOT_ENABLE) == TRUE
-  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf {
-    <LibraryClasses>
-      NULL|SecurityPkg/Library/DxeImageVerificationLib/DxeImageVerificationLib.inf
-  }
-!else
-  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
-!endif
-
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
   MdeModulePkg/Universal/Metronome/Metronome.inf
   MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf {
@@ -540,18 +613,27 @@
   }
   EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf {
     <LibraryClasses>
-      RealTimeClockLib|EmbeddedPkg/Library/VirtualRealTimeClockLib/VirtualRealTimeClockLib.inf
+      RealTimeClockLib|Silicon/Sophgo/Library/Ds1307RealTimeClockLib/Ds1307RealTimeClockLib.inf
   }
 
   #
   # RISC-V Platform module
   #
-  Silicon/Sophgo/Drivers/SpiDxe/SpiFlashMasterController.inf
+!if $(FLASH_ENABLE) == TRUE
+  Silicon/Sophgo/Drivers/SpifmcDxe/SpiFlashMasterController.inf
   Silicon/Sophgo/Drivers/NorFlashDxe/NorFlashDxe.inf
   Silicon/Sophgo/Drivers/FlashFvbDxe/FlashFvbDxe.inf
+!endif
+  Silicon/Sophgo/Drivers/DwI2cDxe/DwI2cDxe.inf
   Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
   Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
-  #Silicon/Sophgo/Drivers/IniParserDxe/IniParserLib.inf
+  Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.inf
+  Silicon/Sophgo/Drivers/DwGpioDxe/DwGpioDxe.inf
+!if $(ETH_ENABLE) == TRUE
+  Silicon/Sophgo/Drivers/Net/StmmacMdioDxe/StmmacMdioDxe.inf
+  Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
+  Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+!endif
 
   #
   # RISC-V Core module
@@ -598,7 +680,8 @@
   #
   # SMBIOS Support
   #
-  #MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  Platform/Sophgo/SG2044Pkg/Drivers/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 
   #
   # PCIe Support
@@ -622,6 +705,16 @@
   MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
   MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
   MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
+
+  #
+  # Random Number Generator Support
+  #
+  Silicon/Sophgo/Drivers/RngDxe/RngDxe.inf
+
+  #
+  # Hash2 Protocol producer
+  #
+  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 
   #
   # Network Support
@@ -648,6 +741,11 @@
   !endif
 
   #
+  # ASPEED AST2500 GOP driver
+  #
+  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2500GopDxe.inf
+
+  #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem
   #
   FatPkg/EnhancedFatDxe/Fat.inf
@@ -655,6 +753,13 @@
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
   MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
+
+  #
+  # Update Firmware in Nor Flash (whole chip)
+  #
+!if $(FLASH_ENABLE) == TRUE
+  Silicon/Sophgo/Applications/FirmwareUpdate/FirmwareUpdate.inf
+!endif
 
   #
   # UEFI Application (Shell Embedded Boot Loader)
@@ -669,6 +774,8 @@
       NULL|ShellPkg/Library/UefiShellDebug1CommandsLib/UefiShellDebug1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellInstall1CommandsLib/UefiShellInstall1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellAcpiViewCommandLib/UefiShellAcpiViewCommandLib.inf
+      NULL|Silicon/Sophgo/Applications/EfuseTool/EfuseTool.inf
       HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
       SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
       PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
@@ -691,8 +798,20 @@
       SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
   }
 
+  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf {
+    <LibraryClasses>
+!if $(SECURE_BOOT_ENABLE) == TRUE
+      NULL|SecurityPkg/Library/DxeImageVerificationLib/DxeImageVerificationLib.inf
+!endif
+!if $(TPM2_ENABLE) == TRUE
+      NULL|SecurityPkg/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
+!endif
+  }
+
 !if $(SECURE_BOOT_ENABLE) == TRUE
   SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigDxe.inf
+  SecurityPkg/EnrollFromDefaultKeysApp/EnrollFromDefaultKeysApp.inf
+  SecurityPkg/VariableAuthenticated/SecureBootDefaultKeysDxe/SecureBootDefaultKeysDxe.inf
 !endif
 
   #
@@ -708,9 +827,32 @@
   MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
   MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   MdeModulePkg/Logo/LogoDxe.inf
-  MdeModulePkg/Application/UiApp/UiApp.inf {
+  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/UiApp/UiApp.inf {
     <LibraryClasses>
       NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
   }
+  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTime/SetDateAndTime.inf
+
+!if $(FLASH_ENABLE) == TRUE
+  Silicon/Sophgo/SG2044Pkg/Drivers/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
+!endif
+  Silicon/Sophgo/SG2044Pkg/Drivers/Information/Information.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
+
+  #
+  # ACPI Support
+  #
+!if $(ACPI_ENABLE) == TRUE
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
+  Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044EvbAcpiTables.inf
+  Silicon/Sophgo/SG2044Pkg/Pptt/Pptt.inf
+  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf {
+    <LibraryClasses>
+      LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
+  }
+!endif

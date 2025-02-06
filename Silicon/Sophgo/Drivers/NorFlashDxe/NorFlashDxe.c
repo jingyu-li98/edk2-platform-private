@@ -8,11 +8,11 @@
 
 #include "NorFlashDxe.h"
 
-NOR_FLASH_INSTANCE         *mNorFlashInstance;
-SOPHGO_SPI_MASTER_PROTOCOL *SpiMasterProtocol;
-SOPHGO_NOR_FLASH_PROTOCOL  *NorFlashProtocol;
-// UINT32                      mNorFlashDeviceCount;
-STATIC EFI_EVENT            mNorFlashVirtualAddrChangeEvent;
+#include <Library/TimerLib.h>
+
+STATIC NOR_FLASH_INSTANCE         *mNorFlashInstance;
+STATIC SOPHGO_SPI_MASTER_PROTOCOL *SpiMasterProtocol;
+STATIC EFI_EVENT                  mNorFlashVirtualAddrChangeEvent;
 
 EFI_STATUS
 EFIAPI
@@ -43,8 +43,6 @@ SpiNorGetFlashId (
       Id[2]));
     return Status;
   }
-
-  NorFlashPrintInfo (Nor->Info);
 
   return EFI_SUCCESS;
 }
@@ -85,7 +83,7 @@ SpiNorWaitTillReady (
   WaitTime = 0;
 
   while (1) {
-    gBS->Stall (100);
+    MicroSecondDelay (100);
 
     //
     // Query the Status Register to see if the flash is ready for new commands.
@@ -243,17 +241,7 @@ SpiNorReadData (
       ));
     return EFI_BAD_BUFFER_SIZE;
   }
-#if 0
-  if ((FlashOffset + Length) > (Nor->Info->SectorSize * Nor->Info->SectorCount)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: Flash size total %d MB, address is out of range!\n",
-      __func__,
-      (Nor->Info->SectorSize * Nor->Info->SectorCount) / 1024 / 1024
-      ));
-    return EFI_OUT_OF_RESOURCES;
-  }
-#endif
+
   //
   // read data from flash memory by PAGE
   //
@@ -265,7 +253,7 @@ SpiNorReadData (
     PageRemain = MIN (Nor->Info->PageSize - PageOffset, Length - Index);
 
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a: Length=0x%lx\tIndex=0x%lx\tAddress=0x%lx\tPageRemain=0x%lx\tPageOffset=0x%lx\n",
       __func__,
       Length,
@@ -323,16 +311,6 @@ SpiNorWriteData (
     return EFI_BAD_BUFFER_SIZE;
   }
 
-  if ((FlashOffset + Length) > (Nor->Info->SectorSize * Nor->Info->SectorCount)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: Flash size total %d MB, address is out of range!\n",
-      __func__,
-      (Nor->Info->SectorSize * Nor->Info->SectorCount) / 1024 / 1024
-      ));
-    return EFI_OUT_OF_RESOURCES;
-  }
-
   //
   // Write data by PAGE
   //
@@ -344,7 +322,7 @@ SpiNorWriteData (
     PageRemain = MIN (Nor->Info->PageSize - PageOffset, Length - Index);
 
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "%a: Length=0x%lx\tIndex=0x%lx\tAddress=0x%lx\tPageRemain=0x%lx\n",
       __func__,
       Length,
@@ -580,6 +558,76 @@ SpiNorEraseChip (
 
 EFI_STATUS
 EFIAPI
+SpiNorGetFlashVariableOffset (
+  IN SPI_NOR              *Nor
+  )
+{
+  EFI_STATUS           Status;
+  FLASH_PARTITION_INFO *Info;
+  UINTN                NameLength;
+  UINTN                SuffixLength;
+  UINTN                Address;
+
+  CONST CHAR8 *Suffix = ".fd";
+  SuffixLength = AsciiStrLen (Suffix);
+  Address = PcdGet64 (PcdFlashPartitionTableAddress);
+
+  Info = AllocateRuntimeZeroPool (sizeof(FLASH_PARTITION_INFO));
+  if (Info == NULL) {
+    DEBUG((
+      DEBUG_ERROR,
+      "SpiNor: Cannot allocate memory\n"
+      ));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  do {
+    Status = SpiNorReadData (Nor, Address, sizeof (FLASH_PARTITION_INFO), (UINT8 *)Info);
+    if (EFI_ERROR(Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a: Read partition table - %r!\n",
+        __func__,
+        Status
+        ));
+      goto Error;
+    }
+
+    if (Info->Magic != DPT_MAGIC) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a: Bad partition table magic!\n",
+        __func__,
+        Status
+        ));
+      goto Error;
+    }
+
+    Address += sizeof (FLASH_PARTITION_INFO);
+    NameLength = AsciiStrLen (Info->Name);
+
+  } while (AsciiStrCmp (Info->Name + NameLength - SuffixLength, Suffix));
+
+  PcdSet64S (PcdFlashVariableOffset, Info->Offset + PcdGet32 (PcdRiscVDxeFvSize));
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: Load %a from nor flash 0x%x to memory 0x%lx size %d\n",
+    __func__,
+    Info->Name,
+    Info->Offset,
+    Info->Lma,
+    Info->Size
+    ));
+  Status = EFI_SUCCESS;
+Error:
+  FreePool (Info);
+
+  return Status;
+}
+
+EFI_STATUS
+EFIAPI
 SpiNorInit (
   IN SOPHGO_NOR_FLASH_PROTOCOL *This,
   IN SPI_NOR                   *Nor
@@ -652,6 +700,17 @@ SpiNorVirtualNotifyEvent (
   )
 {
   EfiConvertPointer (0x0, (VOID**)&SpiMasterProtocol);
+
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.GetFlashid);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.ReadData);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.ReadStatus);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.WriteData);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.WriteStatus);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.Erase);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.EraseChip);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.Init);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance->NorFlashProtocol.GetFlashVariableOffset);
+  EfiConvertPointer (0x0, (VOID**)&mNorFlashInstance);
 }
 
 EFI_STATUS
@@ -699,14 +758,15 @@ SpiNorEntryPoint (
   // Create DevicePath for SPI Nor Flash
   //
   // for (Index = 0; Index < mNorFlashDeviceCount; Index++) {
-    mNorFlashInstance->NorFlashProtocol.Init            = SpiNorInit;
-    mNorFlashInstance->NorFlashProtocol.GetFlashid      = SpiNorGetFlashId;
-    mNorFlashInstance->NorFlashProtocol.ReadData        = SpiNorReadData;
-    mNorFlashInstance->NorFlashProtocol.WriteData       = SpiNorWriteData;
-    mNorFlashInstance->NorFlashProtocol.ReadStatus      = SpiNorReadStatus;
-    mNorFlashInstance->NorFlashProtocol.WriteStatus     = SpiNorWriteStatus;
-    mNorFlashInstance->NorFlashProtocol.Erase           = SpiNorErase;
-    mNorFlashInstance->NorFlashProtocol.EraseChip       = SpiNorEraseChip;
+    mNorFlashInstance->NorFlashProtocol.Init                    = SpiNorInit;
+    mNorFlashInstance->NorFlashProtocol.GetFlashid              = SpiNorGetFlashId;
+    mNorFlashInstance->NorFlashProtocol.ReadData                = SpiNorReadData;
+    mNorFlashInstance->NorFlashProtocol.WriteData               = SpiNorWriteData;
+    mNorFlashInstance->NorFlashProtocol.ReadStatus              = SpiNorReadStatus;
+    mNorFlashInstance->NorFlashProtocol.WriteStatus             = SpiNorWriteStatus;
+    mNorFlashInstance->NorFlashProtocol.Erase                   = SpiNorErase;
+    mNorFlashInstance->NorFlashProtocol.EraseChip               = SpiNorEraseChip;
+    mNorFlashInstance->NorFlashProtocol.GetFlashVariableOffset  = SpiNorGetFlashVariableOffset;
 
     mNorFlashInstance->Signature = NOR_FLASH_SIGNATURE;
 

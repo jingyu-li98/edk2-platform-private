@@ -34,13 +34,14 @@
   UefiLib
 
 [Protocols]
-  gSophgoMdioProtocolGuid
-  gSophgoPhyProtocolGuid
-  gFdtClientProtocolGuid                                  ## CONSUMES
+  gSophgoPhyProtocolGuid                                  ## PRODUCES
+  gSophgoMdioProtocolGuid                                 ## CONSUMES
+  gSophgoGpioProtocolGuid                                 ## CONSUMES
 
 [Pcd]
   gSophgoTokenSpaceGuid.PcdPhyResetGpio
   gSophgoTokenSpaceGuid.PcdPhyResetGpioPin
 
 [Depex]
-  gFdtClientProtocolGuid
+  gSophgoMdioProtocolGuid AND
+  gSophgoGpioProtocolGuid

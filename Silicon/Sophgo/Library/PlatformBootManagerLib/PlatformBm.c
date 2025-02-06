@@ -8,32 +8,13 @@
 **/
 
 #include "PlatformBm.h"
-#include "IniParserUtil.h"
-#include <Protocol/BlockIo.h>
-#include <stdlib.h>
-#include <string.h>
-#include <Uefi.h>
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
-#include <Library/MemoryAllocationLib.h>
-#include <Library/DevicePathLib.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Protocol/LoadFile.h>
-#include <Protocol/DevicePath.h>
+EFI_GUID  mUiApp = {
+  0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 }
+};
 
-
-#define EFI_FILE_NAME L"\\conf.ini"
-#define BUFFER_SIZE    1024
-#define INI_HEADER  L"[sophgo-config]"
-#define INI_TAIL    L"[eof]"
-
-typedef struct {
-  CHAR8 *Name;
-  UINTN Addr;
-} TEST_CONFIG;
-
-TEST_CONFIG *Config;
-
+EFI_GUID  mBootMenuFile = {
+  0xEEC25BDC, 0x67F2, 0x4D95, { 0xB1, 0xD5, 0xF8, 0x1B, 0x20, 0x39, 0xD1, 0x1D }
+};
 
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
@@ -510,6 +491,7 @@ PlatformBootFvBootOption (
 
   @retval  VOID
 **/
+
 STATIC
 VOID
 GetPlatformOptions (
@@ -596,35 +578,281 @@ GetPlatformOptions (
 
       BootOptionNumber = BootOptions[Index].OptionNumber;
     }
-
-    //
-    // Register a hotkey with the boot option, if requested.
-    //
-    if (BootKeys[Index].UnicodeChar == L'\0') {
-      continue;
-    }
-
-    Status = EfiBootManagerAddKeyOptionVariable (
-               NULL,
-               BootOptionNumber,
-               0,
-               &BootKeys[Index],
-               NULL
-               );
-    if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a: failed to register hotkey for \"%s\": %r\n",
-        __func__,
-        BootOptions[Index].Description,
-        Status
-        ));
-    }
   }
-
   EfiBootManagerFreeLoadOptions (CurrentBootOptions, CurrentBootOptionCount);
   EfiBootManagerFreeLoadOptions (BootOptions, BootCount);
   FreePool (BootKeys);
+}
+
+EFI_DEVICE_PATH *
+FvFilePath (
+  EFI_GUID  *FileGuid
+  )
+{
+  EFI_STATUS                         Status;
+  EFI_LOADED_IMAGE_PROTOCOL          *LoadedImage;
+  MEDIA_FW_VOL_FILEPATH_DEVICE_PATH  FileNode;
+        
+  EfiInitializeFwVolDevicepathNode (&FileNode, FileGuid);
+        
+  Status = gBS->HandleProtocol (
+                  gImageHandle,
+                  &gEfiLoadedImageProtocolGuid,
+                  (VOID **)&LoadedImage
+                  );
+  ASSERT_EFI_ERROR (Status);
+  return AppendDevicePathNode (
+           DevicePathFromHandle (LoadedImage->DeviceHandle),
+           (EFI_DEVICE_PATH_PROTOCOL *)&FileNode
+           );
+}
+
+/**
+ *   Create one boot option for BootManagerMenuApp.
+ *
+ *   @param  FileGuid          Input file guid for the BootManagerMenuApp.
+ *   @param  Description       Description of the BootManagerMenuApp boot option.
+ *   @param  Position          Position of the new load option to put in the ****Order variable.
+ *   @param  IsBootCategory    Whether this is a boot category.
+ *
+ *   @retval OptionNumber      Return the option number info.
+**/
+UINTN
+RegisterBootManagerMenuAppBootOption (
+  EFI_GUID  *FileGuid,
+  CHAR16    *Description,
+  UINTN     Position,
+  BOOLEAN   IsBootCategory
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_BOOT_MANAGER_LOAD_OPTION  NewOption;
+  EFI_DEVICE_PATH_PROTOCOL      *DevicePath;
+  UINTN                         OptionNumber;
+
+  DevicePath = FvFilePath (FileGuid);
+  Status     = EfiBootManagerInitializeLoadOption (
+                 &NewOption,
+                 LoadOptionNumberUnassigned,
+                 LoadOptionTypeBoot,
+                 IsBootCategory ? LOAD_OPTION_ACTIVE : LOAD_OPTION_CATEGORY_APP,
+                 Description,
+                 DevicePath,
+                 NULL,
+                 0
+                 );
+  ASSERT_EFI_ERROR (Status);
+  FreePool (DevicePath);
+    
+  Status = EfiBootManagerAddLoadOptionVariable (&NewOption, Position);
+  ASSERT_EFI_ERROR (Status);
+      
+  OptionNumber = NewOption.OptionNumber;
+      
+  EfiBootManagerFreeLoadOption (&NewOption);
+        
+  return OptionNumber;
+}
+
+/**
+  Extracts the GUID from a device path string. This function converts the given 
+  device path to a string format and then extracts the GUID part from the FvFile 
+  node in the device path, if present. This function is specifically tailored 
+  for FvFile type device paths.
+
+  @param  DevicePath   The device path from which the GUID will be extracted.
+
+  @retval EFI_GUID*    Pointer to the extracted GUID if successful.
+  @retval NULL         If the device path does not contain an FvFile node or 
+                       if any error occurs during processing.
+
+  Note:
+  - The function uses ConvertDevicePathToText to convert the device path to a 
+    string format.
+  - It assumes the GUID follows the "FvFile(" node in the string representation.
+  - Only applicable for device paths containing FvFile nodes.
+**/
+EFI_GUID *
+ExtractGuidFromDevicePathString (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  CHAR16        *DevicePathStr;
+  CHAR16        *GuidStart;
+  STATIC EFI_GUID ExtractedGuid;
+  RETURN_STATUS  Status;
+  
+  DevicePathStr = ConvertDevicePathToText(DevicePath, TRUE, TRUE);
+  if (DevicePathStr == NULL) {
+    DEBUG((DEBUG_ERROR, "Failed to convert device path to text\n"));
+    return NULL;
+  }
+
+  GuidStart = StrStr(DevicePathStr, L"FvFile(");
+  if (GuidStart == NULL) {
+    FreePool(DevicePathStr);
+    return NULL;
+  }
+
+  GuidStart += StrLen(L"FvFile(");
+  Status = StrToGuid(GuidStart, &ExtractedGuid);
+  if (RETURN_ERROR(Status)) {
+    DEBUG((DEBUG_ERROR, "Failed to parse GUID from string: %r\n", Status));
+    FreePool(DevicePathStr);
+    return NULL;
+  }
+
+  FreePool(DevicePathStr);
+  return &ExtractedGuid;
+}
+
+/**
+  Removes duplicate boot options from the BootOrder variable and associated 
+  Boot#### variables. The function identifies duplicates based on matching GUIDs 
+  extracted from the FvFile nodes in the device paths. If no GUID is found, 
+  it falls back to comparing the Description and FilePath.
+
+  The function performs the following steps:
+  - Retrieves the current BootOrder and Boot#### variables.
+  - Iterates through the boot options, identifying duplicates by:
+    - Matching GUIDs from the device paths.
+    - Comparing the Description and FilePath if GUIDs are not present or do not match.
+  - Deletes duplicate boot options and updates the BootOrder variable.
+
+  @retval EFI_SUCCESS           Successfully removed duplicate boot options.
+  @retval EFI_NOT_FOUND         No boot options found to process.
+  @retval EFI_ERROR             If an error occurs during variable updates 
+                                or boot option deletion.
+
+  Note:
+  - The function uses ExtractGuidFromDevicePathString to extract GUIDs from the 
+    device paths for comparison.
+  - Duplicate entries are removed from both Boot#### variables and the BootOrder variable.
+  - Updates to BootOrder ensure a consistent boot order after removing duplicates.
+**/
+EFI_STATUS
+EFIAPI
+RemoveDuplicateBootOptions (
+  VOID
+)
+{
+    EFI_STATUS                     Status;
+    EFI_BOOT_MANAGER_LOAD_OPTION   *BootOptions;
+    UINTN                          BootOptionCount;
+    UINTN                          i, j;
+    UINT16                         *BootOrder;
+    UINTN                          BootOrderSize;
+    EFI_GUID                       *GuidI;
+    EFI_GUID                       *GuidJ;
+    BOOLEAN                        IsDuplicate;
+
+    IsDuplicate = FALSE;
+    BootOptions = EfiBootManagerGetLoadOptions(&BootOptionCount, LoadOptionTypeBoot);
+    if (BootOptions == NULL) {
+        return EFI_NOT_FOUND;
+    }
+
+    Status = GetEfiGlobalVariable2(L"BootOrder", (VOID **)&BootOrder, &BootOrderSize);
+    if (EFI_ERROR(Status)) {
+        EfiBootManagerFreeLoadOptions(BootOptions, BootOptionCount);
+        return Status;
+    }
+    for (i = 0; i < BootOptionCount; i++) {
+        GuidI = ExtractGuidFromDevicePathString(BootOptions[i].FilePath);
+        for (j = i + 1; j < BootOptionCount; j++) {
+            GuidJ = ExtractGuidFromDevicePathString(BootOptions[j].FilePath);
+            if(GuidI ==NULL || GuidJ == NULL) {
+	        continue;
+	    }
+            if (CompareGuid(GuidI, GuidJ)) {
+                IsDuplicate = TRUE;
+            } else if (StrCmp(BootOptions[i].Description, BootOptions[j].Description) == 0 &&
+                CompareMem(BootOptions[i].FilePath, BootOptions[j].FilePath, sizeof(EFI_DEVICE_PATH_PROTOCOL)) == 0) {
+                IsDuplicate = TRUE;
+            }
+
+            if (IsDuplicate) {
+                Status = EfiBootManagerDeleteLoadOptionVariable(BootOptions[j].OptionNumber, LoadOptionTypeBoot);
+                if (EFI_ERROR(Status)) {
+                    DEBUG((DEBUG_ERROR, "Failed to delete duplicate BootOption %d: %r\n", BootOptions[j].OptionNumber, Status));
+                    continue;
+                }
+
+                for (UINTN k = 0; k < BootOrderSize / sizeof(UINT16); k++) {
+                    if (BootOrder[k] == BootOptions[j].OptionNumber) {
+                        for (UINTN m = k; m < (BootOrderSize / sizeof(UINT16)) - 1; m++) {
+                            BootOrder[m] = BootOrder[m + 1];
+                        }
+                        BootOrderSize -= sizeof(UINT16);
+                        break;
+                    }
+                }
+
+                for (UINTN k = j; k < BootOptionCount - 1; k++) {
+                    BootOptions[k] = BootOptions[k + 1];
+                }
+                BootOptionCount--;  
+                j--;
+            }
+        }
+    }
+
+    Status = gRT->SetVariable(
+        L"BootOrder",
+        &gEfiGlobalVariableGuid,
+        EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+        BootOrderSize,
+        BootOrder
+    );
+   if (EFI_ERROR(Status)) {
+        DEBUG((DEBUG_ERROR, "Failed to update BootOrder variable: %r\n", Status));
+    }
+
+    FreePool(BootOrder);
+    EfiBootManagerFreeLoadOptions(BootOptions, BootOptionCount);
+
+    return EFI_SUCCESS;
+}
+/**
+ *   Return the boot option number.
+ *
+ *   If not found it in the current boot option, create a new one.
+ *
+ *   @retval OptionNumber   Return the boot option number.
+ *
+**/
+UINTN
+GetOption (
+  IN CHAR16 *Description,
+  EFI_GUID  guid
+  )
+{
+  UINTN                         BootOptionCount;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         Index;
+  UINTN                         OptionNumber;
+  EFI_GUID  			*GuidFind;
+  EFI_GUID                      *Guidin;
+  
+  OptionNumber = -1;
+  Guidin = &guid;
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+
+  for (Index = 0; Index < BootOptionCount; Index++) {
+      GuidFind = ExtractGuidFromDevicePathString(BootOptions[Index].FilePath);
+      if(GuidFind == NULL || Guidin == NULL) {
+	      continue;
+      } 
+      if(CompareGuid(Guidin, GuidFind)) {
+         OptionNumber = BootOptions[Index].OptionNumber;
+	 break;
+      }
+  }
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+  if(OptionNumber == -1) {
+     OptionNumber = (UINT16)RegisterBootManagerMenuAppBootOption (Guidin, Description, (UINTN)-1, FALSE);
+  }
+  return OptionNumber;
 }
 
 /**
@@ -642,14 +870,13 @@ PlatformRegisterOptionsAndKeys (
   EFI_STATUS                   Status;
   EFI_INPUT_KEY                Enter;
   EFI_INPUT_KEY                F2;
-  EFI_INPUT_KEY                Esc;
-  EFI_BOOT_MANAGER_LOAD_OPTION BootOption;
-
+  EFI_INPUT_KEY                F7;
+  UINTN               OptionNumber;
   //
   // Load platform boot options
   //
   GetPlatformOptions ();
-
+  RemoveDuplicateBootOptions();
   //
   // Register ENTER as CONTINUE key
   //
@@ -657,573 +884,20 @@ PlatformRegisterOptionsAndKeys (
   Enter.UnicodeChar = CHAR_CARRIAGE_RETURN;
   Status = EfiBootManagerRegisterContinueKeyOption (0, &Enter, NULL);
   ASSERT_EFI_ERROR (Status);
-
+  // F7: open boot device list menu
+  F7.ScanCode    = SCAN_F7;
+  F7.UnicodeChar = CHAR_NULL;
+  OptionNumber   = GetOption (L"UEFI BootManagerMenuApp",mBootMenuFile);
+  EfiBootManagerAddKeyOptionVariable (NULL, (UINT16)OptionNumber, 0, &F7, NULL);
   //
   // Map F2 and ESC to Boot Manager Menu
   //
   F2.ScanCode     = SCAN_F2;
   F2.UnicodeChar  = CHAR_NULL;
-  Esc.ScanCode    = SCAN_ESC;
-  Esc.UnicodeChar = CHAR_NULL;
-  Status = EfiBootManagerGetBootManagerMenu (&BootOption);
-  ASSERT_EFI_ERROR (Status);
-  Status = EfiBootManagerAddKeyOptionVariable (
-             NULL,
-             (UINT16) BootOption.OptionNumber,
-             0,
-             &F2,
-             NULL
-             );
-  ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
-  Status = EfiBootManagerAddKeyOptionVariable (
-             NULL,
-             (UINT16) BootOption.OptionNumber,
-             0,
-             &Esc,
-             NULL
-             );
-  ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
-}
-#if 0
-/**
-  Get the conf.ini file path from a media device
-
-**/
-EFI_DEVICE_PATH_PROTOCOL *
-ExpandMediaDeviceFilePath (
-  VOID
-  )
-{
-  EFI_STATUS                Status;
-  EFI_HANDLE                Handle;
-  EFI_HANDLE                *BlockIoHandles;
-  EFI_HANDLE                *SimpleFileSystemHandles;
-  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
-  EFI_DEVICE_PATH_PROTOCOL  *FilePath;
-  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
-  UINTN                     NumberBlockIoHandles;
-  UINTN                     NumberSimpleFileSystemHandles;
-  UINTN                     Index;
-  UINTN                     TempSize;
-  UINTN                     Size;
-  VOID                      *Buffer;
-
-  //
-  // Step 1. Get the device path
-  //
-  Status = gBS->LocateHandleBuffer (
-                 ByProtocol,
-                 &gEfiBlockIoProtocolGuid,
-                 NULL,
-                 &NumberBlockIoHandles,
-                 &BlockIoHandles
-                 );
-
-  if (EFI_ERROR (Status)) {
-    //
-    // This is not an error, just an informative condition.
-    //
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: %g: %r\n",
-      __func__,
-      gEfiBlockIoProtocolGuid,
-      Status
-      ));
-    return NULL;
-  }
-  ASSERT (NumberBlockIoHandles > 0);
-
-  for (Index = 0; Index < NumberBlockIoHandles; Index++) {
-    //
-    // Get the device path of SimpleFileSystem handle
-    //
-    TempDevicePath = DevicePathFromHandle (BlockIoHandles[Index]);
-  }
-
-  //
-  // Step 2. Check whether the device is connected
-  //
-  Status = gBS->LocateDevicePath (
-                 &gEfiBlockIoProtocolGuid,
-                 &TempDevicePath,
-                 &Handle
-                 );
-  ASSERT_EFI_ERROR (Status);
-
-  gBS->ConnectController (Handle, NULL, NULL, TRUE);
-
-  //
-  // Issue a dummy read to the device to check for media change.
-  // When the removable media is changed, any Block IO read/write will
-  // cause the BlockIo protocol be reinstalled and EFI_MEDIA_CHANGED is
-  // returned. After the Block IO protocol is reinstalled, subsequent
-  // Block IO read/write will success.
-  //
-  Status = gBS->HandleProtocol (
-                 Handle,
-                 &gEfiBlockIoProtocolGuid,
-                 (VOID **)&BlockIo
-                 );
-  ASSERT_EFI_ERROR (Status);
-  if (EFI_ERROR (Status)) {
-    return NULL;
-  }
-
-  Buffer = AllocatePool (BlockIo->Media->BlockSize);
-  if (Buffer != NULL) {
-    BlockIo->ReadBlocks (
-               BlockIo,
-               BlockIo->Media->MediaId,
-               0,
-               BlockIo->Media->BlockSize,
-               Buffer
-               );
-    FreePool (Buffer);
-  }
-
-  //
-  // Step 3. Detect the ASpeedAst2600Gop.efi file from device
-  //
-  FilePath = NULL;
-  Size = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
-  gBS->LocateHandleBuffer (
-         ByProtocol,
-         &gEfiSimpleFileSystemProtocolGuid,
-         NULL,
-         &NumberSimpleFileSystemHandles,
-         &SimpleFileSystemHandles
-         );
-  for (Index = 0; Index < NumberSimpleFileSystemHandles; Index++) {
-    //
-    // Get the device path size of SimpleFileSystem handle
-    //
-    TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
-    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
-    //
-    // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
-    //
-    if ((Size <= TempSize) && (CompareMem (TempDevicePath, TempDevicePath, Size) == 0)) {
-      FilePath = FileDevicePath (SimpleFileSystemHandles[Index], EFI_FILE_NAME);
-    }
-  }
-
-  if (BlockIoHandles != NULL) {
-    FreePool (BlockIoHandles);
-  }
-
-  if (SimpleFileSystemHandles != NULL) {
-    FreePool (SimpleFileSystemHandles);
-  }
-
-  return FilePath;
+  OptionNumber   = GetOption (L"UEFI UiApp",mUiApp);
+  EfiBootManagerAddKeyOptionVariable (NULL, (UINT16)OptionNumber, 0, &F2, NULL);
 }
 
-/**
-  load conf.ini into memory
-
-**/
-EFI_STATUS
-LoadFileFromExpandMediaDevice (
- IN VOID *NewBuffer
- )
-{
-  EFI_STATUS                 Status;
-  EFI_DEVICE_PATH_PROTOCOL   *FilePath;
-  EFI_DEVICE_PATH_PROTOCOL   *HandleFilePath;
-  UINTN                      FileBufferSize;
-  UINTN                      FileInfoSize;
-  EFI_HANDLE                 Handle;
-  // EFI_LOAD_FILE_PROTOCOL     *LoadFileProtocol;
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFileSystem;
-  EFI_FILE_HANDLE            FileHandle;
-  EFI_FILE_HANDLE            File;
-  EFI_FILE_INFO              *FileInfo;
-
-
-  FileInfo = NULL;
-  FileHandle = NULL;
-  Handle = NULL;
-  File = NULL;
-  FileBufferSize = 0;
-  //FileBuffer = NULL;
-
-  //
-  // Get the file path
-  //
-
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Get the file path\n",
-      __func__,
-      __LINE__
-      ));
-  FilePath = ExpandMediaDeviceFilePath ();
-  if (FilePath == NULL) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  HandleFilePath = FilePath;
-#if 0
-  Status = gBS->LocateDevicePath (
-		 &gEfiFirmwareVolume2ProtocolGuid,
-		 &HandleFilePath,
-		 &Handle
-		 );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Locate Load FirmwareVolume2 Protocol failed (%r)!\n",
-      __func__,
-      __LINE__,
-      Status
-      ));
-
-    //return Status;
-  }
-#endif
-  Status = gBS->LocateDevicePath (
-		 &gEfiSimpleFileSystemProtocolGuid,
-		 &HandleFilePath,
-		 &Handle
-		 );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Locate Load Simple File System Protocol failed (%r)!\n",
-      __func__,
-      __LINE__,
-      Status
-      ));
-
-    return Status;
-  }
-#if 0
-  Status = gBS->LocateDevicePath (
-		 &gEfiLoadFileProtocolGuid,
-		 &HandleFilePath,
-		 &Handle
-		 );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Locate Load File Protocol failed (%r)!\n",
-      __func__,
-      __LINE__,
-      Status
-      ));
-
-    return Status;
-  }
-
-  //
-  // Attempt to access the file via LoadFile interface
-  //
-  Status = gBS->HandleProtocol (
-		  Handle,
-		  &gEfiLoadFileProtocolGuid,
-		  (VOID **)&LoadFileProtocol
-		  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Get Load File Protocol failed (%r)!\n",
-      __func__,
-      __LINE__,
-      Status
-      ));
-
-    return Status;
-  }
-
-
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: load file first\n",
-      __func__,
-      __LINE__
-      ));
-    FileBuffer = AllocatePages (FileBufferSize);
-    if (FileBuffer == NULL) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a[%d]: Allocate Pages failed!\n",
-        __func__,
-        __LINE__
-        ));
-    }
-  Status = LoadFileProtocol->LoadFile (
-		 LoadFileProtocol,
-		 FilePath,
-		 TRUE,
-		 &FileBufferSize,
-		 FileBuffer
-		 );
-  if (Status == EFI_BUFFER_TOO_SMALL) {
-    FileBuffer = AllocatePages (FileBufferSize);
-    if (FileBuffer == NULL) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a[%d]: Allocate Pages failed!\n",
-        __func__,
-        __LINE__
-        ));
-
-      return EFI_OUT_OF_RESOURCES;
-    } else {
-      Status = LoadFileProtocol->LoadFile (
-		   LoadFileProtocol,
-		   FilePath,
-		   TRUE,
-		   &FileBufferSize,
-		   FileBuffer
-		   );
-      if (EFI_ERROR (Status)) {
-        DEBUG ((
-          DEBUG_ERROR,
-          "%a[%d]: Load File failed!\n",
-          __func__,
-          __LINE__
-          ));
-
-        return Status;
-      }
-    }
-  }
-#endif
-// 1. 获取 Simple File System Protocol
-    Status = gBS->HandleProtocol (
-		   Handle,
-		   &gEfiSimpleFileSystemProtocolGuid,
-		   (VOID **)&SimpleFileSystem
-		   );
-    if (EFI_ERROR (Status)) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to get Simple File System Protocol: %r\n",
-	  Status
-	  ));
-        return Status;
-    }
-
-    //
-    // 2. Open the Volume to get the File System handle
-    //
-    Status = SimpleFileSystem->OpenVolume (SimpleFileSystem, &FileHandle);
-    if (EFI_ERROR (Status)) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to open volume: %r\n",
-	  Status
-	  ));
-        return Status;
-    }
-
-    //
-    // 3. 打开文件
-    //
-    Status = FileHandle->Open (
-		    FileHandle,
-		    &File,
-		    ((FILEPATH_DEVICE_PATH *)HandleFilePath)->PathName,
-		    EFI_FILE_MODE_READ,
-		    0
-		    );
-    if (EFI_ERROR (Status)) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to open file: %r\n",
-	  Status
-	  ));
-        FileHandle->Close (FileHandle);
-        return Status;
-    }
-
-    //
-    // 4. We have found the file. Now we need to read it. Before we can read the
-    // file we need to figure out how big the file is.
-    //
-    //
-    Status = File->GetInfo (
-		    File,
-		    &gEfiFileInfoGuid,
-		    &FileInfoSize,
-		    FileInfo
-		    );
-    if (Status == EFI_BUFFER_TOO_SMALL) {
-      FileInfo = AllocatePool (FileInfoSize);
-      if (FileInfo == NULL) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to allocate memory for file buffer\n"
-	  ));
-        return EFI_OUT_OF_RESOURCES;
-      } else {
-	Status = File->GetInfo (
-			File,
-			&gEfiFileInfoGuid,
-			&FileInfoSize,
-			FileInfo
-			);
-
-      }
-    }
-
-    //
-    // Allocate space for the file
-    //
-    NewBuffer = AllocatePool ((UINTN)FileInfo->FileSize);
-    if (NewBuffer == NULL) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to allocate memory for file buffer\n"
-	  ));
-        return EFI_OUT_OF_RESOURCES;
-    } else {
-      FileBufferSize = (UINTN)FileInfo->FileSize;
-      Status = File->Read (
-		      File,
-		      &FileBufferSize,
-		      NewBuffer
-		      );
-      if (EFI_ERROR (Status)) {
-        DEBUG ((
-	  DEBUG_ERROR,
-	  "Failed to read file: %r\n",
-	  Status
-	  ));
-        FreePool (NewBuffer);
-        File->Close(File);
-        RootDir->Close(RootDir);
-        return Status;
-    }
-
-    DEBUG((DEBUG_INFO, "Read %d bytes from file.\n", FileBufferSize));
-
-    FreePool (NewBuffer);
-    File->Close (File);
-    FileHandle->Close (FileHandle);
-
-    return EFI_SUCCESS;
-}
-#endif
-#if 0
-STATIC
-CHAR8 *
-IniStrDup (
-  IN CONST CHAR8  *String
-  )
-{
-  return AllocateCopyPool (AsciiStrSize (String), String);
-}
-STATIC
-INT32
-TestHandler (
-  IN       VOID  *User,
-  IN CONST CHAR8 *Section,
-  IN CONST CHAR8 *Name,
-  IN CONST CHAR8 *Value
-  )
-{
-  Config = (TEST_CONFIG *)User;
-
-  #define MATCH(S, N) (AsciiStrCmp (Section, S) == 0 && AsciiStrCmp (Name, N) == 0)
-
-  if (MATCH("devicetree", "name")) {
-    Config->Name = IniStrDup (Value);
-  } else if (MATCH("devicetree", "addr")) {
-    Config->Addr = strtoul (Value, NULL, 16);
-  } else {
-    return 0;
-  }
-
-  return -1;
-}
-#endif
-
-EFI_STATUS
-IniParser (
-  VOID
-  )
-{
-  UINTN Address = PcdGet64 (PcdIniFileRamAddress);
-  UINT8 *Buffer = (UINT8 *)Address;  // 将内存地址转换为指向 UINT8 的指针
-
-//  UINTN Length = BUFFER_SIZE;
-
-  if (Buffer == NULL) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "Memory address is invalid.\n"
-      ));
-    return EFI_INVALID_PARAMETER;
-   }
-
-  CHAR16 *MemoryData = (CHAR16 *)Buffer;
-  if (StrnCmp(MemoryData, INI_HEADER, StrLen(INI_HEADER))) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "conf.ini should start with \"%s\"\n",
-      INI_HEADER
-      ));
-			   ;
-    return EFI_INVALID_PARAMETER;
-  } else {
-     DEBUG ((
-      DEBUG_INFO,
-      "Found string: %s\n",
-      INI_HEADER
-      ));
-     return EFI_SUCCESS;
-  }
-#if 0
-
-  //
-  // We have a limitation for flash DMMR mode. It can only read out data
-  // below 16MB. But it is enough for a configuration file.
-  //
-  if (mango_load_conf_sd(read_buf, sizeof(read_buf))) {
-    if (mango_load_conf_spi(read_buf, sizeof(read_buf)))
-                        return -1;
-        }
-
-
-        if (ini_parse_string((const char*)read_buf, handler, &config) < 0
-            || config.name == NULL)
-                return -1;
-#endif
-#if 0
-  if (AsciiStrnCmp(Header, (CONST CHAR8 *)FileBuffer, AsciiStrLen(Header))) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "conf.ini should start with \"%s\"\n",
-      Header
-      ));
-			   ;
-    return EFI_INVALID_PARAMETER;
-  }
-
-  Eof = AsciiStrStr((CONST CHAR8 *)FileBuffer, Tail);
-
-  if (!Eof) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "conf.ini should terminated by \"%s\"\n",
-      Tail
-      ));
-			   ;
-    return EFI_INVALID_PARAMETER;
-  }
-
-  if (IniParseString((CONST CHAR8 *)FileBuffer, TestHandler, &Config) < 0
-            || Config->Name == NULL) {
-                return EFI_INVALID_PARAMETER;
-
-  }
-
-  return EFI_SUCCESS;
-#endif
-}
 //
 // BDS Platform Functions
 //
@@ -1244,13 +918,13 @@ PlatformBootManagerBeforeConsole (
   VOID
   )
 {
+  RemoveDuplicateBootOptions();
+  PlatformRegisterOptionsAndKeys ();
   //
   // Signal EndOfDxe PI Event
   //
   EfiEventGroupSignal (&gEfiEndOfDxeEventGroupGuid);
 
-  DEBUG ((DEBUG_INFO,"\n\n-------INI Parser----\n"));
-  //IniParser ();
   //
   // Dispatch deferred images after EndOfDxe event.
   //
@@ -1321,11 +995,6 @@ PlatformBootManagerBeforeConsole (
     (EFI_DEVICE_PATH_PROTOCOL *)&mSerialConsole,
     NULL
     );
-
-  //
-  // Register platform-specific boot options and keyboard shortcuts.
-  //
-  PlatformRegisterOptionsAndKeys ();
 }
 
 /**
@@ -1370,13 +1039,9 @@ PlatformBootManagerAfterConsole (
   //
   Key.ScanCode    = SCAN_NULL;
   Key.UnicodeChar = L's';
-  PlatformRegisterFvBootOption (
-    &gUefiShellFileGuid,
-    L"UEFI Shell",
-    LOAD_OPTION_ACTIVE,
-    &Key);
+  UINTN OptionNumber   = GetOption (L"UEFI Shell", gUefiShellFileGuid);
+  EfiBootManagerAddKeyOptionVariable (NULL, (UINT16)OptionNumber, 0, &Key, NULL);
 }
-
 /**
   This function is called each second during the boot manager waits the
   timeout.
@@ -1472,11 +1137,12 @@ PlatformBootManagerUnableToBoot (
   //
   if (!PcdGetBool (PcdEmuVariableNvModeEnable)) {
     if (NewBootOptionCount != OldBootOptionCount) {
-      DEBUG ((
+       DEBUG ((
         DEBUG_WARN,
         "%a: rebooting after refreshing all boot options\n",
         __func__
-        ));
+       ));
+
       gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
     }
   }

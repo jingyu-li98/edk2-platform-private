@@ -19,6 +19,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/DxeServicesTableLib.h>
 #include <Protocol/FdtClient.h>
 
 #include <Include/Mdio.h>
@@ -88,153 +89,6 @@ MdioWaitReady (
 
   return EFI_SUCCESS;
 }
-
-#if 0
-/*
- * XGMAC
- * Note:
- * Clause 22 capable PHY is connected to MDIO.
- */
-STATIC
-EFI_STATUS
-C22XGmacMdioOperation (
-  IN CONST SOPHGO_MDIO_PROTOCOL  *This,
-  IN UINT32                      PhyAddr,
-  IN UINT32                      PhyReg,
-  IN BOOLEAN                     Write,
-  IN OUT UINT32                  PhyData
-  )
-{
-  UINTN      MdioBase;
-  UINT32     MiiAddr;
-  UINT32     MiiData;
-  UINT32     MiiAddrShift;
-  UINT32     MiiAddrMask;
-  UINT32     MiiRegShift;
-  UINT32     MiiRegMask;
-  UINT32     MiiClkCsrShift;
-  UINT32     MiiClkCsrMask;
-  UINT32     Value;
-  UINT32     SynopsysId;
-  EFI_STATUS Status;
-
-  MdioBase       = This->BaseAddress;
-  MiiAddr        = This->MiiAddr;
-  MiiData        = This->MiiData;
-  MiiAddrShift   = This->MiiAddrShift;
-  MiiAddrMask    = This->MiiAddrMask;
-  MiiRegShift    = This->MiiRegShift;
-  MiiRegMask     = This->MiiRegMask;
-  MiiClkCsrShift = This->MiiClkCsrShift;
-  MiiClkCsrMask  = This->MiiClkCsrMask;
-
-  SynopsysId = MmioRead32((UINTN)(MdioBase + GMAC4_VERSION));
-
-  //
-  // Until ver 2.20 XGMAC does not support C22 addr >= 4
-  //
-  if (SynopsysId < DWXGMAC_CORE_2_20 && PhyAddr > MII_XGMAC_MAX_C22ADDR) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "StmmacMdioDxe: Not support C22 addr >= 4!\n"
-      ));
-
-    return EFI_UNSUPPORTED;
-  }
-
-  if (SynopsysId < DWXGMAC_CORE_2_20) {
-    //
-    // Until ver 2.20 XGMAC does not support C22 addr >= 4.
-    // Those bits above bit 3 of XGMAC_MDIO_C22P register are reserved.
-    //
-    Value = MmioRead32 ((UINTN)(MdioBase + XGMAC_MDIO_C22P));
-    Value &= ~MII_XGMAC_C22P_MASK;
-  }
-
-  //
-  // Set port as Clause 22
-  //
-  Value |=BIT(PhyAddr);
-  MmioWrite32 ((UINTN)(MdioBase + XGMAC_MDIO_C22P), Value);
-
-  Status = MdioCheckParam (PhyAddr, PhyReg);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "StmmacMdioDxe: wrong parameters\n"
-      ));
-
-    return Status;
-  }
-
-  //
-  // Wait until any existing MII operation is complete.
-  //
-  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "StmmacMdioDxe: MdioWaitReady error\n"
-      ));
-
-    return Status;
-  }
-
-  //
-  // CR = 0x10: CSR clock = 20-35 MHz; MDC clock = CSR clock/16
-  //
-  Value = ((0x10 << MiiClkCsrShift) & MiiClkCsrMask)
-	| MII_XGMAC_BUSY;
-
-  if (Write) {
-    Value |= MII_XGMAC_WRITE;
-    Value |= PhyData;
-  } else {
-    Value |= MII_XGMAC_READ;
-  }
-
-  //
-  // Wait until any existing MII operation is complete.
-  //
-  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "StmmacMdioDxe: MdioWaitReady error\n"
-      ));
-
-    return Status;
-  }
-
-  //
-  // Set the MII address register to write.
-  //
-  MmioWrite32 (MdioBase + MiiData, Value);
-  MmioWrite32 (MdioBase + MiiAddr, (PhyAddr << MII_XGMAC_PA_SHIFT) | (PhyReg & 0x1F));
-
-  //
-  // Wait until any existing MII operation is complete.
-  //
-  Status = MdioWaitReady (MdioBase + MiiData, MII_XGMAC_BUSY);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "StmmacMdioDxe: MdioWaitReady error\n"
-      ));
-
-    return Status;
-  }
-
-  //
-  // Read the data from the MII data register.
-  //
-  if (!Write) {
-    PhyData = MmioRead32 (MdioBase + MiiData) & MII_DATA_MASK;
-  }
-
-  return EFI_SUCCESS;
-}
-#endif
 
 /*
  * Note:
@@ -416,6 +270,7 @@ MdioDxeInitialize (
   SOPHGO_MDIO_PROTOCOL        *Mdio;
   EFI_STATUS                  Status;
   EFI_HANDLE                  Handle;
+  UINTN                       RegSize;
 
   Handle  = NULL;
 
@@ -482,6 +337,39 @@ MdioDxeInitialize (
   }
 
   Mdio->BaseAddress = SwapBytes64 (((CONST UINT64 *) Prop)[0]);
+  RegSize = SwapBytes64 (((CONST UINT64 *) Prop)[1]);
+
+  Status = gDS->AddMemorySpace (
+		  EfiGcdMemoryTypeMemoryMappedIo,
+                  Mdio->BaseAddress,
+		  RegSize,
+		  EFI_MEMORY_UC
+		  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Add memory space failed (Status = %r)\n",
+      __func__,
+      Status
+      ));
+    goto ErrorInstallProto;
+  }
+
+  Status = gDS->SetMemorySpaceAttributes (
+		  Mdio->BaseAddress,
+                  RegSize,
+                  EFI_MEMORY_UC
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Set memory attributes failed (Status = %r)\n",
+      __func__,
+      Status
+      ));
+
+    goto ErrorInstallProto;
+  }
 
   Status = FdtClient->GetNodeProperty (
 		                FdtClient,
@@ -519,27 +407,24 @@ MdioDxeInitialize (
     Mdio->MiiClkCsrMask = GENMASK(11, 8);
   }
 
-  DEBUG ((DEBUG_VERBOSE, "%a(): \n\
-			  Mdio->BaseAddress=0x%lx, \n\
-			  Mdio->MiiAddr=0x%x,\n\
-			  Mdio->MiiData=0x%x, \n\
-			  Mdio->MiiAddrShift=%d,\n\
-			  Mdio->MiiAddrMask=0x%x,\n\
-			  Mdio->MiiRegShift=%d, \n\
-			  Mdio->MiiRegMask=0x%x, \n\
-			  Mdio->MiiClkCsrShift=%d,\n\
-			  Mdio->MiiClkCsrMask=0x%lx\n",
-			  __func__,
-			  Mdio->BaseAddress,
-			  Mdio->MiiAddr,
-			  Mdio->MiiData,
-			  Mdio->MiiAddrShift,
-			  Mdio->MiiAddrMask,
-			  Mdio->MiiRegShift,
-			  Mdio->MiiRegMask,
-			  Mdio->MiiClkCsrShift,
-			  Mdio->MiiClkCsrMask
-			  ));
+  DEBUG ((DEBUG_VERBOSE, "%a():\n"
+                   "  BaseAddress      = 0x%lx\tRegSize       = 0x%lx,\n"
+                   "  MiiAddr          = 0x%x\tMiiData        = 0x%x,\n"
+                   "  MiiAddrShift     = %d\tMiiAddrMask      = 0x%x,\n"
+                   "  MiiRegShift      = %d\tMiiRegMask       = 0x%x,\n"
+                   "  MiiClkCsrShift   = %d\tMiiClkCsrMask    = 0x%lx\n",
+                   __func__,
+                   Mdio->BaseAddress,
+                   RegSize,
+                   Mdio->MiiAddr,
+                   Mdio->MiiData,
+                   Mdio->MiiAddrShift,
+                   Mdio->MiiAddrMask,
+                   Mdio->MiiRegShift,
+                   Mdio->MiiRegMask,
+                   Mdio->MiiClkCsrShift,
+                   Mdio->MiiClkCsrMask
+                  ));
 
   Mdio->Read  = StmmacMdioRead;
   Mdio->Write = StmmacMdioWrite;

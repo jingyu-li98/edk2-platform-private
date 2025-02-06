@@ -34,12 +34,6 @@
 //
 #define GMAC_MDIO_ADDR			0x00000200
 #define GMAC_MDIO_DATA			0x00000204
-//#define MII_ADDR_SHIFT                  (21)
-//#define MII_ADDR_MASK                   GENMASK(25, 21)
-//#define MII_REG_SHIFT                   (16)
-//#define MII_REG_MASK                    GENMASK(20, 16)
-//#define MII_CLK_CSR_SHIFT               (8)
-//#define MII_CLK_CSR_MASK                GENMASK(11, 8)
 
 #define MII_GMAC4_GOC_SHIFT             2
 #define MII_GMAC4_REG_ADDR_SHIFT        16
@@ -65,7 +59,7 @@
 #define MII_XGMAC_DA_SHIFT              21
 
 #define STMMAC_MDIO_TIMEOUT             10000   // 10000us
-#define PHY_REG_MASK            0xFFFF
-#define PHY_ADDR_MASK           0x1F
+#define PHY_REG_MASK                    0xFFFF
+#define PHY_ADDR_MASK                   0x1F
 
 #endif // __MDIO_DXE_H__

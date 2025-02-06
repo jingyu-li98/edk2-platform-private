@@ -43,6 +43,7 @@
   DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
   DEFINE FLASH_ENABLE             = TRUE
+  DEFINE ETH_ENABLE               = TRUE
 
   #
   # x64 Emulator
@@ -252,7 +253,6 @@
 
   TimerLib|UefiCpuPkg/Library/BaseRiscV64CpuTimerLib/BaseRiscV64CpuTimerLib.inf
   TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
-  DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
 
   # Flattened Device Tree (FDT) access library
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
@@ -271,6 +271,8 @@
 
   IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
 
+  EfuseLib|Silicon/Sophgo/Library/EfuseLib/EfuseLib.inf
+
   #
   # Random Generator Library
   #
@@ -278,7 +280,7 @@
   RngLib|Silicon/Sophgo/Library/RngLib/RngLib.inf
 
   ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
-
+  DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
   #
   # Capsule Update requirements
   #
@@ -503,7 +505,8 @@
   # Flash Offset: 32MB
   #
 !if $(FLASH_ENABLE) == TRUE
-  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7001000000
+  gSophgoTokenSpaceGuid.PcdSPIFMC0Base|0x7001000000
+  gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7005000000
   gSophgoTokenSpaceGuid.PcdSpifmcDmmrEnable|TRUE
   gSophgoTokenSpaceGuid.PcdFlashPartitionTableAddress|0x80000
 !endif
@@ -514,13 +517,25 @@
 
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency|50000000
 
+  gSophgoTokenSpaceGuid.PcdEfuseControllerNum|2
+  gSophgoTokenSpaceGuid.PcdEfuse0Base|0x7040000000
+  gSophgoTokenSpaceGuid.PcdEfuse1Base|0x7040001000
+  gSophgoTokenSpaceGuid.PcdEfuseNumAddrBits|8
+  gSophgoTokenSpaceGuid.PcdEfuseNumCells|128
+  gSophgoTokenSpaceGuid.PcdEfuseCellWidth|4
+
+!if $(ETH_ENABLE) == TRUE
+  gSophgoTokenSpaceGuid.PcdPhyResetGpio|TRUE
+  gSophgoTokenSpaceGuid.PcdPhyResetGpioPin|28
+  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x12345678ABCD
+!endif
 [PcdsFixedAtBuild.common]
   gSophgoTokenSpaceGuid.PcdSDIOSourceClockFrequency|400000000
   gSophgoTokenSpaceGuid.PcdSDIOTransmissionClockFrequency|25000000
   gSophgoTokenSpaceGuid.PcdTrngBase|0x7040020000
-  gSophgoTokenSpaceGuid.PcdPhyResetGpio|TRUE
-  gSophgoTokenSpaceGuid.PcdPhyResetGpioPin|28
-  gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress|0x12345678
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x7030001000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialBaudRate|115200
 
 ################################################################################
 #
@@ -654,9 +669,13 @@
   Silicon/Sophgo/Drivers/DwI2cDxe/DwI2cDxe.inf
   Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
   Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
+  Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.inf
+  Silicon/Sophgo/Drivers/DwGpioDxe/DwGpioDxe.inf
+!if $(ETH_ENABLE) == TRUE
   Silicon/Sophgo/Drivers/Net/StmmacMdioDxe/StmmacMdioDxe.inf
-  #Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
-  #Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+  Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
+  Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+!endif
 
   #
   # RISC-V Core module
@@ -773,6 +792,11 @@
   !endif
 
   #
+  # ASPEED AST2500 GOP driver
+  #
+  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2500GopDxe.inf
+
+  #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem
   #
   FatPkg/EnhancedFatDxe/Fat.inf
@@ -782,9 +806,11 @@
   MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 
   #
-  # Update Firmware in Nor Flash
+  # Update Firmware in Nor Flash (whole chip)
   #
+!if $(FLASH_ENABLE) == TRUE
   Silicon/Sophgo/Applications/FirmwareUpdate/FirmwareUpdate.inf
+!endif
 
   #
   # UEFI Application (Shell Embedded Boot Loader)
@@ -858,6 +884,13 @@
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
   }
+  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTime/SetDateAndTime.inf
+
+!if $(FLASH_ENABLE) == TRUE
+  Silicon/Sophgo/SG2044Pkg/Drivers/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
+!endif
+  Silicon/Sophgo/SG2044Pkg/Drivers/Information/ShowInformation.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
 
   #
   # ACPI Support
@@ -867,4 +900,8 @@
   Silicon/Sophgo/SG2044Pkg/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044EvbAcpiTables.inf
+  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf {
+    <LibraryClasses>
+      LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
+  }
 !endif

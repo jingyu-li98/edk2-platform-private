@@ -3,7 +3,7 @@
 
   Copyright (c) 2022, Ventana Micro Systems Inc. All rights reserved.<BR>
   Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
-  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+  Copyright (c) 2025, SOPHGO Technologies Inc. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -31,8 +31,14 @@
 #include <Library/BaseRiscVSbiLib.h>
 #include <Library/PrePiLib.h>
 #include <Library/PrePiHobListPointerLib.h>
-#include <Library/SerialPortLib.h>
 #include <Register/RiscV64/RiscVImpl.h>
+#include <Library/PlatformSecPpiLib.h>
+#include <Library/SerialPortLib.h>
+#include <Ppi/TemporaryRamSupport.h>
+#include <Library/PeCoffLib.h>
+#include <Library/PeCoffGetEntryPointLib.h>
+#include <Library/PeCoffExtraActionLib.h>
+#include <Library/ExtractGuidedSectionLib.h>
 
 /**
   Entry point to the C language phase of SEC. After the SEC assembly
@@ -50,45 +56,4 @@ SecStartup (
   IN  UINTN  BootHartId,
   IN  VOID   *DeviceTreeAddress
   );
-
-/**
-  Perform Platform PEIM initialization.
-
-  @return EFI_SUCCESS     The platform initialized successfully.
-  @retval  Others        - As the error code indicates
-
-**/
-EFI_STATUS
-EFIAPI
-PlatformPeimInitialization (
-  IN  VOID  *DeviceTreeAddress
-  );
-
-/**
-  Perform Memory PEIM initialization.
-
-  @param  DeviceTreeAddress  Pointer to FDT.
-  @return EFI_SUCCESS        The platform initialized successfully.
-  @retval  Others          - As the error code indicates
-
-**/
-EFI_STATUS
-EFIAPI
-MemoryPeimInitialization (
-  IN  VOID  *DeviceTreeAddress
-  );
-
-/**
-  Perform CPU PEIM initialization.
-
-  @return EFI_SUCCESS     The platform initialized successfully.
-  @retval  Others        - As the error code indicates
-
-**/
-EFI_STATUS
-EFIAPI
-CpuPeimInitialization (
-  VOID
-  );
-
 #endif

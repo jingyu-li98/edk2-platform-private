@@ -37,15 +37,16 @@
   TimerLib
   UefiDriverEntryPoint
   UefiLib
+  IniParserLib
 
 [Protocols]
-  gEfiDevicePathProtocolGuid
-  gEfiSimpleNetworkProtocolGuid
-  gSophgoPhyProtocolGuid
-  gEfiCpuArchProtocolGuid		                  ## CONSUMES
+  gEfiDevicePathProtocolGuid                              ## PRODUCES
+  gEfiSimpleNetworkProtocolGuid                           ## PRODUCES
+  gSophgoPhyProtocolGuid                                  ## CONSUMES
+  gFdtClientProtocolGuid                                  ## CONSUMES
 
 [FixedPcd]
   gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress        ## CONSUMES
 
 [Depex]
-  TRUE
+  gSophgoPhyProtocolGuid

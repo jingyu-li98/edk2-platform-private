@@ -162,6 +162,8 @@ INF  Silicon/Sophgo/Drivers/FlashFvbDxe/FlashFvbDxe.inf
 INF  Silicon/Sophgo/Drivers/DwI2cDxe/DwI2cDxe.inf
 INF  Silicon/Sophgo/Drivers/MmcDxe/MmcDxe.inf
 INF  Silicon/Sophgo/Drivers/SdHostDxe/SdHostDxe.inf
+INF  Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.inf
+INF  Silicon/Sophgo/Drivers/DwGpioDxe/DwGpioDxe.inf
 
 # RISC-V Core Drivers
 INF  UefiCpuPkg/CpuTimerDxeRiscV64/CpuTimerDxeRiscV64.inf
@@ -198,9 +200,11 @@ INF  Platform/Sophgo/SG2044Pkg/Drivers/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 # Network modules
 #
 !include NetworkPkg/Network.fdf.inc
+!if $(ETH_ENABLE) == TRUE
 INF  Silicon/Sophgo/Drivers/Net/StmmacMdioDxe/StmmacMdioDxe.inf
-#INF  Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
-#INF  Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+INF  Silicon/Sophgo/Drivers/Net/MotorcommPhyDxe/Motorcomm8531PhyDxe.inf
+INF  Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+!endif
 
 #
 # Random Number Generator Support
@@ -215,7 +219,7 @@ INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 #
 # Firmware Capsule Update
 #
-INF RuleOverride = FMP_IMAGE_DESC Silicon/Sophgo/Feature/Capsule/SystemFirmwareDescriptor/SystemFirmwareDescriptor.inf
+INF  RuleOverride = FMP_IMAGE_DESC Silicon/Sophgo/Feature/Capsule/SystemFirmwareDescriptor/SystemFirmwareDescriptor.inf
 INF  MdeModulePkg/Universal/EsrtDxe/EsrtDxe.inf
 INF  SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareReportDxe.inf
 INF  SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareUpdateDxe.inf
@@ -261,6 +265,11 @@ INF  MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 !endif
 
 #
+# ASPEED AST2500 GOP driver
+#
+INF  Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2500GopDxe.inf
+
+#
 # Multiple Console IO support
 #
 INF  MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
@@ -290,9 +299,11 @@ INF  MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 
 #
-# Update Firmware in Nor Flash
+# Update Firmware in Nor Flash (whole chip)
 #
+!if $(FLASH_ENABLE) == TRUE
 INF  Silicon/Sophgo/Applications/FirmwareUpdate/FirmwareUpdate.inf
+!endif
 
 #
 # UEFI application (Shell Embedded Boot Loader)
@@ -310,6 +321,12 @@ INF  MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
 INF  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
 INF  Silicon/Sophgo/SG2044Pkg/Drivers/UiApp/UiApp.inf
 INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTime/SetDateAndTime.inf
+!if $(FLASH_ENABLE) == TRUE
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
+!endif
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/Information/ShowInformation.inf
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
 
 #
 # ACPI Support
@@ -318,6 +335,7 @@ INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
   INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   INF Silicon/Sophgo/SG2044Pkg/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
   INF MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
+  INF MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
   INF RuleOverride=ACPITABLE Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044EvbAcpiTables.inf
 !endif
 

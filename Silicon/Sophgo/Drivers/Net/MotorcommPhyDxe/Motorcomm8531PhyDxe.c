@@ -18,10 +18,11 @@
 
 #include <Include/Phy.h>
 #include <Include/Mdio.h>
-#include <Include/Gpio.h>
+#include <Include/DwGpio.h>
 #include "Motorcomm8531PhyDxe.h"
 
 STATIC SOPHGO_MDIO_PROTOCOL *Mdio;
+STATIC SOPHGO_GPIO_PROTOCOL *Gpio;
 
 /**
  * struct YT_PHY_CFG_REG_MAP - map a config value to a register value
@@ -483,41 +484,44 @@ Yt8531PhyParseStatus (
 }
 
 STATIC
-VOID
+EFI_STATUS
 PhyResetGpio (
-  IN UINTN  BaseAddress,
+  IN UINT32 Bus,
   IN UINT32 Pin
   )
 {
-  UINT32 Value;
+  EFI_STATUS Status;
+
+  Status = gBS->LocateProtocol (
+               &gSophgoGpioProtocolGuid,
+               NULL,
+               (VOID **) &Gpio
+               );
+  if (EFI_ERROR(Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Locate SOPHGO_GPIO_PROTOCOL failed (Status=%r)\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  Gpio->ModeConfig (Gpio, Bus, Pin, GpioConfigOutLow);
 
   //
-  // direction: output
+  // wait 100ms
   //
-  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DDR));
-  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DDR), Value | GPIO_MUX_VAL(Pin));
+  gBS->Stall (100000);
 
-  //
-  // data: 0
-  //
-  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR));
-  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR), Value & (~GPIO_MUX_VAL(Pin)));
+  Gpio->ModeConfig (Gpio, Bus, Pin, GpioConfigOutHigh);
 
   //
   // wait 100ms
   //
   gBS->Stall (100000);
 
-  //
-  // data: 1
-  //
-  Value = MmioRead32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR));
-  MmioWrite32 ((UINTN)(BaseAddress + GPIO_SWPORTA_DR), Value | GPIO_MUX_VAL(Pin));
-
-  //
-  // wait 100ms
-  //
-  gBS->Stall (100000);
+  return EFI_SUCCESS;
 }
 
 /*
@@ -535,39 +539,19 @@ Yt8531PhyInitialize (
   UINT16                      Value;
   EFI_STATUS                  Status;
   PHY_DEVICE                  *PhyDev;
-  INT32                       Node;
-  CONST VOID                  *Prop;
-  UINT32                      PropSize;
-  FDT_CLIENT_PROTOCOL         *FdtClient;
 
   Status = gBS->LocateProtocol (
                &gSophgoMdioProtocolGuid,
                NULL,
                (VOID **) &Mdio
                );
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Locate SOPHGO_MDIO_PROTOCOL failed (Status=%r)\n",
       __func__,
       Status
       ));
-    return Status;
-  }
-
-  Status = gBS->LocateProtocol (
-      &gFdtClientProtocolGuid,
-      NULL,
-      (VOID **) &FdtClient
-      );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Locate FDT_CLIENT_PROTOCOL failed (Status = %r)\n",
-      __func__,
-      Status
-      ));
-
     return Status;
   }
 
@@ -584,41 +568,10 @@ Yt8531PhyInitialize (
     ));
 
   if (PcdGetBool (PcdPhyResetGpio)) {
-    Status = FdtClient->FindCompatibleNode (
-                                       FdtClient,
-                                       "snps,dw-apb-gpio",
-                                       &Node
-                                       );
+    Status = PhyResetGpio (0, PcdGet8(PcdPhyResetGpioPin));
     if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a(): Find GPIO0 node (Status = %r)\n",
-        __func__,
-        Status
-        ));
-
       return Status;
     }
-
-    Status = FdtClient->GetNodeProperty (
-                                  FdtClient,
-                                  Node,
-                                  "reg",
-                                  &Prop,
-                                  &PropSize
-                                  );
-    if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a(): Get reg failed (Status = %r)\n",
-        __func__,
-        Status
-        ));
-
-      return Status;
-    }
-
-    PhyResetGpio (SwapBytes64 (((CONST UINT64 *) Prop)[0]), PcdGet8(PcdPhyResetGpioPin));
   }
 
   //

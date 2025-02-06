@@ -1,5 +1,5 @@
 /** @file
-*  OemMiscLib.c
+*  IniParserLib.c
 *
 *  Copyright (c) 2024, SOPHGO Inc. All rights reserved.
 *
@@ -7,296 +7,232 @@
 *
 **/
 
-#include <CpuConfigNVDataStruc.h>
-#include <NVParamDef.h>
-#include <PiPei.h>
 #include <Uefi.h>
-#include <Library/AmpereCpuLib.h>
-#include <Library/ArmLib.h>
-#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
-#include <Library/HiiLib.h>
-#include <Library/HobLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/OemMiscLib.h>
-#include <Library/PrintLib.h>
-#include <Guid/PlatformInfoHob.h>
-
+#include <Library/IniParserLib.h>
 #include "IniParserUtil.h"
-#include <Protocol/BlockIo.h>
-#define EFI_FILE_NAME L"\\conf.ini"
 
-/**
-  Get the conf.ini file path from a media device
+#define MAX_SECTION_LENGTH	128
+#define MAX_NAME_LENGTH		128
+#define MAX_VALUE_LENGTH	128
+#define MAX_ENTRIES		500
+#define INI_FILE_MAX_SIZE   (FixedPcdGet32(PcdIniFileMaxSize))
+#define MAX_SECTION_LENGTH      128
+#define MAX_NAME_LENGTH         128
+#define MAX_VALUE_LENGTH        128
+#define MAX_ENTRIES             500
 
-**/
-EFI_DEVICE_PATH_PROTOCOL *
-ExpandMediaDeviceFilePath (
-  VOID
+typedef struct {
+  CHAR8 Section[MAX_SECTION_LENGTH];
+  CHAR8 Name[MAX_NAME_LENGTH];
+  CHAR8 Value[MAX_VALUE_LENGTH];
+} INI_ENTRY;
+
+STATIC UINTN EntryCount = 0;
+STATIC INI_ENTRY gIniEntries[MAX_ENTRIES];
+
+CHAR8 MemoryData[INI_FILE_MAX_SIZE];
+
+TEST_CONFIG Config;
+MAC_CONFIG MacConfig;
+
+STATIC
+CHAR8 *
+IniStrDup (
+  IN CONST CHAR8  *String
   )
 {
-  EFI_STATUS                Status;
-  EFI_HANDLE                Handle;
-  EFI_HANDLE                *BlockIoHandles;
-  EFI_HANDLE                *SimpleFileSystemHandles;
-  EFI_BLOCK_IO_PROTOCOL     *BlockIo;
-  EFI_DEVICE_PATH_PROTOCOL  *FilePath;
-  EFI_DEVICE_PATH_PROTOCOL  *TempDevicePath;
-  UINTN                     NumberBlockIoHandles;
-  UINTN                     NumberSimpleFileSystemHandles;
-  UINTN                     Index;
-  UINTN                     TempSize;
-  UINTN                     Size;
-  VOID                      *Buffer;
-
-  //
-  // Step 1. Get the device path
-  //
-  Status = gBS->LocateHandleBuffer (
-                 ByProtocol,
-                 &gEfiBlockIoProtocolGuid,
-                 NULL,
-                 &NumberBlockIoHandles,
-                 &BlockIoHandles
-                 );
-
-  if (EFI_ERROR (Status)) {
-    //
-    // This is not an error, just an informative condition.
-    //
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a: %g: %r\n",
-      __func__,
-      gEfiBlockIoProtocolGuid,
-      Status
-      ));
-    return NULL;
-  }
-  ASSERT (NumberBlockIoHandles > 0);
-
-  for (Index = 0; Index < NumberBlockIoHandles; Index++) {
-    //
-    // Get the device path of SimpleFileSystem handle
-    //
-    TempDevicePath = DevicePathFromHandle (BlockIoHandles[Index]);
-  }
-
-  //
-  // Step 2. Check whether the device is connected
-  //
-  Status = gBS->LocateDevicePath (
-                 &gEfiBlockIoProtocolGuid,
-                 &TempDevicePath,
-                 &Handle
-                 );
-  ASSERT_EFI_ERROR (Status);
-
-  gBS->ConnectController (Handle, NULL, NULL, TRUE);
-
-  //
-  // Issue a dummy read to the device to check for media change.
-  // When the removable media is changed, any Block IO read/write will
-  // cause the BlockIo protocol be reinstalled and EFI_MEDIA_CHANGED is
-  // returned. After the Block IO protocol is reinstalled, subsequent
-  // Block IO read/write will success.
-  //
-  Status = gBS->HandleProtocol (
-                 Handle,
-                 &gEfiBlockIoProtocolGuid,
-                 (VOID **)&BlockIo
-                 );
-  ASSERT_EFI_ERROR (Status);
-  if (EFI_ERROR (Status)) {
-    return NULL;
-  }
-
-  Buffer = AllocatePool (BlockIo->Media->BlockSize);
-  if (Buffer != NULL) {
-    BlockIo->ReadBlocks (
-               BlockIo,
-               BlockIo->Media->MediaId,
-               0,
-               BlockIo->Media->BlockSize,
-               Buffer
-               );
-    FreePool (Buffer);
-  }
-
-  //
-  // Step 3. Detect the ASpeedAst2600Gop.efi file from device
-  //
-  FilePath = NULL;
-  Size = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
-  gBS->LocateHandleBuffer (
-         ByProtocol,
-         &gEfiSimpleFileSystemProtocolGuid,
-         NULL,
-         &NumberSimpleFileSystemHandles,
-         &SimpleFileSystemHandles
-         );
-  for (Index = 0; Index < NumberSimpleFileSystemHandles; Index++) {
-    //
-    // Get the device path size of SimpleFileSystem handle
-    //
-    TempDevicePath = DevicePathFromHandle (SimpleFileSystemHandles[Index]);
-    TempSize = GetDevicePathSize (TempDevicePath) - END_DEVICE_PATH_LENGTH;
-    //
-    // Check whether the device path of boot option is part of the SimpleFileSystem handle's device path
-    //
-    if ((Size <= TempSize) && (CompareMem (TempDevicePath, TempDevicePath, Size) == 0)) {
-      FilePath = FileDevicePath (SimpleFileSystemHandles[Index], EFI_FILE_NAME);
-    }
-  }
-
-  if (BlockIoHandles != NULL) {
-    FreePool (BlockIoHandles);
-  }
-
-  if (SimpleFileSystemHandles != NULL) {
-    FreePool (SimpleFileSystemHandles);
-  }
-
-  return FilePath;
-}
-
-/**
-  load conf.ini into memory
-
-**/
-EFI_STATUS
-LoadFileFromExpandMediaDevice (
- VOID
- )
-{
-  EFI_STATUS                 Status;
-  EFI_DEVICE_PATH_PROTOCOL   *FilePath;
-  VOID                       *FileBuffer;
-  UINTN                      FileBufferSize;
-  EFI_HANDLE                 Handle;
-  EFI_LOAD_FILE_PROTOCOL     *LoadFileProtocol;
-
-  Handle = NULL;
-  FileBufferSize = 0;
-  FileBuffer = NULL;
-
-  //
-  // Get the file path
-  //
-  FilePath = ExpandMediaDeviceFilePath ();
-  if (FilePath == NULL) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  //
-  // Attempt to access the file via LoadFile interfface
-  //
-  Status = gBS->HandleProtocol (
-		  Handle,
-		  &gEfiLoadFileProtocolGuid,
-		  (VOID **)&LoadFileProtocol
-		  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a[%d]: Get Load File Protocol failed!\n",
-      __func__,
-      __LINE__
-      ));
-	
-    return Status;
-  }
-
-  Status = LoadFileProtocol->LoadFile (
-		 LoadFileProtocol,
-		 FilePath,
-		 TRUE,
-		 &FileBufferSize,
-		 FileBuffer
-		 );
-  if (Status == EFI_BUFFER_TOO_SMALL) {
-    FileBuffer = AllocatePages (BufferSize),
-    if (FileBuffer == NULL) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "%a[%d]: Allocate Pages failed!\n",
-        __func__,
-        __LINE__
-        ));
-
-      return EFI_OUT_OF_RESOURCES;
-    } else {
-      Status = LoadFileProtocol->LoadFile (
-		   LoadFileProtocol,
-		   FilePath,
-		   TRUE,
-		   &FileBufferSize,
-		   FileBuffer
-		   );
-      if (EFI_ERROR (Status)) {
-        DEBUG ((
-          DEBUG_ERROR,
-          "%a[%d]: Load File failed!\n",
-          __func__,
-          __LINE__
-          ));
-
-        return Status;
-      }
-    }
-  }
-
-  return EFI_SUCCESS;
+  return AllocateCopyPool (AsciiStrSize (String), String);
 }
 
 STATIC
-EFI_STATUS
-Handler (
+INT32
+TestHandler (
   IN       VOID  *User,
   IN CONST CHAR8 *Section,
   IN CONST CHAR8 *Name,
   IN CONST CHAR8 *Value
   )
 {
-  Struct GlobalConfig *Pconfig = (struct GlobalConfig *)User;
+  TEST_CONFIG *Config = (TEST_CONFIG *)User;
 
-  #define MATCH(s, n) (strcmp(section, s) == 0 && strcmp(name, n) == 0)
+  #define MATCH(S, N) (AsciiStrCmp (Section, S) == 0 && AsciiStrCmp (Name, N) == 0)
 
-  if (MATCH("devicetree", "name")) {
-    Pconfig->Name = strdup (Value);
-  } else if (MATCH("devicetree", "addr")) {
-    Pconfig->Addr = strtoul (Value, NULL, 16);
+  if (MATCH ("Processor", "Name")) {
+    Config->Name = IniStrDup (Value);
   } else {
-    return EFI_SUCCESS;
+    return 0;
   }
 
-  return EFI_INVALID_PARAMETER;
+  return -1;
 }
 
-EFI_STATUS
-IniParserLib (
+STATIC
+INT32
+HandlerMacAddr (
+  IN       VOID  *User,
+  IN CONST CHAR8 *Section,
+  IN CONST CHAR8 *Name,
+  IN CONST CHAR8 *Value
+  )
+{
+  MAC_CONFIG *Config = (MAC_CONFIG *)User;
+
+  #define MATCH(S, N) (AsciiStrCmp (Section, S) == 0 && AsciiStrCmp (Name, N) == 0)
+
+  if (MATCH("mac-address", "mac0")) {
+    Config->Mac0Addr = AsciiStrHexToUintn (Value);
+  } else if (MATCH("mac-address", "mac1")) {
+    Config->Mac1Addr = AsciiStrHexToUintn (Value);
+  } else {
+    return 0;
+  }
+
+  return -1;
+}
+
+BOOLEAN
+EFIAPI
+IsIniFileExist (
   VOID
   )
 {
+  VOID *Address = (VOID *)PcdGet64 (PcdIniFileRamAddress);
+  CHAR8 *IniHeader = "[sophgo-config]";
+  CHAR8 *IniFooter = "[eof]";
 
-  LoadFileFromExpandMediaDevice ();
-#if 0
-  CHAR ReadBuffer[1024];
+  CopyMem (MemoryData, Address, INI_FILE_MAX_SIZE);
+  MemoryData[INI_FILE_MAX_SIZE - 1] = '\0';
 
-  //
-  // We have a limitation for flash DMMR mode. It can only read out data
-  // below 16MB. But it is enough for a configuration file.
-  //
-  if (mango_load_conf_sd(read_buf, sizeof(read_buf))) {
-    if (mango_load_conf_spi(read_buf, sizeof(read_buf)))
-                        return -1;
-        }
+  UINTN Length = AsciiStrLen (IniHeader);
 
-
-        if (ini_parse_string((const char*)read_buf, handler, &config) < 0
-            || config.name == NULL)
-                return -1;
-#endif
-        return EFI_SUCCESS;
+  if (AsciiStrnCmp (IniHeader, MemoryData, Length)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "Not found conf.ini file, no header: \"%a\"\n",
+      IniHeader
+      ));
+    return FALSE;
+  } else if (!(AsciiStrStr (MemoryData, IniFooter))) {
+     DEBUG ((
+      DEBUG_INFO,
+      "Found conf.ini header: \"%a\", but footer not found: \"%a\"\n",
+      IniHeader,
+      IniFooter
+      ));
+     return FALSE;
+  } else {
+     DEBUG ((
+      DEBUG_VERBOSE,
+      "conf.ini has been found!\n"
+      ));
+     return TRUE;
+  }
 }
 
+INT32
+IniGetValueBySectionAndName (
+  CONST CHAR8 *Section,
+  CONST CHAR8 *Name,
+  CHAR8 *Value
+ )
+{
+  for (UINTN i = 0; i < EntryCount; i++) {
+    if (AsciiStrCmp(gIniEntries[i].Section, Section) != 0)
+      continue;
+
+    if (AsciiStrCmp(gIniEntries[i].Name, Name) != 0)
+      continue;
+
+    AsciiStrCpyS(Value, MAX_VALUE_LENGTH, gIniEntries[i].Value);
+    return 0;
+  }
+
+  return -1;
+}
+
+INT32
+IniHandler (
+  VOID       *User,
+  CONST CHAR8 *Section,
+  CONST CHAR8 *Name,
+  CONST CHAR8 *Value
+ )
+{
+    if (!AsciiStrCmp(Section, "eof"))
+      return 0;
+
+    if (EntryCount >= MAX_ENTRIES)
+      return 0;
+
+    AsciiStrCpyS(gIniEntries[EntryCount].Section, sizeof(gIniEntries[EntryCount].Section), Section);
+    AsciiStrCpyS(gIniEntries[EntryCount].Name, sizeof(gIniEntries[EntryCount].Name), Name);
+    AsciiStrCpyS(gIniEntries[EntryCount].Value, sizeof(gIniEntries[EntryCount].Value), Value);
+    EntryCount++;
+
+    return 1;
+}
+
+INT32
+IniConfIniParse (
+    IN VOID          *User
+ )
+{
+    INT32 result = -1;
+
+    if (IsIniFileExist ())
+      result = IniParseString(MemoryData, IniHandler, User);
+
+    return result;
+}
+
+EFI_STATUS
+EFIAPI
+TestIniParser (
+  VOID
+  )
+{
+  if (IniParseString ((CONST CHAR8 *)MemoryData, TestHandler, &Config) < 0) {
+     DEBUG ((
+      DEBUG_INFO,
+      "%a: conf.ini parse failed!\n",
+      __func__
+      ));
+    return EFI_UNSUPPORTED;
+  }
+
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "Config.Name: %a\n",
+    Config.Name
+    ));
+
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+MacAddrIniParser (
+  VOID
+  )
+{
+  if (IniParseString ((CONST CHAR8 *)MemoryData, HandlerMacAddr, &MacConfig) < 0) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: conf.ini parse failed!\n",
+      __func__
+      ));
+    return EFI_UNSUPPORTED;
+  }
+
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "Mac0Addr: 0x%lx\tMac1Addr: 0x%lx\n",
+    MacConfig.Mac0Addr,
+    MacConfig.Mac1Addr
+    ));
+
+  return EFI_SUCCESS;
+}

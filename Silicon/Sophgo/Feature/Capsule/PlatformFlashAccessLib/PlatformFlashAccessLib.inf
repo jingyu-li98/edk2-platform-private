@@ -1,0 +1,45 @@
+## @file
+#  Platform flash device access library.
+#
+#  Copyright (c) 2017, Linaro, Ltd. All rights reserved.<BR>
+#  Copyright (c) 2018, Marvell International, Ltd. All rights reserved.<BR>
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = PlatformFlashAccessLib
+  FILE_GUID                      = 433B7233-9C5B-4C98-BF64-232954FE22C3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PlatformFlashAccessLib|DXE_DRIVER
+
+[Sources]
+  PlatformFlashAccessLib.c
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  SignedCapsulePkg/SignedCapsulePkg.dec
+  Silicon/Sophgo/Sophgo.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DxeServicesTableLib
+  MemoryAllocationLib
+  PcdLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Pcd]
+
+[Protocols]
+  gSophgoSpiMasterProtocolGuid         ## CONSUMES
+  gSophgoNorFlashProtocolGuid          ## CONSUMES

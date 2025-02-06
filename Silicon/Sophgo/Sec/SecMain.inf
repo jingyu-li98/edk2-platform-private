@@ -3,7 +3,7 @@
 #
 #  Copyright (c) 2022, Ventana Micro Systems Inc. All rights reserved.<BR>
 #  Copyright (c) 2023, Academy of Intelligent Innovation, Shandong Universiy, China.P.R. All rights reserved.<BR>
-#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+#  Copyright (c) 2025, SOPHGO Technologies Inc. All rights reserved.<BR>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -12,7 +12,7 @@
 [Defines]
   INF_VERSION                    = 1.30
   BASE_NAME                      = SecMainRiscV64
-  FILE_GUID                      = 71DE2F3C-1586-4558-97F2-7F0631C6908A
+  FILE_GUID                      = F843EEEA-E92F-426B-9478-1F066FF40537
   MODULE_TYPE                    = SEC
   VERSION_STRING                 = 1.0
   ENTRY_POINT                    = SecMain
@@ -24,23 +24,22 @@
 #
 
 [Sources]
-  SecEntry.S
   SecMain.c
   SecMain.h
-  Cpu.c
-  Memory.c
-  Platform.c
+
+[Sources.RISCV64]
+  Riscv64/SecEntry.S
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
-  UefiCpuPkg/UefiCpuPkg.dec
   Platform/RISC-V/PlatformPkg/RiscVPlatformPkg.dec
   Silicon/Sophgo/Sophgo.dec
 
 [LibraryClasses]
   BaseLib
+  DebugAgentLib
   DebugLib
   PcdLib
   IoLib
@@ -48,29 +47,20 @@
   LzmaDecompressLib
   RiscVSbiLib
   PrePiLib
-  FdtLib
   MemoryAllocationLib
-  HobLib
   SerialPortLib
-  #DxeServicesTableLib
+  PeCoffLib
+  PeCoffGetEntryPointLib
+  PeCoffExtraActionLib
 
 [FixedPcd]
-  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvBase                         ## CONSUMES
-  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvSize                         ## CONSUMES
-  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFirmwareRegionBaseAddress      ## CONSUMES
-  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdVariableFirmwareRegionSize             ## CONSUMES
+  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVPeiFvBase                         ## CONSUMES
+  gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVPeiFvSize                         ## CONSUMES
   gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamBase                       ## CONSUMES
   gUefiRiscVPlatformPkgTokenSpaceGuid.PcdTemporaryRamSize                       ## CONSUMES
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize                                 ## CONSUMES
-  gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize                                     ## CONSUMES
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
-  gSophgoTokenSpaceGuid.PcdFlashVariableOffset
 
-[Guids]
-  gFdtHobGuid      ## PRODUCES
+[Ppis]
+  gEfiTemporaryRamSupportPpiGuid                # PPI ALWAYS_PRODUCED
 
 [BuildOptions]
   GCC:*_*_*_PP_FLAGS = -D__ASSEMBLY__
-

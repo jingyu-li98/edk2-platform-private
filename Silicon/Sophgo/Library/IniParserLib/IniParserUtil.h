@@ -13,6 +13,8 @@ https://github.com/benhoyt/inih
 
 #ifndef INI_H
 #define INI_H
+#include <stdio.h>
+#include <Library/BaseLib.h>
 
 /* Make this header file easier to include in C++ code */
 #ifdef __cplusplus
@@ -21,7 +23,7 @@ extern "C" {
 
 //#include <stdio.h>
 
-/* Nonzero if ini_handler callback should accept lineno parameter. */
+/* Nonzero if INI_HANDLER callback should accept lineno parameter. */
 #ifndef INI_HANDLER_LINENO
 #define INI_HANDLER_LINENO 0
 #endif
@@ -211,7 +213,6 @@ IniParseString (
 #ifndef INI_CUSTOM_ALLOCATOR
 #define INI_CUSTOM_ALLOCATOR 0
 #endif
-
 
 #ifdef __cplusplus
 }

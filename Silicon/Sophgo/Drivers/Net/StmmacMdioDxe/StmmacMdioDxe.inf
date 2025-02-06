@@ -33,9 +33,10 @@
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib
+  DxeServicesTableLib
 
 [Protocols]
-  gSophgoMdioProtocolGuid
+  gSophgoMdioProtocolGuid                                 ## PRODUCES
   gFdtClientProtocolGuid                                  ## CONSUMES
 
 [Depex]

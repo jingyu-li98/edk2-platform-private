@@ -40,7 +40,6 @@ IniRealloc (
   IN VOID  *OldBuffer
   );
 #else
-//#include <stdlib.h>
 #define IniMalloc  AllocatePool
 #define IniFree    FreePool
 #define IniRealloc ReallocatePool
@@ -50,7 +49,9 @@ IniRealloc (
 #define MAX_SECTION  50
 #define MAX_NAME     50
 
-/* Used by IniParseString() to keep track of string parsing state. */
+/**
+   Used by IniParseString() to keep track of string parsing state.
+**/
 typedef struct {
   CONST CHAR8  *Ptr;
   UINTN        NumLeft;
@@ -58,7 +59,7 @@ typedef struct {
 
 BOOLEAN
 IsSpace (
-  IN UINT8 Char
+  IN CHAR8 Char
   )
 {
   if (Char =='\t'|| Char =='\n'|| Char ==' ') {
@@ -68,36 +69,34 @@ IsSpace (
   }
 }
 
-/*
+/**
   Strip whitespace chars off end of given string, in place. Return String.
- */
+**/
 STATIC
 CHAR8 *
 IniRstrip (
   IN OUT CHAR8 *String
   )
 {
-  CHAR8 *Pointer;
+  CHAR8 *Pointer = String + AsciiStrLen (String);
 
-  Pointer = String + AsciiStrLen(String);
-
-  while (Pointer > String && IsSpace((UINT8)(*--Pointer))) {
+  while (Pointer > String && IsSpace ((UINT8)(*--Pointer))) {
     *Pointer = '\0';
   }
 
   return String;
 }
 
-/*
+/**
    Return pointer to first non-whitespace char in given string.
- */
+**/
 STATIC
 CHAR8 *
 IniLskip (
   IN OUT CONST CHAR8 *String
   )
 {
-  while (*String && IsSpace((UINT8)(*String))) {
+  while (*String && IsSpace ((UINT8)(*String))) {
     String ++;
   }
 
@@ -130,16 +129,16 @@ IniStrChr (
   return (*String == Char) ? String : NULL;
 }
 
-/*
+/**
    Return pointer to first char (of chars) or inline comment in given string,
    or pointer to NUL at end of string if neither found. Inline comment must
    be prefixed by a whitespace character to register as a comment.
- */
+**/
 STATIC
 CHAR8 *
 IniFindCharsOrComment (
   IN OUT CONST CHAR8 *String,
-  IN     CONST CHAR8 *Chars
+  IN           CHAR8 *Chars
   )
 {
 #if INI_ALLOW_INLINE_COMMENTS
@@ -147,7 +146,7 @@ IniFindCharsOrComment (
   WasSpace = FALSE;
   while (*String && (!Chars || !IniStrChr (Chars, *String)) &&
 		!(WasSpace && IniStrChr (INI_INLINE_COMMENT_PREFIXES, *String))) {
-    WasSpace = IsSpace(UINT8 *String);
+    WasSpace = IsSpace ((UINT8)(*String));
     String ++;
   }
 #else
@@ -158,10 +157,10 @@ IniFindCharsOrComment (
   return (CHAR8 *)String;
 }
 
-/*
+/**
   Similar to strncpy, but ensures dest (size bytes) is
   NUL-terminated, and doesn't pad with NULs.
- */
+**/
 STATIC
 CHAR8 *
 IniStrncpy0 (
@@ -177,7 +176,7 @@ IniStrncpy0 (
   UINTN Index;
 
   for (Index = 0; Index < Size - 1 && Src[Index]; Index++) {
-    Dest[i] = Src[i];
+    Dest[Index] = Src[Index];
   }
 
   Dest[Index] = '\0';
@@ -185,7 +184,9 @@ IniStrncpy0 (
   return Dest;
 }
 
-/* See documentation in header file. */
+/**
+   See documentation in header file.
+**/
 INT32
 IniParseStream (
   IN INI_READER  Reader,
@@ -209,7 +210,9 @@ IniParseStream (
   UINTN Offset;
 #endif
   CHAR8 Section[MAX_SECTION] = "";
+#if INI_ALLOW_MULTILINE
   CHAR8 PrevName[MAX_NAME] = "";
+#endif
 
   CHAR8* Start;
   CHAR8* End;
@@ -234,7 +237,7 @@ IniParseStream (
   //
   // Scan through stream line by line
   //
-  while (Reader (Line, (int)MaxLine, Stream) != NULL) {
+  while (Reader (Line, (INT32)MaxLine, Stream) != NULL) {
 #if INI_ALLOW_REALLOC && !INI_USE_STACK
     Offset = AsciiStrLen (Line);
     while (Offset == MaxLine - 1 && Line[Offset - 1] != '\n') {
@@ -250,7 +253,7 @@ IniParseStream (
       }
 
       Line = NewLine;
-      if (Reader (Line + Offset, (int)(MaxLine - Offset), Stream) == NULL) {
+      if (Reader (Line + Offset, (INT32)(MaxLine - Offset), Stream) == NULL) {
         break;
       }
 
@@ -259,107 +262,111 @@ IniParseStream (
       }
 
       Offset += AsciiStrLen (Line + Offset);
-  }
+    }
 #endif
 
-  Lineno ++;
+    Lineno ++;
 
-  Start = Line;
+    Start = Line;
 #if INI_ALLOW_BOM
-  if (Lineno == 1 && (UINT8)Start[0] == 0xEF &&
+    if (Lineno == 1 && (UINT8)Start[0] == 0xEF &&
 		  (UINT8)Start[1] == 0xBB &&
 		  (UINT8)Start[2] == 0xBF) {
-    Start += 3;
-  }
-#endif
-  Start = IniRstrip (IniLskip (Start));
-
-  if (IniStrChr (INI_START_COMMENT_PREFIXES, *Start)) {
-    /* Start-of-Line comment */
-  }
-#if INI_ALLOW_MULTILine
-  else if (*PrevName && *Start && Start > Line) {
-#if INI_ALLOW_INLine_COMMENTS
-    End = IniFindCharsOrComment (Start, NULL);
-    if (*End) {
-      *End = '\0';
+      Start += 3;
     }
+#endif
+    Start = IniRstrip (IniLskip (Start));
 
-    IniRstrip (Start);
-#endif
-    //
-    // Non-blank line with leading whitespace, treat as continuation
-    // of previous name's value (as per Python configparser).
-    //
-    if (!Handler (User, Section, PrevName, Start) && !Error) {
-	Error = Lineno;
+    if (IniStrChr (INI_START_COMMENT_PREFIXES, *Start)) {
+      /* Start-of-Line comment */
     }
-  }
-#endif
-  else if (*Start == '[') {
-    //
-    // A "[section]" line
-    //
-    End = IniFindCharsOrComment (Start + 1, "]");
-    if (*End == ']') {
-      *End = '\0';
-      IniStrncpy0 (Section, Start + 1, sizeof(Section));
 #if INI_ALLOW_MULTILINE
-      *PrevName = '\0';
-#if INI_CALL_Handler_ON_NEW_SECTION
-      if (!Handler (User, Section, NULL, NULL) && !Error) {
-        Error = Lineno;
-      }
-#endif
-    }
-
-    else if (!Error) {
-      //
-      // No ']' found on section line
-      //
-      Error = Lineno;
-    }
-  }
-
-  else if (*Start) {
-    //
-    // Not a comment, must be a name[=:]value pair
-    //
-    End = IniFindCharsOrComment(Start, "=:");
-    if (*End == '=' || *End == ':') {
-      *End = '\0';
-      Name = IniRstrip (Start);
-      Value = End + 1;
+    else if (*PrevName && *Start && Start > Line) {
 #if INI_ALLOW_INLINE_COMMENTS
-      End = IniFindCharsOrComment(Value, NULL);
+      End = IniFindCharsOrComment (Start, NULL);
       if (*End) {
         *End = '\0';
       }
+
+      IniRstrip (Start);
 #endif
-      Value = IniLskip (Value);
-      IniRstrip (Value);
+      //
+      // Non-blank line with leading whitespace, treat as continuation
+      // of previous name's value (as per Python configparser).
+      //
+      if (!HANDLER (User, Section, PrevName, Start) && !Error) {
+        Error = Lineno;
+      }
+    }
+#endif
+    else if (*Start == '[') {
+      //
+      // A "[section]" line
+      //
+      End = IniFindCharsOrComment (Start + 1, "]");
+      if (*End == ']') {
+        *End = '\0';
+        IniStrncpy0 (Section, Start + 1, sizeof(Section));
+#if INI_ALLOW_MULTILINE
+        *PrevName = '\0';
+#endif
+
+#if INI_CALL_HANDLER_ON_NEW_SECTION
+        if (!HANDLER (User, Section, NULL, NULL) && !Error) {
+          Error = Lineno;
+        }
+#endif
+      }
+
+      else if (!Error) {
+        //
+        // No ']' found on section line
+        //
+        Error = Lineno;
+      }
+    }
+
+    else if (*Start) {
+      //
+      // Not a comment, must be a name[=:]value pair
+      //
+      End = IniFindCharsOrComment(Start, "=:");
+      if (*End == '=' || *End == ':') {
+        *End = '\0';
+        Name = IniRstrip (Start);
+        Value = End + 1;
+#if INI_ALLOW_INLINE_COMMENTS
+        End = IniFindCharsOrComment(Value, NULL);
+        if (*End) {
+          *End = '\0';
+        }
+#endif
+        Value = IniLskip (Value);
+        IniRstrip (Value);
 
 #if INI_ALLOW_MULTILINE
-      IniStrncpy0 (PrevName, Name, sizeof(PrevName));
+        IniStrncpy0 (PrevName, Name, sizeof(PrevName));
 #endif
-      //
-      // Valid name[=:]value pair found, call Handler
-      //
-      if (!Handler (User, Section, Name, Value) && !Error) {
+        //
+        // Valid name[=:]value pair found, call Handler
+        //
+        if (!HANDLER (User, Section, Name, Value) && !Error) {
 	  Error = Lineno;
-	}
-      } else if (!Error) {
-	//
-	// No '=' or ':' found on name[=:]value line
-	//
+        }
+      }
+
+      else if (!Error) {
+        //
+        // No '=' or ':' found on name[=:]value line
+        //
 #if INI_ALLOW_NO_VALUE
-	*End = '\0';
-	Name = IniRstrip (Start);
-	if (!Handler (User, Section, Name, NULL) && !Error) {
-	  Error = Lineno;
-	}
+        *End = '\0';
+        Name = IniRstrip (Start);
+        if (!HANDLER (User, Section, Name, NULL) && !Error) {
+          Error = Lineno;
+        }
 #else
-	Error = Lineno;
+        Error = Lineno;
 #endif
       }
     }
@@ -377,7 +384,9 @@ IniParseStream (
   return Error;
 }
 
-/* See documentation in header file. */
+/**
+   See documentation in header file.
+**/
 INT32
 IniParseFile (
   IN FILE        *File,
@@ -388,7 +397,9 @@ IniParseFile (
   return IniParseStream ((INI_READER)fgets, File, Handler, User);
 }
 
-/* See documentation in header file. */
+/**
+   See documentation in header file.
+**/
 INT32
 IniParse (
   IN CONST CHAR8  *FileName,
@@ -399,21 +410,21 @@ IniParse (
   FILE  *File;
   INT32 Error;
 
-  File = fopen(FileName, "r");
+  File = fopen (FileName, "r");
   if (!File) {
     return -1;
   }
 
   Error = IniParseFile (File, Handler, User);
-  fclose(File);
+  fclose (File);
 
   return Error;
 }
 
-/*
+/**
    An INI_READER function to read the next line from a string buffer. This
    is the fgets() equivalent used by IniParseString().
-*/
+**/
 STATIC
 CHAR8 *
 IniReaderString (
@@ -422,18 +433,13 @@ IniReaderString (
   IN     VOID   *Stream
   )
 {
-  INI_PARSE_STRING_CONTEXT *Ctx;
-  CONST CHAR8              *CtxPtr;
-  UINTN                    CtxNumLeft;
-  CHAR8                    *Strp;
+  INI_PARSE_STRING_CONTEXT *Ctx = (INI_PARSE_STRING_CONTEXT *)Stream;
+  CONST CHAR8              *CtxPtr = Ctx->Ptr;
+  UINTN                    CtxNumLeft = Ctx->NumLeft;
+  CHAR8                    *Strp = String;
   CHAR8                    Char;
 
-  Ctx = (INI_PARSE_STRING_CTX *)Stream;
-  CtxPtr = Ctx->Ptr;
-  CtxNumLeft = Ctx->NumLeft;
-  Strp = String;
-
-  if (CtxNumLeft == 0 || Num < 2) {
+  if (CtxNumLeft == 0 || Number < 2) {
     return NULL;
   }
 
@@ -455,7 +461,9 @@ IniReaderString (
   return String;
 }
 
-/* See documentation in header file. */
+/**
+  See documentation in header file.
+**/
 EFIAPI
 INT32
 IniParseString (
@@ -469,6 +477,5 @@ IniParseString (
   Ctx.Ptr = String;
   Ctx.NumLeft = AsciiStrLen (String);
 
-  return IniParseStream ((INI_READER)IniReaderString, &Ctx, Handler,
-						    User);
+  return IniParseStream ((INI_READER)IniReaderString, &Ctx, Handler, User);
 }
