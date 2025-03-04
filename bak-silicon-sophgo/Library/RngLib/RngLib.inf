@@ -1,0 +1,29 @@
+## @file
+#  Instance of RNG (Random Number Generator) Library.
+#
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = RngLib
+  MODULE_UNI_FILE                = RngLib.uni
+  FILE_GUID                      = 779AB46E-76CF-4C8A-8DD0-C2CEE365C253
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RngLib
+
+[Sources]
+  RngLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Ampere/AmpereAltraPkg/AmpereAltraPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  TrngLib

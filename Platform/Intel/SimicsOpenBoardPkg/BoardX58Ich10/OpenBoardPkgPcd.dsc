@@ -26,10 +26,16 @@
   #
   gMinPlatformPkgTokenSpaceGuid.PcdBootStage|4
 
+  gIntelSiliconPkgTokenSpaceGuid.PcdAcpiBaseAddress|0x400
+
 [PcdsFeatureFlag.common]
   ######################################
   # Edk2 Configuration
   ######################################
+  #
+  # For X64, PcdCpuSmmRestrictedMemoryAccess must be FALSE if PcdCpuSmmProfileEnable is TRUE.
+  #
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmProfileEnable|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdBrowerGrayOutReadOnlyMenu|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
 !if $(PEI_ARCH) == "IA32" && $(DXE_ARCH) == "X64"
@@ -43,7 +49,7 @@
   gUefiCpuPkgTokenSpaceGuid.PcdCpuHotPlugSupport|FALSE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmEnableBspElection|FALSE
   gUefiCpuPkgTokenSpaceGuid.PcdSmmFeatureControlEnable|FALSE
-  gUefiCpuPkgTokenSpaceGuid.PcdSmrrEnable|FALSE
+  gUefiCpuPkgTokenSpaceGuid.PcdSmrrEnable|TRUE
 
   ######################################
   # Platform Configuration
@@ -55,6 +61,8 @@
   # Optional MinPlatformPkg features should be enabled after this
   #
   !include MinPlatformPkg/Include/Dsc/MinPlatformFeaturesPcd.dsc.inc
+
+  gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable|TRUE
 
   #
   # Commonly used MinPlatform feature configuration logic that maps functionity to stage
@@ -198,6 +206,9 @@
   gPcAtChipsetPkgTokenSpaceGuid.PcdMinimalValidYear|2015
   gPcAtChipsetPkgTokenSpaceGuid.PcdMaximalValidYear|2099
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmCodeAccessCheckEnable |TRUE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmRestrictedMemoryAccess|TRUE
 
  [PcdsPatchableInModule.common]
   ######################################
@@ -217,8 +228,6 @@
   # Edk2 Configuration
   ######################################
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiS3Enable|FALSE
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution|1024
   gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution|600
 

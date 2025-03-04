@@ -2,6 +2,7 @@
   This file provides edk2 PLDM SMBIOS Transfer Protocol implementation.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
   @par Revision Reference:
@@ -24,6 +25,34 @@
 #include <Protocol/Smbios.h>
 
 UINT32  SetSmbiosStructureTableHandle;
+
+/**
+  This function sets PLDM SMBIOS transfer source and destination
+  PLDM terminus ID.
+
+  @param [in]   This           EDKII_PLDM_SMBIOS_TRANSFER_PROTOCOL instance.
+  @param [in]   SourceId       PLDM source teminus ID.
+                               Set to PLDM_TERMINUS_ID_UNASSIGNED means use
+                               platform default PLDM terminus ID.
+                               (gManageabilityPkgTokenSpaceGuid.PcdPldmSourceTerminusId)
+  @param [in]   DestinationId  PLDM destination teminus ID.
+                               Set to PLDM_TERMINUS_ID_UNASSIGNED means use
+                               platform default PLDM terminus ID.
+                               (gManageabilityPkgTokenSpaceGuid.PcdPldmDestinationEndpointId)
+
+  @retval       EFI_SUCCESS            Get SMBIOS table metadata Successfully.
+  @retval       EFI_INVALID_PARAMETER  Invalid value of source or destination
+                                       PLDM terminus ID.
+**/
+EFI_STATUS
+EFIAPI
+SetPldmSmbiosTransferTerminusId (
+  IN  UINT8  SourceId,
+  IN  UINT8  DestinationId
+  )
+{
+  return PldmSetTerminus (SourceId, DestinationId);
+}
 
 /**
   Get the full size of SMBIOS structure including optional strings that follow the formatted structure.
@@ -457,6 +486,7 @@ GetSmbiosStructureByHandle (
 }
 
 EDKII_PLDM_SMBIOS_TRANSFER_PROTOCOL_V1_0  mPldmSmbiosTransferProtocolV10 = {
+  SetPldmSmbiosTransferTerminusId,
   GetSmbiosStructureTableMetaData,
   SetSmbiosStructureTableMetaData,
   GetSmbiosStructureTable,

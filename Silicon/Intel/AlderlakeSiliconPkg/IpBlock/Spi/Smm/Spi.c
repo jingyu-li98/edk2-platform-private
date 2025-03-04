@@ -13,10 +13,11 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/SmmServicesTableLib.h>
 #include <Library/PciSegmentLib.h>
-#include <Protocol/Spi.h>
+#include <Protocol/Spi2.h>
 #include <Protocol/SmmCpu.h>
 #include <Library/SpiCommonLib.h>
 #include <PchReservedResources.h>
+#include <Library/SmmPchPrivateLib.h>
 #include <Library/PchPciBdfLib.h>
 #include <IndustryStandard/Pci30.h>
 #include <Register/PchRegs.h>
@@ -49,28 +50,6 @@ GLOBAL_REMOVE_IF_UNREFERENCED UINT32                mPchSpiBar0RefCount;
 // state after finishing commands to the SPI controller.
 //
 GLOBAL_REMOVE_IF_UNREFERENCED UINT8                 mPchSpiSavedPciCmdReg;
-GLOBAL_REMOVE_IF_UNREFERENCED BOOLEAN               mBootServiceExited;
-
-/**
-  This function is invoked at ExitBootServices()
-
-  @param[in] Protocol        Protocol unique ID.
-  @param[in] Interface       Interface instance.
-  @param[in] Handle          The handle on which the interface is installed..
-
-  @retval    Status.
-**/
-EFI_STATUS
-EFIAPI
-SpiExitBootServicesCallback (
-  IN      CONST EFI_GUID   *Protocol,
-  IN      VOID             *Interface,
-  IN      EFI_HANDLE        Handle
-  )
-{
-  mBootServiceExited = TRUE;
-  return EFI_SUCCESS;
-}
 
 /**
   <b>SPI Runtime SMM Module Entry Point</b>\n
@@ -82,8 +61,8 @@ SpiExitBootServicesCallback (
       - Documented in System Management Mode Core Interface Specification .
 
   - @result
-    The SPI SMM driver produces @link _PCH_SPI_PROTOCOL PCH_SPI_PROTOCOL @endlink with GUID
-    gPchSmmSpiProtocolGuid which is different from SPI RUNTIME driver.
+    The SPI SMM driver produces @link _PCH_SPI2_PROTOCOL PCH_SPI2_PROTOCOL @endlink with GUID
+    gPchSmmSpi2ProtocolGuid which is different from SPI RUNTIME driver.
 
   - <b>Integration Check List</b>\n
     - This driver supports Descriptor Mode only.
@@ -114,7 +93,6 @@ InstallPchSpi (
   )
 {
   EFI_STATUS  Status;
-  VOID        *Registration;
 
   //
   // Init PCH spi reserved MMIO address.
@@ -123,7 +101,6 @@ InstallPchSpi (
   mSpiSavedMmioAddr     = 0;
   mPchSpiBar0RefCount   = 0;
   mPchSpiSavedPciCmdReg = 0;
-  mBootServiceExited    = FALSE;
 
   ///
   /// Allocate pool for SPI protocol instance
@@ -151,23 +128,11 @@ InstallPchSpi (
   }
 
   //
-  // Register ExitBootServices callback
-  //
-  Status = gSmst->SmmRegisterProtocolNotify (
-                    &gEdkiiSmmExitBootServicesProtocolGuid,
-                    SpiExitBootServicesCallback,
-                    &Registration
-                    );
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  //
-  // Install the SMM PCH_SPI_PROTOCOL interface
+  // Install the SMM PCH_SPI2_PROTOCOL interface
   //
   Status = gSmst->SmmInstallProtocolInterface (
                     &(mSpiInstance->Handle),
-                    &gPchSmmSpiProtocolGuid,
+                    &gPchSmmSpi2ProtocolGuid,
                     EFI_NATIVE_INTERFACE,
                     &(mSpiInstance->SpiProtocol)
                     );
@@ -303,6 +268,19 @@ DisableBiosWriteProtect (
     B_SPI_CFG_BC_WPD
     );
 
+  ///
+  /// the BIOS Region can only be updated by following the steps bellow:
+  ///  - Once all threads enter SMM
+  ///  - Read memory location FED30880h OR with 00000001h, place the result in EAX,
+  ///    and write data to lower 32 bits of MSR 1FEh (sample code available)
+  ///  - Set BIOSWE bit (SPI PCI Offset DCh [0]) = 1b
+  ///  - Modify BIOS Region
+  ///  - Clear BIOSWE bit (SPI PCI Offset DCh [0]) = 0b
+  ///
+  if ((PciSegmentRead8 (SpiBaseAddress + R_SPI_CFG_BC) & B_SPI_CFG_BC_EISS) != 0) {
+    PchSetInSmmSts ();
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -327,6 +305,12 @@ EnableBiosWriteProtect (
     (UINT8) (~B_SPI_CFG_BC_WPD)
     );
 
+  ///
+  /// Check if EISS bit is set
+  ///
+  if (((PciSegmentRead8 (SpiBaseAddress + R_SPI_CFG_BC)) & B_SPI_CFG_BC_EISS) == B_SPI_CFG_BC_EISS) {
+    PchClearInSmmSts ();
+  }
 }
 
 /**
@@ -370,18 +354,4 @@ IsSpiFlashWriteGranted (
   }
 
   return TRUE;
-}
-
-/**
-  Check if a save and restore of the SPI controller state is necessary
-
-  @retval TRUE    It's necessary to save and restore SPI controller state
-  @retval FALSE   It's not necessary to save and restore SPI controller state
-**/
-BOOLEAN
-IsSpiControllerSaveRestoreEnabled (
-  VOID
-  )
-{
-  return mBootServiceExited;
 }

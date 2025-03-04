@@ -10,7 +10,7 @@
 DEC_SPECIFICATION = 0x00010017
 PACKAGE_NAME = SiPkg
 PACKAGE_VERSION = 0.1
-PACKAGE_GUID = F245E276-44A0-46b3-AEB5-9898BBCF008D
+PACKAGE_GUID = 1CAF6538-7B9C-4188-B928-17F7DD953DCF
 
 [Includes.Common.Private]
 
@@ -33,6 +33,7 @@ IpBlock/HostBridge/IncludePrivate
 
 # Cpu
 Cpu/IncludePrivate
+Pch/IncludePrivate
 
 IncludePrivate
 
@@ -355,6 +356,7 @@ PchInfoLib|Pch/Include/Library/PchInfoLib.h
 PchPcieRpLib|Include/Library/PchPcieRpLib.h
 PchPcrLib|Include/Library/PchPcrLib.h
 PchSbiAccessLib|IpBlock/P2sb/IncludePrivate/Library/PchSbiAccessLib.h
+SmmPchPrivateLib|Pch/IncludePrivate/Library/SmmPchPrivateLib.h
 PchPciBdfLib|Pch/Include/Library/PchPciBdfLib.h
 PchRasLib|Pch/Include/Library/PchRasLib.h
 PchRtcLib|Pch/Include/Library/PchRtcLib.h
@@ -394,7 +396,7 @@ OcPlatformLib|Include/Library/OcPlatformLib.h
 PeiSpsPreMemPolicyLib|Include/Library/PeiSpsPreMemPolicyLib.h
 PmcLib|Include/Library/PmcLib.h
 PmcSsramLib|Include/Library/PmcSsramLib.h
-SpiLib|Include/Library/SpiLib.h
+SpiAccessLib|Include/Library/SpiAccessLib.h
 SpsDxeLib|Include/Library/SpsDxeLib.h
 SpsGetDxeConfigBlockLib|Include/Library/SpsGetDxeConfigBlock.h
 MeGetPeiConfigBlock|Include/Library/MeGetConfigBlock.h

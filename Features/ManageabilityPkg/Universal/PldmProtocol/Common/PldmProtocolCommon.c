@@ -21,42 +21,6 @@
 extern CHAR16  *mTransportName;
 extern UINT8   mPldmRequestInstanceId;
 
-PLDM_MESSAGE_PACKET_MAPPING  PldmMessagePacketMappingTable[] = {
-  { PLDM_TYPE_SMBIOS, PLDM_GET_SMBIOS_STRUCTURE_TABLE_METADATA_COMMAND_CODE, sizeof (PLDM_GET_SMBIOS_STRUCTURE_TABLE_METADATA_RESPONSE_FORMAT) },
-  { PLDM_TYPE_SMBIOS, PLDM_SET_SMBIOS_STRUCTURE_TABLE_METADATA_COMMAND_CODE, sizeof (PLDM_SET_SMBIOS_STRUCTURE_TABLE_METADATA_RESPONSE_FORMAT) },
-  { PLDM_TYPE_SMBIOS, PLDM_SET_SMBIOS_STRUCTURE_TABLE_COMMAND_CODE,          sizeof (PLDM_SET_SMBIOS_STRUCTURE_TABLE_REQUEST_FORMAT)           }
-};
-
-/**
-  This function returns the expected full size of PLDM response message.
-
-  @param[in]         PldmType        PLDM message type.
-  @param[in]         PldmCommand     PLDM command of this PLDM type.
-
-  @retval  Zero       No matched entry for this PldmType/PldmCommand.
-  @retval  None-zero  Size of full packet is returned.
-**/
-UINT32
-GetFullPacketResponseSize (
-  IN UINT8  PldmType,
-  IN UINT8  PldmCommand
-  )
-{
-  INT16                        Index;
-  PLDM_MESSAGE_PACKET_MAPPING  *ThisEntry;
-
-  ThisEntry = PldmMessagePacketMappingTable;
-  for (Index = 0; Index < (sizeof (PldmMessagePacketMappingTable)/ sizeof (PLDM_MESSAGE_PACKET_MAPPING)); Index++) {
-    if ((PldmType == ThisEntry->PldmType) && (PldmCommand == ThisEntry->PldmCommand)) {
-      return ThisEntry->ResponseSize;
-    }
-
-    ThisEntry++;
-  }
-
-  return 0;
-}
-
 /**
   This functions setup the final header/body/trailer packets for
   the acquired transport interface.
@@ -64,6 +28,8 @@ GetFullPacketResponseSize (
   @param[in]         TransportToken     The transport interface.
   @param[in]         PldmType           PLDM message type.
   @param[in]         PldmCommand        PLDM command of this PLDM type.
+  @param[in]         SourceId           PLDM source teminus ID.
+  @param[in]         DestinationId      PLDM destination teminus ID.
   @param[out]        PacketHeader       The pointer to receive header of request.
   @param[out]        PacketHeaderSize   Packet header size in bytes.
   @param[in, out]    PacketBody         The request body.
@@ -88,6 +54,8 @@ SetupPldmRequestTransportPacket (
   IN   MANAGEABILITY_TRANSPORT_TOKEN    *TransportToken,
   IN   UINT8                            PldmType,
   IN   UINT8                            PldmCommand,
+  IN   UINT8                            SourceId,
+  IN   UINT8                            DestinationId,
   OUT  MANAGEABILITY_TRANSPORT_HEADER   *PacketHeader,
   OUT  UINT16                           *PacketHeaderSize,
   IN OUT UINT8                          **PacketBody,
@@ -118,8 +86,8 @@ SetupPldmRequestTransportPacket (
       return EFI_OUT_OF_RESOURCES;
     }
 
-    MctpHeader->SourceEndpointId             = PcdGet8 (PcdMctpSourceEndpointId);
-    MctpHeader->SourceEndpointId             = PcdGet8 (PcdMctpDestinationEndpointId);
+    MctpHeader->SourceEndpointId             = SourceId;
+    MctpHeader->DestinationEndpointId        = DestinationId;
     MctpHeader->MessageHeader.IntegrityCheck = FALSE;
     MctpHeader->MessageHeader.MessageType    = MCTP_MESSAGE_TYPE_PLDM;
     *PacketHeader                            = (MANAGEABILITY_TRANSPORT_HEADER *)MctpHeader;
@@ -161,13 +129,15 @@ SetupPldmRequestTransportPacket (
 /**
   Common code to submit PLDM commands
 
-  @param[in]         TransportToken    Transport token.
-  @param[in]         PldmType          PLDM message type.
-  @param[in]         PldmCommand       PLDM command of this PLDM type.
-  @param[in]         RequestData       Command Request Data.
-  @param[in]         RequestDataSize   Size of Command Request Data.
-  @param[out]        ResponseData      Command Response Data. The completion code is the first byte of response data.
-  @param[in, out]    ResponseDataSize  Size of Command Response Data.
+  @param[in]         TransportToken             Transport token.
+  @param[in]         PldmType                   PLDM message type.
+  @param[in]         PldmCommand                PLDM command of this PLDM type.
+  @param[in]         PldmTerminusSourceId       PLDM source teminus ID.
+  @param[in]         PldmTerminusDestinationId  PLDM destination teminus ID.
+  @param[in]         RequestData                Command Request Data.
+  @param[in]         RequestDataSize            Size of Command Request Data.
+  @param[out]        ResponseData               Command Response Data. The completion code is the first byte of response data.
+  @param[in, out]    ResponseDataSize           Size of Command Response Data.
 
   @retval EFI_SUCCESS            The command byte stream was successfully submit to the device and a response was successfully received.
   @retval EFI_NOT_FOUND          The command was not successfully sent to the device or a response was not successfully received from the device.
@@ -182,6 +152,8 @@ CommonPldmSubmitCommand (
   IN     MANAGEABILITY_TRANSPORT_TOKEN  *TransportToken,
   IN     UINT8                          PldmType,
   IN     UINT8                          PldmCommand,
+  IN     UINT8                          PldmTerminusSourceId,
+  IN     UINT8                          PldmTerminusDestinationId,
   IN     UINT8                          *RequestData OPTIONAL,
   IN     UINT32                         RequestDataSize,
   OUT    UINT8                          *ResponseData OPTIONAL,
@@ -225,6 +197,8 @@ CommonPldmSubmitCommand (
                            TransportToken,
                            PldmType,
                            PldmCommand,
+                           PldmTerminusSourceId,
+                           PldmTerminusDestinationId,
                            &PldmTransportHeader,
                            &HeaderSize,
                            &ThisRequestData,
@@ -257,17 +231,17 @@ CommonPldmSubmitCommand (
   TransferToken.TransmitPackage.TransmitTimeoutInMillisecond = MANAGEABILITY_TRANSPORT_NO_TIMEOUT;
 
   // Set receive packet.
-  FullPacketResponseDataSize = GetFullPacketResponseSize (PldmType, PldmCommand);
-  if (FullPacketResponseDataSize == 0) {
-    DEBUG ((DEBUG_ERROR, "  No mapping entry in PldmMessagePacketMappingTable for PLDM Type:%d Command %d\n", PldmType, PldmCommand));
-    ASSERT (FALSE);
+  if ((ResponseData == NULL) && (*ResponseDataSize == 0)) {
+    FullPacketResponseDataSize = sizeof (PLDM_RESPONSE_HEADER);
+  } else {
+    FullPacketResponseDataSize = *ResponseDataSize + sizeof (PLDM_RESPONSE_HEADER);
   }
 
   FullPacketResponseData = (UINT8 *)AllocateZeroPool (FullPacketResponseDataSize);
   if (FullPacketResponseData == NULL) {
     DEBUG ((DEBUG_ERROR, "  Not enough memory for FullPacketResponseDataSize.\n"));
     Status = EFI_OUT_OF_RESOURCES;
-    goto ErrorExit2;
+    goto ErrorExit;
   }
 
   // Print out PLDM packet.
@@ -296,6 +270,7 @@ CommonPldmSubmitCommand (
                                                     );
   //
   // Check the response size.
+  //
   if (TransferToken.ReceivePackage.ReceiveSizeInByte < sizeof (PLDM_RESPONSE_HEADER)) {
     DEBUG ((
       DEBUG_MANAGEABILITY_INFO,
@@ -305,50 +280,39 @@ CommonPldmSubmitCommand (
       TransferToken.ReceivePackage.ReceiveSizeInByte,
       FullPacketResponseDataSize
       ));
-    if (ResponseDataSize != NULL) {
-      if (*ResponseDataSize > TransferToken.ReceivePackage.ReceiveSizeInByte) {
-        *ResponseDataSize = TransferToken.ReceivePackage.ReceiveSizeInByte;
-      }
-    }
-
-    if (ResponseData != NULL) {
-      CopyMem ((VOID *)ResponseData, (VOID *)FullPacketResponseData, *ResponseDataSize);
-    }
-
+    HelperManageabilityDebugPrint ((VOID *)FullPacketResponseData, TransferToken.ReceivePackage.ReceiveSizeInByte, "Failed response payload\n");
+    Status = EFI_DEVICE_ERROR;
     goto ErrorExit;
   }
 
   //
   // Check the integrity of response. data.
+  //
   ResponseHeader = (PLDM_RESPONSE_HEADER *)FullPacketResponseData;
-  if ((ResponseHeader->PldmHeader.DatagramBit != 0) ||
-      (ResponseHeader->PldmHeader.RequestBit != 0) ||
+  if ((ResponseHeader->PldmHeader.DatagramBit != (!PLDM_MESSAGE_HEADER_IS_DATAGRAM)) ||
+      (ResponseHeader->PldmHeader.RequestBit != PLDM_MESSAGE_HEADER_IS_RESPONSE) ||
       (ResponseHeader->PldmHeader.InstanceId != mPldmRequestInstanceId) ||
       (ResponseHeader->PldmHeader.PldmType != PldmType) ||
-      (ResponseHeader->PldmHeader.PldmTypeCommandCode != PldmCommand))
+      (ResponseHeader->PldmHeader.PldmTypeCommandCode != PldmCommand) ||
+      (ResponseHeader->PldmCompletionCode != PLDM_COMPLETION_CODE_SUCCESS))
   {
     DEBUG ((DEBUG_ERROR, "PLDM integrity check of response data is failed.\n"));
-    DEBUG ((DEBUG_ERROR, "    Request bit  = %d (Expected value: 0)\n"));
-    DEBUG ((DEBUG_ERROR, "    Datagram     = %d (Expected value: 0)\n"));
+    DEBUG ((DEBUG_ERROR, "    Datagram     = %d (Expected value: %d)\n", ResponseHeader->PldmHeader.DatagramBit, (!PLDM_MESSAGE_HEADER_IS_DATAGRAM)));
+    DEBUG ((DEBUG_ERROR, "    Request bit  = %d (Expected value: %d)\n", ResponseHeader->PldmHeader.RequestBit, PLDM_MESSAGE_HEADER_IS_RESPONSE));
     DEBUG ((DEBUG_ERROR, "    Instance ID  = %d (Expected value: %d)\n", ResponseHeader->PldmHeader.InstanceId, mPldmRequestInstanceId));
     DEBUG ((DEBUG_ERROR, "    Pldm Type    = %d (Expected value: %d)\n", ResponseHeader->PldmHeader.PldmType, PldmType));
     DEBUG ((DEBUG_ERROR, "    Pldm Command = %d (Expected value: %d)\n", ResponseHeader->PldmHeader.PldmTypeCommandCode, PldmCommand));
-    if (ResponseDataSize != NULL) {
-      if (*ResponseDataSize > TransferToken.ReceivePackage.ReceiveSizeInByte) {
-        *ResponseDataSize = TransferToken.ReceivePackage.ReceiveSizeInByte;
-      }
-    }
+    DEBUG ((DEBUG_ERROR, "    Pldm Completion Code = 0x%x\n", ResponseHeader->PldmCompletionCode));
 
-    if (ResponseData != NULL) {
-      CopyMem ((VOID *)ResponseData, (VOID *)FullPacketResponseData, *ResponseDataSize);
-    }
-
+    HelperManageabilityDebugPrint ((VOID *)FullPacketResponseData, TransferToken.ReceivePackage.ReceiveSizeInByte, "Failed response payload\n");
+    Status = EFI_DEVICE_ERROR;
     goto ErrorExit;
   }
 
   //
   // Check the response size
-  if (TransferToken.ReceivePackage.ReceiveSizeInByte != FullPacketResponseDataSize) {
+  //
+  if (TransferToken.ReceivePackage.ReceiveSizeInByte > FullPacketResponseDataSize) {
     DEBUG ((
       DEBUG_ERROR,
       "The response size is incorrect: Response size %d (Expected %d), Completion code %d.\n",
@@ -356,38 +320,23 @@ CommonPldmSubmitCommand (
       FullPacketResponseDataSize,
       ResponseHeader->PldmCompletionCode
       ));
-    if (ResponseDataSize != NULL) {
-      if (*ResponseDataSize > TransferToken.ReceivePackage.ReceiveSizeInByte) {
-        *ResponseDataSize = TransferToken.ReceivePackage.ReceiveSizeInByte;
-      }
-    }
 
-    if (ResponseData != NULL) {
-      CopyMem ((VOID *)ResponseData, (VOID *)FullPacketResponseData, *ResponseDataSize);
-    }
-
+    HelperManageabilityDebugPrint ((VOID *)FullPacketResponseData, TransferToken.ReceivePackage.ReceiveSizeInByte, "Failed response payload\n");
+    Status = EFI_DEVICE_ERROR;
     goto ErrorExit;
   }
 
-  if (*ResponseDataSize != (TransferToken.ReceivePackage.ReceiveSizeInByte - sizeof (PLDM_RESPONSE_HEADER))) {
+  if (*ResponseDataSize < GET_PLDM_MESSAGE_PAYLOAD_SIZE (TransferToken.ReceivePackage.ReceiveSizeInByte)) {
     DEBUG ((DEBUG_ERROR, "  The size of response is not matched to RequestDataSize assigned by caller.\n"));
     DEBUG ((
       DEBUG_ERROR,
       "Caller expects %d, the response size minus PLDM_RESPONSE_HEADER size is %d, Completion Code %d.\n",
       *ResponseDataSize,
-      TransferToken.ReceivePackage.ReceiveSizeInByte - sizeof (PLDM_RESPONSE_HEADER),
+      GET_PLDM_MESSAGE_PAYLOAD_SIZE (TransferToken.ReceivePackage.ReceiveSizeInByte),
       ResponseHeader->PldmCompletionCode
       ));
-    if (ResponseDataSize != NULL) {
-      if (*ResponseDataSize > TransferToken.ReceivePackage.ReceiveSizeInByte) {
-        *ResponseDataSize = TransferToken.ReceivePackage.ReceiveSizeInByte;
-      }
-    }
-
-    if (ResponseData != NULL) {
-      CopyMem ((VOID *)ResponseData, (VOID *)FullPacketResponseData, *ResponseDataSize);
-    }
-
+    HelperManageabilityDebugPrint ((VOID *)FullPacketResponseData, GET_PLDM_MESSAGE_PAYLOAD_SIZE (TransferToken.ReceivePackage.ReceiveSizeInByte), "Failed response payload\n");
+    Status = EFI_DEVICE_ERROR;
     goto ErrorExit;
   }
 
@@ -396,23 +345,22 @@ CommonPldmSubmitCommand (
 
   // Copy response data (without header) to caller's buffer.
   if ((ResponseData != NULL) && (*ResponseDataSize != 0)) {
-    *ResponseDataSize = FullPacketResponseDataSize - sizeof (PLDM_RESPONSE_HEADER);
+    *ResponseDataSize = GET_PLDM_MESSAGE_PAYLOAD_SIZE (TransferToken.ReceivePackage.ReceiveSizeInByte);
     CopyMem (
       (VOID *)ResponseData,
-      (VOID *)(FullPacketResponseData + sizeof (PLDM_RESPONSE_HEADER)),
+      GET_PLDM_MESSAGE_PAYLOAD_PTR (FullPacketResponseData),
       *ResponseDataSize
       );
   }
 
   // Return transfer status.
   //
-ErrorExit:
   Status = TransferToken.TransferStatus;
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "%a: Failed to send PLDM command over %s\n", __func__, mTransportName));
   }
 
-ErrorExit2:
+ErrorExit:
   if (PldmTransportHeader != NULL) {
     FreePool ((VOID *)PldmTransportHeader);
   }

@@ -51,7 +51,6 @@
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiRuntimeLib
-  IoLib
 
 [Guids]
   gEfiEventVirtualAddressChangeGuid   # ALWAYS_CONSUMED

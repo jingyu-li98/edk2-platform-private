@@ -1,39 +1,45 @@
 /** @file
-  FrontPage routines to handle the callbacks and browser calls
-(C) Copyright 2024, Sophgo All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
-**/
 
+  FrontPage routines to handle the callbacks and browser calls
+
+  Copyright (c) 2025, SOPHGO Technologies Inc. All rights reserved.
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
 #include "FrontPage.h"
 #include "FrontPageCustomizedUi.h"
-#define MAX_STRING_LEN  500
-#define DEVICE_PATH_0_GUID { 0x8e6d99ee, 0x7531, 0x48f8, { 0x87, 0x45, 0x7f, 0x61, 0x44, 0x46, 0x8f, 0xf2} }
+
+#define MAX_STRING_LEN             500
 #define PASSWORD_CONFIG_ATTRIBUTES (EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS)
 
-extern EFI_HII_HANDLE gStringPackHandle;
+extern EFI_HII_HANDLE       gStringPackHandle;
 EFI_FORM_BROWSER2_PROTOCOL  *gFormBrowser2;
-PASSWORD_TOGGLE_DATA         PassWordToggleData;
+PASSWORD_TOGGLE_DATA        PassWordToggleData;
 CHAR8                       *mLanguageString;
-VOID         *ProtocolPtr;
-EFI_GUID mFrontPageGuid = FORMSET_GUID;
-EFI_GUID gPasswordConfigVarGuid = PASSWORDCONFIG_VAR_GUID;
-EFI_GUID gMenuPasswordToggleVarGuid = PASSWORD_TOGGLE_VARSTORE_GUID;
-BOOLEAN  mResetRequired = FALSE;
-BOOLEAN  mModeInitialized = FALSE;
-UINT32  mBootHorizontalResolution = 0;
-UINT32  mBootVerticalResolution   = 0;
-UINT32  mBootTextModeColumn       = 0;
-UINT32  mBootTextModeRow          = 0;
-UINT32  mSetupTextModeColumn       = 0;
-UINT32  mSetupTextModeRow          = 0;
-UINT32  mSetupHorizontalResolution = 0;
-UINT32  mSetupVerticalResolution   = 0;
+VOID                        *ProtocolPtr;
+
+EFI_GUID mFrontPageGuid             = FORMSET_GUID;
+EFI_GUID gEfiAcpiTableGuid          = ACPI_TABLE_GUID;
+EFI_GUID gEfiLinuxDtbTableGuid      = LINUX_EFI_DT_TABLE_GUID;
+BOOLEAN  mResetRequired             = FALSE;
+BOOLEAN  mModeInitialized           = FALSE;
+UINT32   mBootHorizontalResolution  = 0;
+UINT32   mBootVerticalResolution    = 0;
+UINT32   mBootTextModeColumn        = 0;
+UINT32   mBootTextModeRow           = 0;
+UINT32   mSetupTextModeColumn       = 0;
+UINT32   mSetupTextModeRow          = 0;
+UINT32   mSetupHorizontalResolution = 0;
+UINT32   mSetupVerticalResolution   = 0;
+SMBIOS_PARSED_DATA *ParsedData      = NULL;
+VOID *SavedAcpiTable = NULL;
+VOID *SavedAcpi20Table = NULL;
 
 STATIC RESTORE_PROTOCOL gPassWordToggleRestoreProtocol = {
   PassWordToggleRestore
 };
 
-FRONT_PAGE_CALLBACK_DATA  gFrontPagePrivate = {
+FRONT_PAGE_CALLBACK_DATA gFrontPagePrivate = {
   FRONT_PAGE_CALLBACK_DATA_SIGNATURE,
   NULL,
   NULL,
@@ -45,7 +51,7 @@ FRONT_PAGE_CALLBACK_DATA  gFrontPagePrivate = {
   }
 };
 
-HII_VENDOR_DEVICE_PATH  mFrontPageHiiVendorDevicePath0 = {
+HII_VENDOR_DEVICE_PATH mFrontPageHiiVendorDevicePath0 = {
   {
     {
       HARDWARE_DEVICE_PATH,
@@ -55,7 +61,7 @@ HII_VENDOR_DEVICE_PATH  mFrontPageHiiVendorDevicePath0 = {
         (UINT8)((sizeof (VENDOR_DEVICE_PATH)) >> 8)
       }
     },
-    DEVICE_PATH_0_GUID
+    DEVICE_PATH_GUID
   },
   {
     END_DEVICE_PATH_TYPE,
@@ -68,81 +74,267 @@ HII_VENDOR_DEVICE_PATH  mFrontPageHiiVendorDevicePath0 = {
 };
 
 BOOLEAN
-ConfirmResetDefaults(
-CHAR16 *ConfirmPrompt
+FindAcpiTable
+(
+  IN EFI_GUID *TableGuid
 )
 {
-    EFI_INPUT_KEY Key;
+    UINTN TableCount = gST->NumberOfTableEntries;
 
-    CreatePopUp(EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE, NULL,
+    if (TableCount == 0 || gST->ConfigurationTable == NULL) {
+        DEBUG((DEBUG_ERROR, "ConfigurationTable is NULL or TableCount is 0\n"));
+        return FALSE;
+    }
+
+    for (UINTN Index = 0; Index < TableCount; Index++) {
+        EFI_CONFIGURATION_TABLE *CurrentTable = &gST->ConfigurationTable[Index];
+
+        if (CurrentTable == NULL) {
+            DEBUG((DEBUG_ERROR, "Current ConfigurationTable entry is NULL at Index %u\n", Index));
+            continue;
+        }
+        if (CompareGuid(&CurrentTable->VendorGuid, TableGuid)) {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+EFI_STATUS
+RemoveAcpiFromConfigTable
+(
+  VOID
+)
+{
+    EFI_STATUS Status;
+    UINTN Index, NewIndex = 0;
+    UINTN TableCount = gST->NumberOfTableEntries;
+    EFI_CONFIGURATION_TABLE *NewTable;
+
+    Status = gBS->AllocatePool(EfiBootServicesData, TableCount * sizeof(EFI_CONFIGURATION_TABLE), (VOID **)&NewTable);
+    if (EFI_ERROR(Status)) {
+        DEBUG((DEBUG_ERROR, "Failed to allocate memory for new config table: %r\n", Status));
+        return Status;
+    }
+
+    for (Index = 0; Index < TableCount; Index++) {
+        EFI_CONFIGURATION_TABLE *CurrentTable = &gST->ConfigurationTable[Index];
+
+        if (CurrentTable == NULL) {
+            DEBUG((DEBUG_ERROR, "Current ConfigurationTable entry is NULL at Index %u\n", Index));
+            continue;
+        }
+        if (FindAcpiTable(&gEfiAcpiTableGuid)) {
+            SavedAcpiTable = CurrentTable->VendorTable;
+            continue;
+        }
+
+        if (FindAcpiTable(&gEfiAcpi20TableGuid)) {
+            SavedAcpi20Table = CurrentTable->VendorTable;
+            continue;
+        }
+        NewTable[NewIndex++] = *CurrentTable;
+    }
+    gST->NumberOfTableEntries = NewIndex;
+    gST->ConfigurationTable = NewTable;
+
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS
+InstallDtb
+(
+ VOID
+)
+{
+    EFI_RISCV_FIRMWARE_CONTEXT  *FirmwareContext;
+    VOID                        *DtbAddress;
+    EFI_STATUS                  Status;
+
+    FirmwareContext = NULL;
+    GetFirmwareContextPointer (&FirmwareContext);
+
+    if (FirmwareContext == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Firmware Context is NULL\n",
+      __func__
+      ));
+    return EFI_UNSUPPORTED;
+    }
+
+    DtbAddress = (VOID *)FirmwareContext->FlattenedDeviceTree;
+    if (DtbAddress == NULL) {
+      DEBUG((DEBUG_ERROR, "DtbAddress is NULL!\n"));
+      return EFI_INVALID_PARAMETER;
+    }
+    Status = gBS->InstallConfigurationTable(&gEfiLinuxDtbTableGuid, DtbAddress);
+    if (EFI_ERROR(Status)) {
+        DEBUG((DEBUG_ERROR, "Failed to install DTB: %r\n", Status));
+        return Status;
+    }
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS
+RestoreAcpiTables
+(
+ VOID
+)
+{
+    EFI_STATUS Status;
+
+    if (SavedAcpiTable != NULL) {
+        Status = gBS->InstallConfigurationTable(&gEfiAcpiTableGuid, SavedAcpiTable);
+        if (EFI_ERROR(Status)) {
+            DEBUG((DEBUG_ERROR, "Failed to restore ACPI Table: %r\n", Status));
+            return Status;
+        }
+    }
+
+    if (SavedAcpi20Table != NULL) {
+        Status = gBS->InstallConfigurationTable(&gEfiAcpi20TableGuid, SavedAcpi20Table);
+        if (EFI_ERROR(Status)) {
+            DEBUG((DEBUG_ERROR, "Failed to restore ACPI 2.0 Table: %r\n", Status));
+            return Status;
+        }
+    }
+
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS
+UnloadAcpiTables
+(
+ VOID
+)
+{
+    EFI_CONFIGURATION_TABLE *ConfigTable;
+    UINTN Index, RemovedCount = 0;
+    EFI_STATUS Status;
+    for (Index = 0; Index < gST->NumberOfTableEntries; Index++) {
+        ConfigTable = &gST->ConfigurationTable[Index];
+
+        if (CompareGuid(&ConfigTable->VendorGuid, &gEfiAcpiTableGuid)) {
+            Status = gBS->InstallConfigurationTable(&gEfiAcpiTableGuid, NULL);
+            if (EFI_ERROR(Status)) {
+                DEBUG((DEBUG_ERROR, "Failed to remove ACPI Table %d: %r\n", Index, Status));
+                return Status;
+            }
+
+            RemovedCount++;
+        }
+        if (CompareGuid(&ConfigTable->VendorGuid, &gEfiAcpi20TableGuid)) {
+            Status = gBS->InstallConfigurationTable(&gEfiAcpi20TableGuid, NULL);
+            if (EFI_ERROR(Status)) {
+                DEBUG((DEBUG_ERROR, "Failed to remove ACPI Table %d: %r\n", Index, Status));
+                return Status;
+            }
+
+            RemovedCount++;
+        }
+    }
+
+    if (RemovedCount == 0) {
+      DEBUG((DEBUG_INFO, "No ACPI Tables found.\n"));
+    }
+    Status = RemoveAcpiFromConfigTable();
+    if (EFI_ERROR(Status)) {
+      DEBUG((DEBUG_ERROR, "[Error] Failed to remove ACPI Tables: %r\n", Status));
+      return Status;
+    }
+    Status = InstallDtb();
+    if (EFI_ERROR(Status)) {
+      DEBUG((DEBUG_ERROR, "[Error] Failed to install DTB: %r\n", Status));
+      EFI_STATUS RestoreStatus = RestoreAcpiTables();
+      if (EFI_ERROR(RestoreStatus)) {
+        DEBUG((DEBUG_ERROR, "[Critical] Failed to restore ACPI Tables: %r\n", RestoreStatus));
+        return RestoreStatus;
+      }
+      return Status;
+    }
+    return EFI_SUCCESS;
+}
+
+BOOLEAN
+ConfirmResetDefaults (
+  CHAR16 *ConfirmPrompt
+  )
+{
+  EFI_INPUT_KEY Key;
+
+  CreatePopUp(EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE, NULL,
                 ConfirmPrompt,
                 L"[Y] Yes    [N] No",
                 NULL);
 
-    while (TRUE) {
-        gBS->WaitForEvent(1, &gST->ConIn->WaitForKey, NULL);
-        gST->ConIn->ReadKeyStroke(gST->ConIn, &Key);
-        if (Key.UnicodeChar == 'Y' || Key.UnicodeChar == 'y') {
-            return TRUE;
-        } else if (Key.UnicodeChar == 'N' || Key.UnicodeChar == 'n') {
-            return FALSE;
-        }
+  while (TRUE) {
+    gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, NULL);
+    gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
+    if (Key.UnicodeChar == 'Y' || Key.UnicodeChar == 'y') {
+      return TRUE;
+    } else if (Key.UnicodeChar == 'N' || Key.UnicodeChar == 'n') {
+      return FALSE;
     }
+  }
 }
 
 EFI_STATUS
 EFIAPI
-RestoreFactoryDefaults(
-VOID
-) {
-    EFI_STATUS Status;
-    EFI_STATUS OverallStatus = EFI_SUCCESS;
-    EFI_GUID *ModuleGuids[] = {
-        &gSetDateAndTimeRestoreProtocolGuid,
-        &gPasswordRestoreProtocolGuid,
-        &gPassWordToggleRestoreProtocolGuid,
-    };
+RestoreFactoryDefaults (
+  VOID
+  )
+{
+  EFI_STATUS Status;
+  EFI_STATUS OverallStatus = EFI_SUCCESS;
+  EFI_GUID *ModuleGuids[] = {
+    &gSetDateAndTimeRestoreProtocolGuid,
+    &gPasswordRestoreProtocolGuid,
+    &gPassWordToggleRestoreProtocolGuid,
+    &gReserveMemoryRestoreProtocolGuid
+  };
 
-    for (UINTN i = 0; i < ARRAY_SIZE(ModuleGuids); i++) {
-        RESTORE_PROTOCOL *RestoreProtocol = NULL;
-        Status = gBS->LocateProtocol(ModuleGuids[i], NULL, (VOID **)&RestoreProtocol);
-        if (EFI_ERROR(Status)) {
-            DEBUG((DEBUG_ERROR, "Failed to locate protocol for module %u: %r\n", i, Status));
-            if (!EFI_ERROR(OverallStatus)) {
-                OverallStatus = Status;
-            }
-            continue;
-        }
-
-        if (RestoreProtocol == NULL) {
-            DEBUG((DEBUG_ERROR, "RestoreProtocol is NULL for module %u.\n", i));
-            if (!EFI_ERROR(OverallStatus)) {
-                OverallStatus = EFI_DEVICE_ERROR;
-            }
-            continue;
-        }
-
-        if (RestoreProtocol->RestoreDefaults == NULL) {
-            DEBUG((DEBUG_ERROR, "RestoreDefaults function pointer is NULL for module %u.\n", i));
-            if (!EFI_ERROR(OverallStatus)) {
-                OverallStatus = EFI_DEVICE_ERROR;
-            }
-            continue;
-        }
-        Status = RestoreProtocol->RestoreDefaults();
-        if (EFI_ERROR(Status)) {
-            DEBUG((DEBUG_ERROR, "Failed to restore defaults for module %u: %r\n", i, Status));
-            if (!EFI_ERROR(OverallStatus)) {
-                OverallStatus = Status;
-            }
-        }
+  for (UINTN i = 0; i < ARRAY_SIZE (ModuleGuids); i++) {
+    RESTORE_PROTOCOL *RestoreProtocol = NULL;
+    Status = gBS->LocateProtocol (ModuleGuids[i], NULL, (VOID **)&RestoreProtocol);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "Failed to locate protocol for module %u: %r\n", i, Status));
+      if (!EFI_ERROR (OverallStatus)) {
+        OverallStatus = Status;
+      }
+      continue;
     }
 
-    if (EFI_ERROR(OverallStatus)) {
-        DEBUG((DEBUG_ERROR, "One or more modules failed to restore defaults.\n"));
+    if (RestoreProtocol == NULL) {
+      DEBUG ((DEBUG_ERROR, "RestoreProtocol is NULL for module %u.\n", i));
+      if (!EFI_ERROR (OverallStatus)) {
+        OverallStatus = EFI_DEVICE_ERROR;
+      }
+      continue;
     }
 
-    return OverallStatus;
+    if (RestoreProtocol->RestoreDefaults == NULL) {
+      DEBUG((DEBUG_ERROR, "RestoreDefaults function pointer is NULL for module %u.\n", i));
+      if (!EFI_ERROR (OverallStatus)) {
+        OverallStatus = EFI_DEVICE_ERROR;
+      }
+      continue;
+    }
+    Status = RestoreProtocol->RestoreDefaults ();
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "Failed to restore defaults for module %u: %r\n", i, Status));
+      if (!EFI_ERROR (OverallStatus)) {
+        OverallStatus = Status;
+      }
+    }
+  }
+
+  if (EFI_ERROR (OverallStatus)) {
+    DEBUG ((DEBUG_ERROR, "One or more modules failed to restore defaults.\n"));
+  }
+
+  return OverallStatus;
 }
 
 /**
@@ -164,131 +356,163 @@ VOID
 **/
 EFI_STATUS
 EFIAPI
-FrontPageCallback(
-    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This,
-    IN EFI_BROWSER_ACTION Action,
-    IN EFI_QUESTION_ID QuestionId,
-    IN UINT8 Type,
-    IN EFI_IFR_TYPE_VALUE *Value,
-    OUT EFI_BROWSER_ACTION_REQUEST *ActionRequest
-)
+FrontPageCallback (
+  IN  CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This,
+  IN  EFI_BROWSER_ACTION                   Action,
+  IN  EFI_QUESTION_ID                      QuestionId,
+  IN  UINT8                                Type,
+  IN  EFI_IFR_TYPE_VALUE                   *Value,
+  OUT EFI_BROWSER_ACTION_REQUEST           *ActionRequest
+  )
 {
-    EFI_STATUS Status;
-    CHAR16 *ConfirmResetPrompt = NULL;
+  EFI_STATUS Status;
+  CHAR16     *ConfirmResetPrompt = NULL;
+  EFI_INPUT_KEY Key;
 
-    if (Action == EFI_BROWSER_ACTION_CHANGED) {
-      if (QuestionId == RESTORE_DEFAULTS_QUESTION_ID) {
-          ConfirmResetPrompt = HiiGetString(gFrontPagePrivate.HiiHandle, STRING_TOKEN(STR_CONFIRM_RESET_PROMPT), NULL);
-    	  if (ConfirmResetPrompt == NULL) {
-             DEBUG((DEBUG_ERROR, "Failed to get confirm reset prompt string.\n"));
-             return EFI_OUT_OF_RESOURCES;
-          }
+  if (Action == EFI_BROWSER_ACTION_CHANGED) {
+    if (QuestionId == RESTORE_DEFAULTS_QUESTION_ID) {
+      ConfirmResetPrompt = HiiGetString (gFrontPagePrivate.HiiHandle, STRING_TOKEN (STR_CONFIRM_RESET_PROMPT), NULL);
+      if (ConfirmResetPrompt == NULL) {
+        DEBUG ((DEBUG_ERROR, "Failed to get confirm reset prompt string.\n"));
+        return EFI_OUT_OF_RESOURCES;
+      }
 
-    	  if (!ConfirmResetDefaults(ConfirmResetPrompt)) {
-            FreePool(ConfirmResetPrompt);
-            return EFI_SUCCESS;
-    	  }
-    	  FreePool(ConfirmResetPrompt);
-    	  Status = RestoreFactoryDefaults();
-    	  if (EFI_ERROR(Status)) {
-            DEBUG((DEBUG_ERROR, "Failed to restore factory defaults: %r\n", Status));
-            return Status;
-          }
-       }
+      if (!ConfirmResetDefaults (ConfirmResetPrompt)) {
+        FreePool (ConfirmResetPrompt);
+        return EFI_SUCCESS;
+      }
+
+      FreePool (ConfirmResetPrompt);
+
+      Status = RestoreFactoryDefaults ();
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "Failed to restore factory defaults: %r\n", Status));
+        return Status;
+      }
     }
-    return UiFrontPageCallbackHandler(gFrontPagePrivate.HiiHandle, Action, QuestionId, Type, Value, ActionRequest);
+    if (QuestionId == ACPI_DISABLE_QUESTION_ID) {
+        Status = UnloadAcpiTables();
+        if (EFI_ERROR(Status)) {
+            DEBUG((DEBUG_ERROR, "Failed to unload ACPI Tables: %r\n", Status));
+            return Status;
+        }
+        CHAR16 *AcpiDisableMsg[] = {
+            L"ACPI Disabled Successfully",
+            L"Press ENTER to continue..."
+        };
+        CreatePopUp(EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE, NULL, AcpiDisableMsg[0], AcpiDisableMsg[1], NULL);
+        while (TRUE) {
+            Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &Key);
+            if (!EFI_ERROR(Status) && (Key.UnicodeChar == CHAR_CARRIAGE_RETURN)) {
+                break;
+            }
+        }
+    }
+  }
+
+  return UiFrontPageCallbackHandler (gFrontPagePrivate.HiiHandle, Action, QuestionId, Type, Value, ActionRequest);
 }
 
 EFI_STATUS
 EFIAPI
 PassWordToggleRestore (
- VOID
-) {
+  VOID
+  )
+{
   EFI_STATUS Status;
-  UINTN VarSize;
-  VarSize = sizeof(PASSWORD_TOGGLE_DATA);
+  UINTN      VarSize;
 
-  PassWordToggleData.PasswordCheckEnabled = 0;
+  VarSize = sizeof (PASSWORD_TOGGLE_DATA);
   PassWordToggleData.IsFirst = 0;
   PassWordToggleData.UserPriv = 0;
-  Status = gRT->SetVariable(
-          L"PassWordToggleData",
-          &gMenuPasswordToggleVarGuid,
-          EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-          sizeof(PASSWORD_TOGGLE_DATA),
-          &PassWordToggleData
-          );
-  if (EFI_ERROR(Status)) {
-        DEBUG((DEBUG_ERROR, "Failed to Restore PassWordToggleData. Status=%r\n", Status));
-        return Status;
+
+  Status = gRT->SetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		  &gEfiSophgoGlobalVariableGuid,
+		  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+		  sizeof (PASSWORD_TOGGLE_DATA),
+		  &PassWordToggleData
+		  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to Restore PassWordToggleData. Status=%r\n", Status));
+    return Status;
   }
+
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 InitializePasswordToggleVariable (
   VOID
-)
+  )
 {
   EFI_STATUS Status;
-  UINTN VarSize;
-  VarSize = sizeof(PASSWORD_TOGGLE_DATA);
+  UINTN      VarSize;
 
-  Status = gRT->GetVariable(
-      L"PassWordToggleData",
-      &gMenuPasswordToggleVarGuid,
-      NULL,
-      &VarSize,
-      &PassWordToggleData
-  );
-  if (EFI_ERROR(Status)) {
+  VarSize = sizeof (PASSWORD_TOGGLE_DATA);
+
+  Status = gRT->GetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+                  &gEfiSophgoGlobalVariableGuid,
+                  NULL,
+                  &VarSize,
+                  &PassWordToggleData
+                  );
+  if (EFI_ERROR (Status)) {
     if (Status == EFI_NOT_FOUND) {
       PassWordToggleData.PasswordCheckEnabled = 0;
       PassWordToggleData.IsFirst = 0;
       PassWordToggleData.UserPriv = 0;
-      Status = gRT->SetVariable(
-          L"PassWordToggleData",
-          &gMenuPasswordToggleVarGuid,
-          EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-          sizeof(PASSWORD_TOGGLE_DATA),
-          &PassWordToggleData
-      );
+      PassWordToggleData.IsEvb = 0;
+      PassWordToggleData.DefaultAcpi = 0;
+      Status = gRT->SetVariable (
+		      EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		      &gEfiSophgoGlobalVariableGuid,
+		      EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+		      sizeof (PASSWORD_TOGGLE_DATA),
+		      &PassWordToggleData
+		      );
 
-      if (EFI_ERROR(Status)) {
-        DEBUG((DEBUG_ERROR, "Failed to initialize PassWordToggleData. Status=%r\n", Status));
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "Failed to initialize PassWordToggleData. Status=%r\n", Status));
         return Status;
       }
     } else {
-      DEBUG((DEBUG_ERROR, "Failed to read PassWordToggleData. Status=%r\n", Status));
+      DEBUG ((DEBUG_ERROR, "Failed to read PassWordToggleData. Status=%r\n", Status));
       return Status;
     }
   }
+
   return EFI_SUCCESS;
 }
 
 BOOLEAN
 PassWordToggleEntry (
   VOID
-)
+  )
 {
-  UINTN VarSize;
+  UINTN      VarSize;
   EFI_STATUS Status;
-  VarSize = sizeof(PassWordToggleData);
-  Status = gRT->GetVariable(
-    L"PassWordToggleData",
-    &gMenuPasswordToggleVarGuid,
-    NULL,
-    &VarSize,
-    &PassWordToggleData
-  );
 
+  VarSize = sizeof(PassWordToggleData);
+  Status = gRT->GetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		  &gEfiSophgoGlobalVariableGuid,
+		  NULL,
+		  &VarSize,
+		  &PassWordToggleData
+		  );
+  if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "Failed to Get PassWordToggleData. Status=%r\n", Status));
+        return Status;
+  }
   return (PassWordToggleData.PasswordCheckEnabled == 1) ? TRUE : FALSE;
 }
 
 EFI_STATUS
-FrontPagePasswordCheck(
+FrontPagePasswordCheck (
   VOID
-)
+  )
 {
   CHAR16                  TempStr[PASSWD_MAXLEN];
   CHAR16                  UsernameStr[PASSWD_MAXLEN];
@@ -305,18 +529,18 @@ FrontPagePasswordCheck(
   CHAR16                  *PressEnterContinueString;
 
   UINT8 Chance = 4;
-  ZeroMem(TempStr,      sizeof(TempStr));
-  ZeroMem(UsernameStr,  sizeof(UsernameStr));
-  ZeroMem(&PasswordConfigData, sizeof(PasswordConfigData));
-  VarSize = sizeof(PASSWORD_CONFIG_DATA);
-  Status = gRT->GetVariable(
-      VAR_PASSWORD_CONFIG_NAME,
-      &gPasswordConfigVarGuid,
-      NULL,
-      &VarSize,
-      &PasswordConfigData
-  );
-  if (EFI_ERROR(Status)) {
+  ZeroMem (TempStr,      sizeof(TempStr));
+  ZeroMem (UsernameStr,  sizeof(UsernameStr));
+  ZeroMem (&PasswordConfigData, sizeof (PasswordConfigData));
+  VarSize = sizeof (PASSWORD_CONFIG_DATA);
+  Status = gRT->GetVariable (
+		  EFI_PASSWORD_CONFIG_VARIABLE_NAME,
+                  &gEfiSophgoGlobalVariableGuid,
+                  NULL,
+                  &VarSize,
+                  &PasswordConfigData
+                  );
+  if (EFI_ERROR (Status)) {
     DEBUG((DEBUG_ERROR, "Failed to get password config variable. Status: %r\n", Status));
     return Status;
   }
@@ -324,89 +548,94 @@ FrontPagePasswordCheck(
   CONST CHAR16            *UserName = L"user";
 
   while (TRUE) {
-    EnterUsernameString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_ENTER_USERNAME), NULL);
-    ReadString(EnterUsernameString, UsernameStr);
-    if (StrCmp(UsernameStr, AdminName) == 0) {
+    EnterUsernameString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_ENTER_USERNAME), NULL);
+    ReadString (EnterUsernameString, UsernameStr);
+    if (StrCmp (UsernameStr, AdminName) == 0) {
       PasswordConfigData.UserPriv = 1;
       PassWordToggleData.UserPriv = 1;
       break;
     } else if (StrCmp(UsernameStr, UserName) == 0) {
       if (PasswordConfigData.UserPasswordEnable == 0) {
         DEBUG((DEBUG_WARN, "User password is not enabled. Cannot login.\n"));
-        UsernameNotFoundString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_USERNAME_NOT_ENABLED), NULL);
+        UsernameNotFoundString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_USERNAME_NOT_ENABLED), NULL);
         if (UsernameNotFoundString == NULL) {
           UsernameNotFoundString = L"User password is disabled. No login.";
         }
         do {
-          CreateDialog(&Key, UsernameNotFoundString, NULL);
+          CreateDialog (&Key, UsernameNotFoundString, NULL);
         } while (Key.UnicodeChar != CHAR_CARRIAGE_RETURN);
 
-        gST->ConOut->ClearScreen(gST->ConOut);
+        gST->ConOut->ClearScreen (gST->ConOut);
         continue;
       }
       PasswordConfigData.UserPriv = 0;
       PassWordToggleData.UserPriv = 0;
       break;
     } else {
-      UsernameNotFoundString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_USERNAME_NOT_FOUND), NULL);
+      UsernameNotFoundString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_USERNAME_NOT_FOUND), NULL);
       if (UsernameNotFoundString == NULL) {
         UsernameNotFoundString = L"Username not found.";
       }
       do {
-        CreateDialog(&Key, UsernameNotFoundString, NULL);
+        CreateDialog (&Key, UsernameNotFoundString, NULL);
       } while (Key.UnicodeChar != CHAR_CARRIAGE_RETURN);
-      gST->ConOut->ClearScreen(gST->ConOut);
+      gST->ConOut->ClearScreen (gST->ConOut);
     }
   }
 
   while (Chance > 0) {
-    EnterPasswordString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_ENTER_PASSWORD), NULL);
-    ReadString(EnterPasswordString, TempStr);
+    EnterPasswordString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_ENTER_PASSWORD), NULL);
+    ReadString (EnterPasswordString, TempStr);
     if ((PasswordConfigData.UserPriv == 1) &&
-        (StrCmp(TempStr, PasswordConfigData.AdminPassword) == 0)) {
+        (StrCmp (TempStr, PasswordConfigData.AdminPassword) == 0)) {
       break;
     } else if (
         (PasswordConfigData.UserPriv == 0) &&
-        (StrCmp(TempStr, PasswordConfigData.UserPassword) == 0)
+        (StrCmp (TempStr, PasswordConfigData.UserPassword) == 0)
       ) {
       break;
     } else {
-      DEBUG((DEBUG_WARN, "Password validation failed. Remaining chances: %d\n", Chance - 1));
-      gST->ConOut->ClearScreen(gST->ConOut);
+      DEBUG ((DEBUG_WARN, "Password validation failed. Remaining chances: %d\n", Chance - 1));
+      gST->ConOut->ClearScreen (gST->ConOut);
       Chance--;
       if (Chance == 0) {
-        DEBUG((DEBUG_ERROR, "Maximum attempts reached. System resetting...\n"));
-        gRT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        DEBUG ((DEBUG_ERROR, "Maximum attempts reached. System resetting...\n"));
+        gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
       } else {
-        YouHaveChanceLeftString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_YOU_HAVE_CHANCE_LEFT), NULL);
-        UnicodeSPrint(ChanceStr, sizeof(ChanceStr), YouHaveChanceLeftString, Chance);
+        YouHaveChanceLeftString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_YOU_HAVE_CHANCE_LEFT), NULL);
+        UnicodeSPrint (ChanceStr, sizeof (ChanceStr), YouHaveChanceLeftString, Chance);
 
-        PasswordIncorrectString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_PASSWORD_INCORRECT), NULL);
-        PressEnterContinueString = HiiGetString(gStringPackHandle, STRING_TOKEN(STR_PRESEE_ENTER_CONTINUE), NULL);
+        PasswordIncorrectString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_PASSWORD_INCORRECT), NULL);
+        PressEnterContinueString = HiiGetString (gStringPackHandle, STRING_TOKEN (STR_PRESEE_ENTER_CONTINUE), NULL);
         do {
           CreateDialog(&Key, PasswordIncorrectString, ChanceStr, PressEnterContinueString, NULL);
         } while (Key.UnicodeChar != CHAR_CARRIAGE_RETURN);
       }
     }
-    ZeroMem(TempStr, sizeof(TempStr));
+    ZeroMem (TempStr, sizeof (TempStr));
   }
 
-  Status = gRT->SetVariable(
-      VAR_PASSWORD_CONFIG_NAME,
-      &gPasswordConfigVarGuid,
-      PLATFORM_SETUP_VARIABLE_FLAG,
-      sizeof(PASSWORD_CONFIG_DATA),
-      &PasswordConfigData
-  );
-  Status = gRT->SetVariable(
-    L"PassWordToggleData",
-    &gMenuPasswordToggleVarGuid,
-    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-    sizeof(PASSWORD_TOGGLE_DATA),
-    &PassWordToggleData
-  );
-  if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_ERROR, "Failed to set password config variable. Status: %r\n", Status));
+  Status = gRT->SetVariable (
+		  EFI_PASSWORD_CONFIG_VARIABLE_NAME,
+		  &gEfiSophgoGlobalVariableGuid,
+		  PLATFORM_SETUP_VARIABLE_FLAG,
+		  sizeof (PASSWORD_CONFIG_DATA),
+		  &PasswordConfigData
+		  );
+   if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to set password config variable. Status: %r\n", Status));
+    return Status;
+  }
+
+  Status = gRT->SetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		  &gEfiSophgoGlobalVariableGuid,
+		  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+		  sizeof (PASSWORD_TOGGLE_DATA),
+                  &PassWordToggleData
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to set passwordtoggle config variable. Status: %r\n", Status));
     return Status;
   }
 
@@ -434,14 +663,16 @@ InitializeFrontPage (
                                           &gFrontPagePrivate.ConfigAccess,
                                           NULL
                                           );
-  ASSERT_EFI_ERROR(Status);
+  ASSERT_EFI_ERROR (Status);
+
   Status = gBS->InstallProtocolInterface(
                   &gFrontPagePrivate.DriverHandle,
                   &gPassWordToggleRestoreProtocolGuid,
                   EFI_NATIVE_INTERFACE,
                   (VOID *)&gPassWordToggleRestoreProtocol
                   );
-  ASSERT_EFI_ERROR(Status);
+  ASSERT_EFI_ERROR (Status);
+
   gFrontPagePrivate.HiiHandle = HiiAddPackages (
                                   &mFrontPageGuid,
                                   gFrontPagePrivate.DriverHandle,
@@ -450,7 +681,10 @@ InitializeFrontPage (
                                   NULL
                                   );
   ASSERT (gFrontPagePrivate.HiiHandle != NULL);
-  UpdateFrontPageForm ();
+
+  Status = UpdateFrontPageForm ();
+  ASSERT_EFI_ERROR (Status);
+
   return Status;
 }
 
@@ -797,57 +1031,70 @@ ExtractConfig (
   OUT EFI_STRING                            *Results
   )
 {
-  EFI_STATUS                       Status;
-  PASSWORD_TOGGLE_DATA              PassWordToggleData;
-  UINTN                            VarSize = sizeof(PASSWORD_TOGGLE_DATA);
-  EFI_STRING                       ConfigRequestHdr;
+  EFI_STATUS                Status;
+  PASSWORD_TOGGLE_DATA      PassWordToggleData;
+  UINTN                     VarSize;
+  EFI_STRING                ConfigRequestHdr;
 
+  VarSize = sizeof (PASSWORD_TOGGLE_DATA);
   if ((Progress == NULL) || (Results == NULL)) {
-    DEBUG((DEBUG_ERROR, "ExtractConfig: Invalid parameters. Progress=%p, Results=%p\n", Progress, Results));
+    DEBUG ((DEBUG_ERROR, "ExtractConfig: Invalid parameters. Progress=%p, Results=%p\n", Progress, Results));
     return EFI_INVALID_PARAMETER;
   }
 
   *Progress = Request;
 
-  ConfigRequestHdr = HiiConstructConfigHdr(
-    &mFrontPageGuid,
-    L"PassWordToggleData",
-    NULL
-  );
+  ConfigRequestHdr = HiiConstructConfigHdr (
+		  &gEfiSophgoGlobalVariableGuid,
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		  NULL
+		  );
   if (ConfigRequestHdr == NULL) {
-    DEBUG((DEBUG_ERROR, "ExtractConfig: Failed to construct ConfigRequestHdr.\n"));
+    DEBUG ((DEBUG_ERROR, "ExtractConfig: Failed to construct ConfigRequestHdr.\n"));
     return EFI_OUT_OF_RESOURCES;
   }
 
-  if ((Request == NULL) || !HiiIsConfigHdrMatch(Request, &mFrontPageGuid, L"PassWordToggleData")) {
-    DEBUG((DEBUG_ERROR, "ExtractConfig: Request does not match ConfigHdr.\n"));
-    FreePool(ConfigRequestHdr);
+  if (Request == NULL) {
+    *Results = AllocateCopyPool (StrSize (ConfigRequestHdr), ConfigRequestHdr);
+    if (*Results == NULL) {
+      FreePool (ConfigRequestHdr);
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    FreePool (ConfigRequestHdr);
+    return EFI_SUCCESS;
+  }
+
+  if (!HiiIsConfigHdrMatch (Request, &gEfiSophgoGlobalVariableGuid, EFI_PASSWORD_TOGGLE_VARIABLE_NAME)) {
+    DEBUG ((DEBUG_ERROR, "ExtractConfig: Request does not match ConfigHdr.\n"));
+    FreePool (ConfigRequestHdr);
     return EFI_NOT_FOUND;
   }
 
-  Status = gRT->GetVariable(
-    L"PassWordToggleData",
-    &gMenuPasswordToggleVarGuid,
-    NULL,
-    &VarSize,
-    &PassWordToggleData
-  );
-  if (EFI_ERROR(Status)) {
-    DEBUG((DEBUG_WARN, "ExtractConfig: Failed to get variable. Status=%r\n", Status));
-    FreePool(ConfigRequestHdr);
+  Status = gRT->GetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+		  &gEfiSophgoGlobalVariableGuid,
+		  NULL,
+		  &VarSize,
+		  &PassWordToggleData
+		  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "ExtractConfig: Failed to get variable. Status=%r\n", Status));
+    FreePool (ConfigRequestHdr);
     return Status;
   }
 
-  Status = gHiiConfigRouting->BlockToConfig(
-    gHiiConfigRouting,
-    Request,
-    (UINT8 *)&PassWordToggleData,
-    VarSize,
-    Results,
-    Progress
-  );
+  Status = gHiiConfigRouting->BlockToConfig (
+		  gHiiConfigRouting,
+                  Request,
+                  (UINT8 *)&PassWordToggleData,
+                  VarSize,
+                  Results,
+                  Progress
+                  );
 
-  FreePool(ConfigRequestHdr);
+  FreePool (ConfigRequestHdr);
+
   return Status;
 }
 
@@ -860,231 +1107,268 @@ RouteConfig (
   )
 {
   EFI_STATUS            Status;
-  PASSWORD_TOGGLE_DATA   PassWordToggleData;
-  UINTN                 VarSize = sizeof(PASSWORD_TOGGLE_DATA);
+  PASSWORD_TOGGLE_DATA  PassWordToggleData;
+  UINTN                 VarSize;
+
+  VarSize = sizeof (PASSWORD_TOGGLE_DATA);
 
   if ((Configuration == NULL) || (Progress == NULL)) {
-    DEBUG((DEBUG_ERROR, "RouteConfig: Invalid parameters. Configuration=%p, Progress=%p\n", Configuration, Progress));
+    DEBUG ((DEBUG_ERROR, "RouteConfig: Invalid parameters. Configuration=%p, Progress=%p\n", Configuration, Progress));
     return EFI_INVALID_PARAMETER;
   }
 
   *Progress = Configuration;
-  if (!HiiIsConfigHdrMatch(Configuration, &mFrontPageGuid, L"PassWordToggleData")) {
-    DEBUG((DEBUG_ERROR, "RouteConfig: Configuration does not match ConfigHdr.\n"));
+  if (!HiiIsConfigHdrMatch (Configuration, &gEfiSophgoGlobalVariableGuid, EFI_PASSWORD_TOGGLE_VARIABLE_NAME)) {
+    DEBUG ((DEBUG_ERROR, "RouteConfig: Configuration does not match ConfigHdr.\n"));
     return EFI_NOT_FOUND;
   }
 
-  Status = gRT->GetVariable(
-    L"PassWordToggleData",
-    &gMenuPasswordToggleVarGuid,
-    NULL,
-    &VarSize,
-    &PassWordToggleData
-  );
-  if (EFI_ERROR(Status) && (Status != EFI_NOT_FOUND)) {
-    DEBUG((DEBUG_WARN, "RouteConfig: Failed to get variable. Status=%r\n", Status));
+  Status = gRT->GetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+                  &gEfiSophgoGlobalVariableGuid,
+                  NULL,
+                  &VarSize,
+                  &PassWordToggleData
+		  );
+  if (EFI_ERROR (Status) && (Status != EFI_NOT_FOUND)) {
+    DEBUG ((DEBUG_ERROR, "RouteConfig: Failed to get variable. Status=%r\n", Status));
     return Status;
   }
 
-  Status = gHiiConfigRouting->ConfigToBlock(
-    gHiiConfigRouting,
-    Configuration,
-    (UINT8 *)&PassWordToggleData,
-    &VarSize,
-    Progress
-  );
-  if (EFI_ERROR(Status)) {
+  Status = gHiiConfigRouting->ConfigToBlock (
+		  gHiiConfigRouting,
+                  Configuration,
+                  (UINT8 *)&PassWordToggleData,
+                  &VarSize,
+                  Progress
+                  );
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  Status = gRT->SetVariable(
-    L"PassWordToggleData",
-    &gMenuPasswordToggleVarGuid,
-    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-    sizeof(PASSWORD_TOGGLE_DATA),
-    &PassWordToggleData
-  );
+  Status = gRT->SetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+                  &gEfiSophgoGlobalVariableGuid,
+                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (PASSWORD_TOGGLE_DATA),
+                  &PassWordToggleData
+                  );
+
   return Status;
 }
 
 EFI_STATUS
 UpdateTimeRegion (
-EFI_HII_HANDLE HiiHandle
-)
+  EFI_HII_HANDLE HiiHandle
+  )
 {
-    EFI_STATUS Status;
-    VOID *StartOpCodeHandle;
-    VOID *EndOpCodeHandle;
+  EFI_STATUS         Status;
+  VOID               *StartOpCodeHandle;
+  VOID               *EndOpCodeHandle;
+  EFI_IFR_GUID_LABEL *StartGuidLabel;
+  EFI_IFR_GUID_LABEL *EndGuidLabel;
 
-    StartOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (StartOpCodeHandle == NULL) {
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EndOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (EndOpCodeHandle == NULL) {
-        HiiFreeOpCodeHandle(StartOpCodeHandle);
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EFI_IFR_GUID_LABEL *StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        StartOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    StartGuidLabel->Number = LABEL_TIME_START;
-    EFI_IFR_GUID_LABEL *EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        EndOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    EndGuidLabel->Number = LABEL_END;
-    HiiCreateDateOpCode (
-            StartOpCodeHandle,
-            0x0,
-            0x0,
-            0x0,
-            STRING_TOKEN (STR_DATE_PROMT),
-            STRING_TOKEN (STR_DATE_HELP),
-            EFI_IFR_FLAG_READ_ONLY,
-            QF_DATE_STORAGE_TIME,
-            NULL
-    );
-    HiiCreateTimeOpCode (
-            StartOpCodeHandle,
-            0x0,
-            0x0,
-            0x0,
-            STRING_TOKEN (STR_TIME_PROMT),
-            STRING_TOKEN (STR_TIME_HELP),
-            EFI_IFR_FLAG_READ_ONLY,
-            QF_TIME_STORAGE_TIME,
-            NULL
-    );
-    Status = HiiUpdateForm(
-        HiiHandle,
-        &mFrontPageGuid,
-        FRONT_PAGE_FORM_ID,
-        StartOpCodeHandle,
-        EndOpCodeHandle
-    );
 
-    HiiFreeOpCodeHandle(StartOpCodeHandle);
-    HiiFreeOpCodeHandle(EndOpCodeHandle);
-    return Status;
+  StartOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (StartOpCodeHandle == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  EndOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (EndOpCodeHandle == NULL) {
+    HiiFreeOpCodeHandle (StartOpCodeHandle);
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+		  StartOpCodeHandle,
+                  &gEfiIfrTianoGuid,
+                  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+		  );
+  StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  StartGuidLabel->Number = LABEL_TIME_START;
+  EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+		  EndOpCodeHandle,
+		  &gEfiIfrTianoGuid,
+		  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+                  );
+  EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  EndGuidLabel->Number = LABEL_END;
+  HiiCreateDateOpCode (
+		  StartOpCodeHandle,
+                  0x0,
+                  0x0,
+                  0x0,
+                  STRING_TOKEN (STR_DATE_PROMT),
+                  STRING_TOKEN (STR_DATE_HELP),
+                  EFI_IFR_FLAG_READ_ONLY,
+                  QF_DATE_STORAGE_TIME,
+                  NULL
+		  );
+  HiiCreateTimeOpCode (
+                  StartOpCodeHandle,
+                  0x0,
+                  0x0,
+                  0x0,
+                  STRING_TOKEN (STR_TIME_PROMT),
+                  STRING_TOKEN (STR_TIME_HELP),
+                  EFI_IFR_FLAG_READ_ONLY,
+                  QF_TIME_STORAGE_TIME,
+                  NULL
+                  );
+  Status = HiiUpdateForm (
+		  HiiHandle,
+                  &mFrontPageGuid,
+                  FRONT_PAGE_FORM_ID,
+                  StartOpCodeHandle,
+                  EndOpCodeHandle
+                  );
+  if (EFI_ERROR(Status)) {
+     DEBUG((DEBUG_ERROR, "HiiUpdateForm failed: %r\n", Status));
+     return Status;
+  }
+  HiiFreeOpCodeHandle (StartOpCodeHandle);
+  HiiFreeOpCodeHandle (EndOpCodeHandle);
+  return Status;
 }
 
 EFI_STATUS
 UpdateLanguageRegion (
-EFI_HII_HANDLE HiiHandle
-)
+  EFI_HII_HANDLE HiiHandle
+  )
 {
-    EFI_STATUS Status;
-    VOID *StartOpCodeHandle;
-    VOID *EndOpCodeHandle;
+  EFI_STATUS         Status;
+  VOID               *StartOpCodeHandle;
+  VOID               *EndOpCodeHandle;
+  EFI_IFR_GUID_LABEL *StartGuidLabel;
+  EFI_IFR_GUID_LABEL *EndGuidLabel;
 
-    StartOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (StartOpCodeHandle == NULL) {
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EndOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (EndOpCodeHandle == NULL) {
-        HiiFreeOpCodeHandle(StartOpCodeHandle);
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EFI_IFR_GUID_LABEL *StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        StartOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    StartGuidLabel->Number = LABEL_LANGUAGE;
-    EFI_IFR_GUID_LABEL *EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        EndOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    EndGuidLabel->Number = LABEL_END;
-    UiCreateLanguageMenu (HiiHandle, StartOpCodeHandle);
-    Status = HiiUpdateForm(
-        HiiHandle,
-        &mFrontPageGuid,
-        FRONT_PAGE_FORM_ID,
-        StartOpCodeHandle,
-        EndOpCodeHandle
-    );
-    if (EFI_ERROR(Status)) {
-        DEBUG((DEBUG_ERROR, "Failed to update boot region form: %r\n", Status));
-    }
+  StartOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (StartOpCodeHandle == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
 
-    HiiFreeOpCodeHandle(StartOpCodeHandle);
-    HiiFreeOpCodeHandle(EndOpCodeHandle);
-    return Status;
+  EndOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (EndOpCodeHandle == NULL) {
+    HiiFreeOpCodeHandle (StartOpCodeHandle);
+    return EFI_OUT_OF_RESOURCES;
+  }
+  StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+		  StartOpCodeHandle,
+                  &gEfiIfrTianoGuid,
+                  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+                  );
+  StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  StartGuidLabel->Number = LABEL_LANGUAGE;
+  EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+		  EndOpCodeHandle,
+                  &gEfiIfrTianoGuid,
+                  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+                  );
+  EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  EndGuidLabel->Number = LABEL_END;
+  UiCreateLanguageMenu (HiiHandle, StartOpCodeHandle);
+  Status = HiiUpdateForm (
+		  HiiHandle,
+		  &mFrontPageGuid,
+		  SYSTEM_SETTING_ID,
+		  StartOpCodeHandle,
+                  EndOpCodeHandle
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to update boot region form: %r\n", Status));
+  }
+
+  HiiFreeOpCodeHandle (StartOpCodeHandle);
+  HiiFreeOpCodeHandle (EndOpCodeHandle);
+
+  return Status;
 }
 
 EFI_STATUS
 UpdateBootRegion (
-EFI_HII_HANDLE HiiHandle
-)
+  EFI_HII_HANDLE HiiHandle
+  )
 {
-    EFI_STATUS Status;
-    VOID *StartOpCodeHandle;
-    VOID *EndOpCodeHandle;
-    StartOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (StartOpCodeHandle == NULL) {
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EndOpCodeHandle = HiiAllocateOpCodeHandle();
-    if (EndOpCodeHandle == NULL) {
-        HiiFreeOpCodeHandle(StartOpCodeHandle);
-        return EFI_OUT_OF_RESOURCES;
-    }
-    EFI_IFR_GUID_LABEL *StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        StartOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    StartGuidLabel->Number = LABEL_MANAGER;
-    EFI_IFR_GUID_LABEL *EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-        EndOpCodeHandle,
-        &gEfiIfrTianoGuid,
-        NULL,
-        sizeof(EFI_IFR_GUID_LABEL)
-    );
-    EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-    EndGuidLabel->Number = LABEL_END;
-    UiCustomizeFrontPage(HiiHandle, StartOpCodeHandle);
-    Status = HiiUpdateForm(
-        HiiHandle,
-        &mFrontPageGuid,
-        FRONT_PAGE_FORM_ID,
-        StartOpCodeHandle,
-        EndOpCodeHandle
-    );
-    if (EFI_ERROR(Status)) {
-        DEBUG((DEBUG_ERROR, "Failed to update boot region form: %r\n", Status));
-    }
+  EFI_STATUS         Status;
+  VOID               *StartOpCodeHandle;
+  VOID               *EndOpCodeHandle;
+  EFI_IFR_GUID_LABEL *StartGuidLabel;
+  EFI_IFR_GUID_LABEL *EndGuidLabel;
 
-    HiiFreeOpCodeHandle(StartOpCodeHandle);
-    HiiFreeOpCodeHandle(EndOpCodeHandle);
-    return Status;
+
+  StartOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (StartOpCodeHandle == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  EndOpCodeHandle = HiiAllocateOpCodeHandle ();
+  if (EndOpCodeHandle == NULL) {
+    HiiFreeOpCodeHandle (StartOpCodeHandle);
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  StartGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+		  StartOpCodeHandle,
+                  &gEfiIfrTianoGuid,
+                  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+                  );
+  StartGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  StartGuidLabel->Number = LABEL_MANAGER;
+  EndGuidLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
+                  EndOpCodeHandle,
+                  &gEfiIfrTianoGuid,
+                  NULL,
+                  sizeof (EFI_IFR_GUID_LABEL)
+                  );
+  EndGuidLabel->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
+  EndGuidLabel->Number = LABEL_END;
+  UiCustomizeFrontPage (HiiHandle, StartOpCodeHandle);
+  Status = HiiUpdateForm (
+		  HiiHandle,
+                  &mFrontPageGuid,
+                  FRONT_PAGE_FORM_ID,
+                  StartOpCodeHandle,
+                  EndOpCodeHandle
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to update boot region form: %r\n", Status));
+  }
+
+  HiiFreeOpCodeHandle (StartOpCodeHandle);
+  HiiFreeOpCodeHandle (EndOpCodeHandle);
+
+  return Status;
 }
 
-VOID
+EFI_STATUS
 UpdateFrontPageForm (
-VOID
-) {
-    EFI_STATUS Status;
-    Status = UpdateBootRegion(gFrontPagePrivate.HiiHandle);
-    Status = UpdateTimeRegion(gFrontPagePrivate.HiiHandle);
-    Status = UpdateLanguageRegion(gFrontPagePrivate.HiiHandle);
+  VOID
+  )
+{
+  EFI_STATUS Status;
+
+  Status = UpdateBootRegion (gFrontPagePrivate.HiiHandle);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = UpdateTimeRegion (gFrontPagePrivate.HiiHandle);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = UpdateLanguageRegion (gFrontPagePrivate.HiiHandle);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return EFI_SUCCESS;
 }
 
 /**
@@ -1112,6 +1396,15 @@ InitializeUserInterface (
   EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  *SimpleTextOut;
   UINTN                            BootTextColumn;
   UINTN                            BootTextRow;
+  BOOLEAN                          IsServerBoard;
+
+  ParsedData = AllocSmbiosData ();
+  if (ParsedData == NULL) {
+    DEBUG((DEBUG_ERROR, "%a :Failed to alloc smbios data\n", __func__));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  IsServerBoard = IsServerProduct();
 
   if (!mModeInitialized) {
     Status = gBS->HandleProtocol (
@@ -1146,6 +1439,7 @@ InitializeUserInterface (
       mBootTextModeColumn = (UINT32)BootTextColumn;
       mBootTextModeRow    = (UINT32)BootTextRow;
     }
+
     mSetupHorizontalResolution = PcdGet32 (PcdSetupVideoHorizontalResolution);
     mSetupVerticalResolution   = PcdGet32 (PcdSetupVideoVerticalResolution);
     mSetupTextModeColumn       = PcdGet32 (PcdSetupConOutColumn);
@@ -1158,19 +1452,40 @@ InitializeUserInterface (
   gST->ConOut->ClearScreen (gST->ConOut);
   HiiHandle = ExportFonts ();
   ASSERT (HiiHandle != NULL);
+
   InitializeStringSupport ();
-  InitializePasswordToggleVariable();
-  if (PassWordToggleEntry()) {
-      FrontPagePasswordCheck();
-      PassWordToggleData.IsFirst = 1;
-      gRT->SetVariable(
-          L"PassWordToggleData",
-          &gMenuPasswordToggleVarGuid,
-          EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-          sizeof(PASSWORD_TOGGLE_DATA),
-          &PassWordToggleData
-      );
+  InitializePasswordToggleVariable ();
+  PassWordToggleData.DefaultAcpi =
+     (FindAcpiTable(&gEfiAcpiTableGuid) || FindAcpiTable(&gEfiAcpi20TableGuid))
+     ? 0 : 1;
+  PassWordToggleData.IsEvb = IsServerBoard ? 0 : 1;
+  Status = gRT->SetVariable (
+		  EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+                  &gEfiSophgoGlobalVariableGuid,
+                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (PASSWORD_TOGGLE_DATA),
+                  &PassWordToggleData
+                  );
+  if (EFI_ERROR(Status)) {
+      DEBUG((DEBUG_ERROR, "SetVariable(%s) failed: %r\n", EFI_PASSWORD_TOGGLE_VARIABLE_NAME, Status));
+      return Status;
   }
+  if (PassWordToggleEntry ()) {
+    FrontPagePasswordCheck ();
+    PassWordToggleData.IsFirst = 1;
+    Status = gRT->SetVariable (
+		    EFI_PASSWORD_TOGGLE_VARIABLE_NAME,
+                    &gEfiSophgoGlobalVariableGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (PASSWORD_TOGGLE_DATA),
+                    &PassWordToggleData
+                    );
+    if (EFI_ERROR(Status)) {
+  	DEBUG((DEBUG_ERROR, "SetVariable(%s) failed: %r\n", EFI_PASSWORD_TOGGLE_VARIABLE_NAME, Status));
+        return Status;
+    }
+  }
+
   UiSetConsoleMode (TRUE);
   UiEntry (FALSE);
   UiSetConsoleMode (FALSE);
@@ -1210,6 +1525,7 @@ UiEntry (
   if (!EFI_ERROR (Status) && (BootLogo != NULL)) {
     BootLogo->SetBootLogo (BootLogo, NULL, 0, 0, 0, 0);
   }
+
   InitializeFrontPage ();
   CallFrontPage ();
   FreeFrontPage ();
@@ -1217,6 +1533,7 @@ UiEntry (
     FreePool (mLanguageString);
     mLanguageString = NULL;
   }
+
   SetupResetReminder ();
 }
 

@@ -44,7 +44,8 @@ typedef struct {
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_READ_REGISTER)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_READ_REGISTER) (
+  IN  SOPHGO_SPI_MASTER_PROTOCOL              *This,
   IN  SPI_NOR                                 *Nor,
   IN  UINT8                                   Opcode,
   IN  UINTN                                   Length,
@@ -53,7 +54,8 @@ EFI_STATUS
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE_REGISTER)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE_REGISTER) (
+  IN  SOPHGO_SPI_MASTER_PROTOCOL              *This,
   IN  SPI_NOR                                 *Nor,
   IN  UINT8                                   Opcode,
   IN  CONST UINT8                             *Buffer,
@@ -62,7 +64,8 @@ EFI_STATUS
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_READ)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_READ) (
+  IN  SOPHGO_SPI_MASTER_PROTOCOL              *This,
   IN  SPI_NOR                                 *Nor,
   IN  UINTN                                   From,
   IN  UINTN                                   Length,
@@ -71,7 +74,8 @@ EFI_STATUS
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_WRITE) (
+  IN  SOPHGO_SPI_MASTER_PROTOCOL              *This,
   IN  SPI_NOR                                 *Nor,
   IN  UINTN                                   To,
   IN  UINTN                                   Length,
@@ -80,7 +84,8 @@ EFI_STATUS
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_ERASE)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_ERASE) (
+  IN  SOPHGO_SPI_MASTER_PROTOCOL              *This,
   IN  SPI_NOR                                 *Nor,
   IN  UINTN                                   Offs
   );
@@ -95,7 +100,7 @@ SPI_NOR *
 
 typedef
 EFI_STATUS
-(EFIAPI *SG_SPI_MASTER_PROTOCOL_FREE_DEVICE)(
+(EFIAPI *SG_SPI_MASTER_PROTOCOL_FREE_DEVICE) (
   IN SPI_NOR                                 *Nor
   );
 

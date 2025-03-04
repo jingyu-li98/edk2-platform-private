@@ -20,88 +20,12 @@ ErasePolarity = 1
 BlockSize     = $(BLOCK_SIZE)
 NumBlocks     = $(FW_BLOCKS)
 
-$(SECFV_OFFSET)|$(SECFV_SIZE)
-gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVSecFvBase|gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVSecFvSize
-FV = SECFV
-
-$(PEIFV_OFFSET)|$(PEIFV_SIZE)
-gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVPeiFvBase|gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVPeiFvSize
-FV = PEIFV
 
 $(FVMAIN_OFFSET)|$(FVMAIN_SIZE)
 gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvBase|gUefiRiscVPlatformPkgTokenSpaceGuid.PcdRiscVDxeFvSize
 FV = FVMAIN_COMPACT
 
 !include VarStore.fdf.inc
-################################################################################
-
-[FV.SECFV]
-BlockSize          = 0x1000
-FvAlignment        = 16
-ERASE_POLARITY     = 1
-MEMORY_MAPPED      = TRUE
-STICKY_WRITE       = TRUE
-LOCK_CAP           = TRUE
-LOCK_STATUS        = TRUE
-WRITE_DISABLED_CAP = TRUE
-WRITE_ENABLED_CAP  = TRUE
-WRITE_STATUS       = TRUE
-WRITE_LOCK_CAP     = TRUE
-WRITE_LOCK_STATUS  = TRUE
-READ_DISABLED_CAP  = TRUE
-READ_ENABLED_CAP   = TRUE
-READ_STATUS        = TRUE
-READ_LOCK_CAP      = TRUE
-READ_LOCK_STATUS   = TRUE
-
-#
-# SEC Phase modules
-#
-# The code in this FV handles the initial firmware startup, and
-# decompresses the PEI and DXE FVs which handles the rest of the boot sequence.
-#
-#INF Platform/RISC-V/PlatformPkg/Universal/Sec/SecMain.inf
-
-################################################################################
-
-[FV.PEIFV]
-BlockSize          = 0x10000
-FvAlignment        = 16
-ERASE_POLARITY     = 1
-MEMORY_MAPPED      = TRUE
-STICKY_WRITE       = TRUE
-LOCK_CAP           = TRUE
-LOCK_STATUS        = TRUE
-WRITE_DISABLED_CAP = TRUE
-WRITE_ENABLED_CAP  = TRUE
-WRITE_STATUS       = TRUE
-WRITE_LOCK_CAP     = TRUE
-WRITE_LOCK_STATUS  = TRUE
-READ_DISABLED_CAP  = TRUE
-READ_ENABLED_CAP   = TRUE
-READ_STATUS        = TRUE
-READ_LOCK_CAP      = TRUE
-READ_LOCK_STATUS   = TRUE
-
-APRIORI PEI {
-  INF  MdeModulePkg/Universal/ReportStatusCodeRouter/Pei/ReportStatusCodeRouterPei.inf
-  INF  MdeModulePkg/Universal/StatusCodeHandler/Pei/StatusCodeHandlerPei.inf
-  INF  MdeModulePkg/Universal/PCD/Pei/Pcd.inf
-}
-
-#
-#  PEI Phase modules
-#
-INF  MdeModulePkg/Core/Pei/PeiMain.inf
-INF  MdeModulePkg/Universal/PCD/Pei/Pcd.inf
-INF  MdeModulePkg/Universal/ReportStatusCodeRouter/Pei/ReportStatusCodeRouterPei.inf
-INF  MdeModulePkg/Universal/StatusCodeHandler/Pei/StatusCodeHandlerPei.inf
-INF  MdeModulePkg/Core/DxeIplPeim/DxeIpl.inf
-
-# RISC-V Platform PEI Driver
-INF  Platform/RISC-V/PlatformPkg/Universal/Pei/PlatformPei/PlatformPei.inf
-#INF  Platform/RISC-V/PlatformPkg/Universal/FdtPeim/FdtPeim.inf
-
 ################################################################################
 
 [FV.DXEFV]
@@ -217,15 +141,6 @@ INF  Silicon/Sophgo/Drivers/RngDxe/RngDxe.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 
 #
-# Firmware Capsule Update
-#
-INF  RuleOverride = FMP_IMAGE_DESC Silicon/Sophgo/Feature/Capsule/SystemFirmwareDescriptor/SystemFirmwareDescriptor.inf
-INF  MdeModulePkg/Universal/EsrtDxe/EsrtDxe.inf
-INF  SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareReportDxe.inf
-INF  SignedCapsulePkg/Universal/SystemFirmwareUpdate/SystemFirmwareUpdateDxe.inf
-INF  MdeModulePkg/Application/CapsuleApp/CapsuleApp.inf
-
-#
 # PCIe Support
 #
 INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
@@ -305,6 +220,9 @@ INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 INF  Silicon/Sophgo/Applications/FirmwareUpdate/FirmwareUpdate.inf
 !endif
 
+INF Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
+INF Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
+
 #
 # UEFI application (Shell Embedded Boot Loader)
 #
@@ -321,12 +239,13 @@ INF  MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
 INF  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
 INF  Silicon/Sophgo/SG2044Pkg/Drivers/UiApp/UiApp.inf
 INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
-INF  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTime/SetDateAndTime.inf
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTimeDxe/SetDateAndTimeDxe.inf
 !if $(FLASH_ENABLE) == TRUE
 INF  Silicon/Sophgo/SG2044Pkg/Drivers/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
 !endif
-INF  Silicon/Sophgo/SG2044Pkg/Drivers/Information/ShowInformation.inf
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/InformationDxe/InformationDxe.inf
 INF  Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
+INF  Silicon/Sophgo/SG2044Pkg/Drivers/ReserveMemoryDxe/ReserveMemoryDxe.inf
 
 #
 # ACPI Support
@@ -337,7 +256,17 @@ INF  Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
   INF MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   INF MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
   INF RuleOverride=ACPITABLE Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044EvbAcpiTables.inf
+  INF Silicon/Sophgo/SG2044Pkg/Pptt/Pptt.inf
 !endif
+
+
+#
+# ipmi ssif smbus Dxe
+#
+INF Silicon/Sophgo/Drivers/SmbusHcDxe/SmbusHcDxe.inf
+INF Features/ManageabilityPkg/Universal/IpmiProtocol/Dxe/IpmiProtocolDxe.inf
+INF Silicon/Sophgo/SG2044Pkg/Drivers/BmcLanConfigDxe/BmcLanConfig.inf
+INF Silicon/Sophgo/SG2044Pkg/Drivers/IpmiBootDxe/IpmiBootDxe.inf
 
 ################################################################################
 
@@ -360,7 +289,7 @@ READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 FvNameGuid         = 02CBA7CB-BDE9-4934-A182-9043BE539261
 
-INF Silicon/Sophgo/Sec/SecMain.inf
+INF Silicon/Sophgo/PeilessSec/PeilessSec.inf
 
 FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
    SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
@@ -378,30 +307,6 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     PE32     PE32    Align = Auto     $(INF_OUTPUT)/$(MODULE_NAME).efi
     UI       STRING ="$(MODULE_NAME)" Optional
     VERSION  STRING ="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-  }
-
-[Rule.Common.PEI_CORE]
-  FILE PEI_CORE = $(NAMED_GUID) {
-    PE32     PE32   Align=4K    $(INF_OUTPUT)/$(MODULE_NAME).efi
-    UI       STRING ="$(MODULE_NAME)" Optional
-    VERSION  STRING ="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-  }
-
-[Rule.Common.PEIM]
-  FILE PEIM = $(NAMED_GUID) {
-     PEI_DEPEX PEI_DEPEX Optional        $(INF_OUTPUT)/$(MODULE_NAME).depex
-     PE32     PE32   Align=4K         $(INF_OUTPUT)/$(MODULE_NAME).efi
-     UI       STRING="$(MODULE_NAME)" Optional
-     VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-  }
-
-[Rule.Common.PEIM.FMP_IMAGE_DESC]
-  FILE PEIM = $(NAMED_GUID) {
-     RAW BIN                  |.acpi
-     PEI_DEPEX PEI_DEPEX Optional        $(INF_OUTPUT)/$(MODULE_NAME).depex
-     PE32      PE32      Align=4K        $(INF_OUTPUT)/$(MODULE_NAME).efi
-     UI        STRING="$(MODULE_NAME)"   Optional
-     VERSION   STRING="$(INF_VERSION)"   Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
 [Rule.Common.DXE_CORE]

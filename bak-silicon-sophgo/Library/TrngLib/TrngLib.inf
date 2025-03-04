@@ -1,0 +1,28 @@
+## @file
+#  Instance of DesignWare TRNG (True Random Number Generator) Library.
+#
+#  Copyright (c) 2024, SOPHGO Inc. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = Trng
+  FILE_GUID                      = 61AAFD56-E749-464F-BF16-318254F6C906
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = TrngLib
+
+[Sources]
+  TrngLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Sophgo/Sophgo.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib

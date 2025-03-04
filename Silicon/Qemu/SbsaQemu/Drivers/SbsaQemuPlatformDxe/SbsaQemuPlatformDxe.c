@@ -7,116 +7,112 @@
 *
 **/
 
-#include <Library/ArmSmcLib.h>
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
+#include <Library/HardwareInfoLib.h>
 #include <Library/NonDiscoverableDeviceRegistrationLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
-#include <IndustryStandard/SbsaQemuSmc.h>
-
-#include <Protocol/FdtClient.h>
+#include <IndustryStandard/SbsaQemuPlatformVersion.h>
 
 EFI_STATUS
 EFIAPI
 InitializeSbsaQemuPlatformDxe (
-  IN EFI_HANDLE           ImageHandle,
-  IN EFI_SYSTEM_TABLE     *SystemTable
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS                     Status;
-  UINTN                          Size;
-  VOID*                          Base;
-  UINTN                          Arg0;
-  UINTN                          Arg1;
-  UINTN                          SmcResult;
-  RETURN_STATUS                  Result;
+  EFI_STATUS       Status;
+  UINTN            Size;
+  VOID             *Base;
+  GicInfo          GicInfo;
+  PlatformVersion  PlatVer;
 
-  DEBUG ((DEBUG_INFO, "%a: InitializeSbsaQemuPlatformDxe called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a: InitializeSbsaQemuPlatformDxe called\n", __func__));
 
-  Base = (VOID*)(UINTN)PcdGet64 (PcdPlatformAhciBase);
+  Base = (VOID *)(UINTN)PcdGet64 (PcdPlatformAhciBase);
   ASSERT (Base != NULL);
   Size = (UINTN)PcdGet32 (PcdPlatformAhciSize);
   ASSERT (Size != 0);
 
-  DEBUG ((DEBUG_INFO, "%a: Got platform AHCI %llx %u\n",
-          __FUNCTION__, Base, Size));
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: Got platform AHCI %llx %u\n",
+    __func__,
+    Base,
+    Size
+    ));
 
   Status = RegisterNonDiscoverableMmioDevice (
-                   NonDiscoverableDeviceTypeAhci,
-                   NonDiscoverableDeviceDmaTypeCoherent,
-                   NULL,
-                   NULL,
-                   1,
-                   Base, Size);
+             NonDiscoverableDeviceTypeAhci,
+             NonDiscoverableDeviceDmaTypeCoherent,
+             NULL,
+             NULL,
+             1,
+             Base,
+             Size
+             );
 
-  if (EFI_ERROR(Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: NonDiscoverable: Cannot install AHCI device @%p (Staus == %r)\n",
-            __FUNCTION__, Base, Status));
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: NonDiscoverable: Cannot install AHCI device @%p (Staus == %r)\n",
+      __func__,
+      Base,
+      Status
+      ));
     return Status;
   }
 
-  Base = (VOID*)(UINTN)PcdGet64 (PcdPlatformXhciBase);
-  ASSERT (Base != NULL);
-  Size = (UINTN)PcdGet32 (PcdPlatformXhciSize);
-  ASSERT (Size != 0);
+  GetPlatformVersion (&PlatVer);
 
-  DEBUG ((DEBUG_INFO, "%a: Got platform XHCI %llx %u\n",
-          __FUNCTION__, Base, Size));
+  PcdSet32S (PcdPlatformVersionMajor, PlatVer.Major);
+  PcdSet32S (PcdPlatformVersionMinor, PlatVer.Minor);
 
-  Status = RegisterNonDiscoverableMmioDevice (
-                   NonDiscoverableDeviceTypeXhci,
-                   NonDiscoverableDeviceDmaTypeCoherent,
-                   NULL,
-                   NULL,
-                   1,
-                   Base, Size);
+  DEBUG ((DEBUG_INFO, "Platform version: %d.%d\n", PlatVer.Major, PlatVer.Minor));
 
-  if (EFI_ERROR(Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: NonDiscoverable: Cannot install XHCI device @%p (Staus == %r)\n",
-            __FUNCTION__, Base, Status));
-    return Status;
+  GetGicInformation (&GicInfo);
+
+  PcdSet64S (PcdGicDistributorBase, GicInfo.DistributorBase);
+  PcdSet64S (PcdGicRedistributorsBase, GicInfo.RedistributorBase);
+  PcdSet64S (PcdGicItsBase, GicInfo.ItsBase);
+
+  if (!PLATFORM_VERSION_LESS_THAN (0, 3)) {
+    Base = (VOID *)(UINTN)PcdGet64 (PcdPlatformXhciBase);
+    ASSERT (Base != NULL);
+    Size = (UINTN)PcdGet32 (PcdPlatformXhciSize);
+    ASSERT (Size != 0);
+
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: Got platform XHCI %llx %u\n",
+      __func__,
+      Base,
+      Size
+      ));
+
+    Status = RegisterNonDiscoverableMmioDevice (
+               NonDiscoverableDeviceTypeXhci,
+               NonDiscoverableDeviceDmaTypeCoherent,
+               NULL,
+               NULL,
+               1,
+               Base,
+               Size
+               );
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a: NonDiscoverable: Cannot install XHCI device @%p (Status == %r)\n",
+        __func__,
+        Base,
+        Status
+        ));
+      return Status;
+    }
   }
-
-  SmcResult = ArmCallSmc0 (SIP_SVC_VERSION, &Arg0, &Arg1, NULL);
-  if (SmcResult == SMC_ARCH_CALL_SUCCESS) {
-    Result = PcdSet32S (PcdPlatformVersionMajor, Arg0);
-    ASSERT_RETURN_ERROR (Result);
-    Result = PcdSet32S (PcdPlatformVersionMinor, Arg1);
-    ASSERT_RETURN_ERROR (Result);
-  }
-
-  Arg0 = PcdGet32 (PcdPlatformVersionMajor);
-  Arg1 = PcdGet32 (PcdPlatformVersionMinor);
-
-  DEBUG ((DEBUG_INFO, "Platform version: %d.%d\n", Arg0, Arg1));
-
-  SmcResult = ArmCallSmc0 (SIP_SVC_GET_GIC, &Arg0, &Arg1, NULL);
-  if (SmcResult == SMC_ARCH_CALL_SUCCESS) {
-    Result = PcdSet64S (PcdGicDistributorBase, Arg0);
-    ASSERT_RETURN_ERROR (Result);
-    Result = PcdSet64S (PcdGicRedistributorsBase, Arg1);
-    ASSERT_RETURN_ERROR (Result);
-  }
-
-  Arg0 = PcdGet64 (PcdGicDistributorBase);
-
-  DEBUG ((DEBUG_INFO, "GICD base: 0x%x\n", Arg0));
-
-  Arg0 = PcdGet64 (PcdGicRedistributorsBase);
-
-  DEBUG ((DEBUG_INFO, "GICR base: 0x%x\n", Arg0));
-
-  SmcResult = ArmCallSmc0 (SIP_SVC_GET_GIC_ITS, &Arg0, NULL, NULL);
-  if (SmcResult == SMC_ARCH_CALL_SUCCESS) {
-    Result = PcdSet64S (PcdGicItsBase, Arg0);
-    ASSERT_RETURN_ERROR (Result);
-  }
-
-  Arg0 = PcdGet64 (PcdGicItsBase);
-
-  DEBUG ((DEBUG_INFO, "GICI base: 0x%x\n", Arg0));
 
   return EFI_SUCCESS;
 }

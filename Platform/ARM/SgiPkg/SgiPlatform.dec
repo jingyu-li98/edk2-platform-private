@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2018 - 2023, Arm Limited. All rights reserved.
+#  Copyright (c) 2018 - 2024, Arm Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -31,10 +31,14 @@
 [PcdsFeatureFlag.common]
   gArmSgiTokenSpaceGuid.PcdVirtioBlkSupported|FALSE|BOOLEAN|0x00000001
   gArmSgiTokenSpaceGuid.PcdVirtioNetSupported|FALSE|BOOLEAN|0x00000010
+  gArmSgiTokenSpaceGuid.PcdPcieEnable|FALSE|BOOLEAN|0x0000002E
 
 [PcdsFixedAtBuild]
   gArmSgiTokenSpaceGuid.PcdDramBlock2Base|0|UINT64|0x00000002
   gArmSgiTokenSpaceGuid.PcdDramBlock2Size|0|UINT64|0x00000003
+
+  # L2 Cache size
+  gArmSgiTokenSpaceGuid.PcdL2CacheSize|0x100000|UINT32|0x0000002F
 
   # Virtio Block device
   gArmSgiTokenSpaceGuid.PcdVirtioBlkBaseAddress|0x00000000|UINT32|0x00000004
@@ -51,8 +55,9 @@
   gArmSgiTokenSpaceGuid.PcdVirtioP9Size|0x00000000|UINT32|0x00000029
   gArmSgiTokenSpaceGuid.PcdVirtioP9Interrupt|0x00000000|UINT32|0x0000002A
 
-  # Chip count on the platform
+  # Chip count on the platform and platform variant
   gArmSgiTokenSpaceGuid.PcdChipCount|1|UINT32|0x0000000B
+  gArmSgiTokenSpaceGuid.PcdPlatformVariant|0|UINT32|0x0000002D
 
   # GIC
   gArmSgiTokenSpaceGuid.PcdGicSize|0|UINT64|0x0000000A
@@ -78,7 +83,7 @@
   gArmSgiTokenSpaceGuid.PcdWdogWS1Gsiv|0|UINT32|0x00000014
 
   # SMMU
-  gArmSgiTokenSpaceGuid.PcdSmmuBase|0|UINT32|0x0000001D
+  gArmSgiTokenSpaceGuid.PcdSmmuBase|0|UINT64|0x0000001D
   gArmSgiTokenSpaceGuid.PcdSmmuSize|0|UINT32|0x0000001E
 
   # GPIO Controller

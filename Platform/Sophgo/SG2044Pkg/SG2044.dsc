@@ -222,6 +222,14 @@
   OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
   AcpiLib|EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
 
+  # ipmi ssif smbus lib
+  PlatformBmcReadyLib|Features/ManageabilityPkg/Library/PlatformBmcReadyLibNull/PlatformBmcReadyLibNull.inf
+  ManageabilityTransportHelperLib|Features/ManageabilityPkg/Library/BaseManageabilityTransportHelperLib/BaseManageabilityTransportHelper.inf
+  SmbusLib|MdePkg/Library/DxeSmbusLib/DxeSmbusLib.inf
+  IpmiLib|MdeModulePkg/Library/DxeIpmiLibIpmiProtocol/DxeIpmiLibIpmiProtocol.inf
+  IpmiCommandLib|Features/ManageabilityPkg/Library/IpmiCommandLib/IpmiCommandLib.inf
+  ManageabilityTransportLib|Features/ManageabilityPkg/Library/ManageabilityTransportSsifLib/Dxe/DxeManageabilityTransportSsif.inf
+
 [LibraryClasses.common]
   #
   # Secure Boot dependencies
@@ -392,7 +400,7 @@
 !if $(TARGET) == RELEASE
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x13
 !else
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2B
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
 !endif
 
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -480,11 +488,14 @@
   gSophgoTokenSpaceGuid.PcdSPIFMC1Base|0x7005000000
   gSophgoTokenSpaceGuid.PcdSpifmcDmmrEnable|TRUE
   gSophgoTokenSpaceGuid.PcdFlashPartitionTableAddress|0x80000
+  gSophgoTokenSpaceGuid.PcdFdOffset|0x600000
 !endif
   gSophgoTokenSpaceGuid.PcdIniFileRamAddress|0x89000000
   gSophgoTokenSpaceGuid.PcdIniFileMaxSize|8192
   gSophgoTokenSpaceGuid.PcdMisa|0x00B4112F
-  gSophgoTokenSpaceGuid.PcdRtcI2cBusNum|2
+  gSophgoTokenSpaceGuid.PcdRtcI2cBusNum0|2
+  gSophgoTokenSpaceGuid.PcdRtcI2cBusNum1|3
+  gSophgoTokenSpaceGuid.PcdSsifI2cBusNum|3
 
   gUefiCpuPkgTokenSpaceGuid.PcdCpuCoreCrystalClockFrequency|50000000
 
@@ -519,6 +530,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x7030001000
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialBaudRate|115200
+
+  gSophgoTokenSpaceGuid.PcdServerNamePrefix|L"SR"
 
 ################################################################################
 #
@@ -746,6 +759,14 @@
   Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2500GopDxe.inf
 
   #
+  # ipmi ssif smbus driver
+  #
+  Silicon/Sophgo/Drivers/SmbusHcDxe/SmbusHcDxe.inf
+  Features/ManageabilityPkg/Universal/IpmiProtocol/Dxe/IpmiProtocolDxe.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/BmcLanConfigDxe/BmcLanConfig.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/IpmiBootDxe/IpmiBootDxe.inf
+
+  #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem
   #
   FatPkg/EnhancedFatDxe/Fat.inf
@@ -813,6 +834,8 @@
   SecurityPkg/EnrollFromDefaultKeysApp/EnrollFromDefaultKeysApp.inf
   SecurityPkg/VariableAuthenticated/SecureBootDefaultKeysDxe/SecureBootDefaultKeysDxe.inf
 !endif
+  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
 
   #
   # Bds
@@ -834,13 +857,14 @@
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
   }
-  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTime/SetDateAndTime.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/SetDateAndTimeDxe/SetDateAndTimeDxe.inf
 
 !if $(FLASH_ENABLE) == TRUE
   Silicon/Sophgo/SG2044Pkg/Drivers/FirmwareManagerUiDxe/FirmwareManagerUiDxe.inf
 !endif
-  Silicon/Sophgo/SG2044Pkg/Drivers/Information/Information.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/InformationDxe/InformationDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/ReserveMemoryDxe/ReserveMemoryDxe.inf
 
   #
   # ACPI Support
@@ -849,7 +873,7 @@
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
-  Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044EvbAcpiTables.inf
+  Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044AcpiTables.inf
   Silicon/Sophgo/SG2044Pkg/Pptt/Pptt.inf
   MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf {
     <LibraryClasses>

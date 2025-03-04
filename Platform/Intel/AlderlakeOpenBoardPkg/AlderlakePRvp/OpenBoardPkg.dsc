@@ -1,7 +1,7 @@
 ## @file
 #  The main build description file for the AlderlakePRvp board.
 #
-#   Copyright (c) 2022, Intel Corporation. All rights reserved.<BR>
+#   Copyright (c) 2022 - 2024, Intel Corporation. All rights reserved.<BR>
 #   SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
@@ -14,7 +14,7 @@
   DEFINE      PLATFORM_PACKAGE                = MinPlatformPkg
   DEFINE      PLATFORM_SI_PACKAGE             = AlderlakeSiliconPkg
   DEFINE      PLATFORM_SI_BIN_PACKAGE         = AlderlakeSiliconBinPkg
-  DEFINE      PLATFORM_FSP_BIN_PACKAGE        = AlderLakeFspBinPkg/Client/AlderLakeP
+  DEFINE      PLATFORM_FSP_BIN_PACKAGE        = RaptorLakeFspBinPkg/Client/RaptorLakeP
   DEFINE      PLATFORM_BOARD_PACKAGE          = AlderlakeOpenBoardPkg
   DEFINE      BOARD                           = AlderlakePRvp
   DEFINE      PROJECT                         = $(PLATFORM_BOARD_PACKAGE)/$(BOARD)
@@ -49,6 +49,7 @@
   # Include PCD configuration for this board
   #
   !include OpenBoardPkgPcd.dsc
+  !include AdvancedFeaturePkg/Include/AdvancedFeaturesPcd.dsc
 
 ################################################################################
 #
@@ -101,7 +102,7 @@
 
   PostCodeMapLib|PostCodeDebugFeaturePkg/Library/PostCodeMapLib/PostCodeMapLib.inf
 
-  PlatformSecLib|$(PLATFORM_PACKAGE)/FspWrapper/Library/SecFspWrapperPlatformSecLib/SecFspWrapperPlatformSecLib.inf
+  PlatformSecLib|$(PLATFORM_BOARD_PACKAGE)/FspWrapper/Library/SecFspWrapperPlatformSecLib/SecFspWrapperPlatformSecLib.inf
   FspWrapperPlatformLib|$(PLATFORM_PACKAGE)/FspWrapper/Library/PeiFspWrapperPlatformLib/PeiFspWrapperPlatformLib.inf
   FspWrapperHobProcessLib|$(PLATFORM_PACKAGE)/FspWrapper/Library/PeiFspWrapperHobProcessLib/PeiFspWrapperHobProcessLib.inf
 
@@ -233,8 +234,9 @@
 
 [LibraryClasses.X64.DXE_SMM_DRIVER]
 
+  SpiFlashCommonLib|IntelSiliconPkg/Library/SmmSpiFlashCommonLib/SmmSpiFlashCommonLib.inf
+
 !if $(TARGET) == DEBUG
-  SpiFlashCommonLib|$(PLATFORM_BOARD_PACKAGE)/Library/SmmSpiFlashCommonLib/SmmSpiFlashCommonLib.inf
   TestPointCheckLib|$(PLATFORM_PACKAGE)/Test/Library/TestPointCheckLib/SmmTestPointCheckLib.inf
   TestPointCheckLib|$(PLATFORM_PACKAGE)/Test/Library/TestPointCheckLibNull/TestPointCheckLibNull.inf
 !endif
@@ -339,6 +341,14 @@ ResetSystemLib|$(PLATFORM_SI_PACKAGE)/Pch/Library/BaseResetSystemLib/BaseResetSy
   IntelFsp2WrapperPkg/FspsWrapperPeim/FspsWrapperPeim.inf {
     <LibraryClasses>
   }
+
+  #
+  # ADL FSP includes an older version of CpuMpPei, so the compatibility PEIM
+  # is needed when using FSP Dispatch mode.
+  #
+!if gIntelFsp2WrapperTokenSpaceGuid.PcdFspModeSelection == 0
+  $(PLATFORM_PACKAGE)/FspWrapper/MpInfo2HobPei/MpInfo2HobPei.inf
+!endif
 
 #
 # Security
@@ -453,7 +463,7 @@ $(PLATFORM_SI_BIN_PACKAGE)/Microcode/MicrocodeUpdates.inf
 #
 !if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
   $(PLATFORM_PACKAGE)/Acpi/AcpiTables/AcpiPlatform.inf
-  $(PLATFORM_BOARD_PACKAGE)/Acpi/MinDsdt/MinDsdt.inf
+  $(PLATFORM_PACKAGE)/Acpi/MinDsdt/MinDsdt.inf
   $(PLATFORM_PACKAGE)/Acpi/AcpiSmm/AcpiSmm.inf {
     <LibraryClasses>
       NULL|$(PROJECT)/Library/BoardAcpiLib/SmmMultiBoardAcpiSupportLib.inf

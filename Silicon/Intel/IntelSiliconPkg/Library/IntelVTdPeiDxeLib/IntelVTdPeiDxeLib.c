@@ -138,6 +138,10 @@ VtdLibDumpDmarDeviceScopeEntry (
     DmarDeviceScopeEntry->Length
     ));
   VTDLIB_DEBUG ((DEBUG_INFO,
+    "      Flags .............................................. 0x%02x\n",
+    DmarDeviceScopeEntry->Flags
+    ));
+  VTDLIB_DEBUG ((DEBUG_INFO,
     "      Enumeration ID ..................................... 0x%02x\n",
     DmarDeviceScopeEntry->EnumerationId
     ));
@@ -1300,6 +1304,7 @@ VtdLibDumpSetAttribute (
                  SetAttributeInfo->SourceId.Uint16,
                  SetAttributeInfo->DeviceAddress,
                  SetAttributeInfo->Length,
+                 SetAttributeInfo->IoMmuAccess,
                  SetAttributeInfo->Status));
 }
 
@@ -1492,6 +1497,7 @@ VtdLibFlushWriteBuffer (
 
   if (CapReg.Bits.RWBF != 0) {
     Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
+    Reg32 = (Reg32 & 0x96FFFFFF);       // Reset the one-shot bits
     MmioWrite32 (VtdUnitBaseAddress + R_GCMD_REG, Reg32 | B_GMCD_REG_WBF);
     do {
       Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
@@ -1659,7 +1665,6 @@ VtdLibDisableQueuedInvalidationInterface (
   IN UINTN                      VtdUnitBaseAddress
   )
 {
-  UINT32         Reg32;
   QI_256_DESC    QiDesc;
 
   QiDesc.Uint64[0] = QI_IWD_TYPE;
@@ -1669,14 +1674,8 @@ VtdLibDisableQueuedInvalidationInterface (
 
   VtdLibSubmitQueuedInvalidationDescriptor (VtdUnitBaseAddress, &QiDesc, TRUE);
 
-  Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
-  Reg32 &= (~B_GMCD_REG_QIE);
-  MmioWrite32 (VtdUnitBaseAddress + R_GCMD_REG, Reg32);
-
-  DEBUG ((DEBUG_INFO, "Disable Queued Invalidation Interface. [%x] GCMD_REG = 0x%x\n", VtdUnitBaseAddress, Reg32));
-  do {
-    Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
-  } while ((Reg32 & B_GSTS_REG_QIES) != 0);
+  DEBUG ((DEBUG_INFO, "Disable Queued Invalidation Interface. [%x]\n", VtdUnitBaseAddress));
+  VtdLibClearGlobalCommandRegisterBits (VtdUnitBaseAddress, B_GMCD_REG_QIE);
 
   MmioWrite64 (VtdUnitBaseAddress + R_IQA_REG, 0);
 }

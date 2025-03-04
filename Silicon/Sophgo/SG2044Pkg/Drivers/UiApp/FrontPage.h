@@ -7,10 +7,23 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #ifndef _FRONT_PAGE_H_
 #define _FRONT_PAGE_H_
 
-#include "String.h"
-#include "Ui.h"
-#include <Protocol/BootLogo.h>
 #include <Uefi.h>
+
+#include <Protocol/BootLogo.h>
+#include <Protocol/SimpleFileSystem.h>
+#include <Protocol/HiiPackageList.h>
+#include <Protocol/HiiDatabase.h>
+#include <Protocol/HiiConfigAccess.h>
+
+#include <Guid/FileInfo.h>
+#include <Guid/MdeModuleHii.h>
+#include <Guid/VendorGlobalVariables.h>
+#include <Guid/Acpi.h>
+#include <Guid/FdtHob.h>
+
+#include <Library/PasswordRead.h>
+#include <Library/RestoreDefaults.h>
+#include <Library/SmbiosInformationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -21,24 +34,17 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/FileHandleLib.h>
 #include <Library/IniParserLib.h>
 #include <Library/IniParserLib/IniParserUtil.h>
-#include <Protocol/SimpleFileSystem.h>
-#include <Protocol/HiiPackageList.h>
-#include <Protocol/HiiDatabase.h>
-#include <Guid/FileInfo.h>
-#include <Guid/MdeModuleHii.h>
 #include <Library/DevicePathLib.h>
 #include <Library/PrintLib.h>
 #include <Library/CustomizedDisplayLib/Colors.h>
-#include <Protocol/HiiConfigAccess.h>
-#include <stdio.h>
+#include <Library/BaseRiscVSbiLib.h>
+
 #include "FrontPageNVDataStruc.h"
 #include "FrontPageCustomizedUiSupport.h"
-#include <Library/PasswordRead.h>
-#include <Library/RestoreDefaults.h>
+#include "String.h"
+#include "Ui.h"
 
 #define PRINTABLE_LANGUAGE_NAME_STRING_ID  0x0001
-#define FRONT_PAGE_FORM_ID  0x1000
-#define CONFIG_FORM_ID         0x1000
 #define FRONT_PAGE_CALLBACK_DATA_SIGNATURE  SIGNATURE_32 ('F', 'P', 'C', 'B')
 #define EFI_FP_CALLBACK_DATA_FROM_THIS(a) \
   CR (a, \
@@ -48,9 +54,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
       )
 #define     QF_DATE_STORAGE_TIME    0x10
 
-extern UINT8  FrontPageVfrBin[];
+extern UINT8                       FrontPageVfrBin[];
 extern EFI_FORM_BROWSER2_PROTOCOL  *gFormBrowser2;
-
+extern EFI_GUID                    mFrontPageGuid;
 typedef struct {
   UINTN                             Signature;
   EFI_HII_HANDLE                    HiiHandle;
@@ -91,7 +97,7 @@ ExtractConfig (
   IN  CONST EFI_STRING                      Request,
   OUT EFI_STRING                            *Progress,
   OUT EFI_STRING                            *Results
-);
+  );
 
 /**
   This function processes the results of changes in configuration.
@@ -115,8 +121,7 @@ RouteConfig (
   IN  CONST EFI_HII_CONFIG_ACCESS_PROTOCOL  *This,
   IN  CONST EFI_STRING                      Configuration,
   OUT EFI_STRING                            *Progress
-
-);
+  );
 
 /**
   This function processes the results of changes in configuration.
@@ -204,31 +209,31 @@ ExtractDevicePathFromHiiHandle (
   IN      EFI_HII_HANDLE  Handle
   );
 
-VOID
+EFI_STATUS
 UpdateFrontPageForm (
-VOID
-);
+  VOID
+  );
 
 EFI_STATUS
 UpdateBootRegion (
-EFI_HII_HANDLE HiiHandle
-);
+  EFI_HII_HANDLE HiiHandle
+  );
 
 EFI_STATUS
 UpdateTimeRegion (
-EFI_HII_HANDLE HiiHandle
-);
+  EFI_HII_HANDLE HiiHandle
+  );
 
 VOID
 AppendAltCfgString (
   IN OUT EFI_STRING  *RequestResult,
   IN     EFI_STRING  ConfigRequestHdr
-);
+  );
 
 EFI_STATUS
 EFIAPI
 PassWordToggleRestore (
- VOID
-);
+  VOID
+  );
 
 #endif // _FRONT_PAGE_H_

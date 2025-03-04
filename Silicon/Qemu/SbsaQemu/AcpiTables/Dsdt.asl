@@ -73,18 +73,16 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
         Name (_HID, "PNP0D10")      // _HID: Hardware ID
         Name (_UID, 0x00)            // _UID: Unique ID
         Name (_CCA, 0x01)            // _CCA: Cache Coherency Attribute
+        Name (XHCI, 0xF)            // will be set using AcpiLib
         Method (_STA) {
-          Return (0xF)
+          Return (XHCI)
         }
-        Method (_CRS, 0x0, Serialized) {
-            Name (RBUF, ResourceTemplate() {
-                Memory32Fixed (ReadWrite,
-                               FixedPcdGet32 (PcdPlatformXhciBase),
-                               FixedPcdGet32 (PcdPlatformXhciSize))
-                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 43 }
-            })
-            Return (RBUF)
-        }
+        Name (_CRS, ResourceTemplate() {
+            Memory32Fixed (ReadWrite,
+                           FixedPcdGet32 (PcdPlatformXhciBase),
+                           FixedPcdGet32 (PcdPlatformXhciSize))
+            Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 43 }
+        })
 
         // Root Hub
         Device (RHUB) {
@@ -190,7 +188,6 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
       Name (_CID, EISAID ("PNP0A03")) // Compatible PCI Root Bridge
       Name (_SEG, Zero) // PCI Segment Group number
       Name (_BBN, Zero) // PCI Base Bus Number
-      Name (_ADR, Zero)
       Name (_UID, "PCI0")
       Name (_CCA, One)    // Initially mark the PCI coherent (for JunoR1)
 
@@ -371,8 +368,7 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
       })
 
       // Root complex resources
-      Method (_CRS, 0, Serialized) {
-      Name (RBUF, ResourceTemplate () {
+      Name (_CRS, ResourceTemplate () {
         WordBusNumber ( // Bus numbers assigned to this root
         ResourceProducer,
         MinFixed, MaxFixed, PosDecode,
@@ -418,10 +414,7 @@ DefinitionBlock ("DsdtTable.aml", "DSDT",
           FixedPcdGet32 (PcdPciIoSize),            // Length
           ,,,TypeTranslation
           )
-        }) // Name(RBUF)
-
-        Return (RBUF)
-      } // Method(_CRS)
+      }) // Name(_CRS)
 
       Device (RES0)
       {

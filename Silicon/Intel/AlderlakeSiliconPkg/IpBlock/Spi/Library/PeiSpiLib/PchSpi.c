@@ -9,7 +9,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PeiServicesLib.h>
 #include <Library/PciSegmentLib.h>
-#include <Ppi/Spi.h>
+#include <Ppi/Spi2.h>
 #include <Library/SpiCommonLib.h>
 #include <PchReservedResources.h>
 #include <IndustryStandard/Pci30.h>
@@ -192,18 +192,4 @@ IsSpiFlashWriteGranted (
   )
 {
   return TRUE;
-}
-
-/**
-  Check if a save and restore of the SPI controller state is necessary
-
-  @retval TRUE    It's necessary to save and restore SPI controller state
-  @retval FALSE   It's not necessary to save and restore SPI controller state
-**/
-BOOLEAN
-IsSpiControllerSaveRestoreEnabled (
-  VOID
-  )
-{
-  return FALSE;
 }

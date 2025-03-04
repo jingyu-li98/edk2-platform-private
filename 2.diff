@@ -1,0 +1,17 @@
+diff --git a/Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf b/Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+index 2464c47f2e..e6fe0a945b 100755
+--- a/Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
++++ b/Silicon/Sophgo/Drivers/Net/DwMac4SnpDxe/DwMac4SnpDxe.inf
+@@ -44,9 +44,11 @@
+   gEfiSimpleNetworkProtocolGuid                           ## PRODUCES
+   gSophgoPhyProtocolGuid                                  ## CONSUMES
+   gFdtClientProtocolGuid                                  ## CONSUMES
++  gSophgoTpcmProtocolGuid                                 ## CONSUMES
+ 
+ [FixedPcd]
+   gSophgoTokenSpaceGuid.PcdDwMac4DefaultMacAddress        ## CONSUMES
+ 
+ [Depex]
+-  gSophgoPhyProtocolGuid
++  gSophgoPhyProtocolGuid  AND
++  gSophgoTpcmProtocolGuid

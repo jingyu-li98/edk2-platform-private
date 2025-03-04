@@ -17,20 +17,11 @@
 [LibraryClasses]
   PeimEntryPoint
   DebugLib
-  IoLib
   MemoryAllocationLib
   BaseMemoryLib
   HobLib
   PeiServicesLib
-  PciSegmentLib
-  MtrrLib
-  PchInfoLib
-  PostCodeLib
-  SiPolicyLib
-  FspCommonLib
   PcdLib
-  PchPciBdfLib
-  GpioLib
   PeiGetFvInfoLib
 
 [Packages]
@@ -40,7 +31,7 @@
   UefiCpuPkg/UefiCpuPkg.dec
   IntelFsp2Pkg/IntelFsp2Pkg.dec
   IntelFsp2WrapperPkg/IntelFsp2WrapperPkg.dec
-  AlderLakeFspBinPkg/Client/AlderLakeP/AlderLakeFspBinPkg.dec
+  RaptorLakeFspBinPkg/Client/RaptorLakeP/RaptorLakeFspBinPkg.dec
   AlderlakeOpenBoardPkg/OpenBoardPkg.dec
   MinPlatformPkg/MinPlatformPkg.dec
   IntelSiliconPkg/IntelSiliconPkg.dec
@@ -49,27 +40,16 @@
   OpenBoardPlatformInitPostMem.c
 
 [Ppis]
-  gEfiEndOfPeiSignalPpiGuid                     ## CONSUMES
-  gEfiPeiReadOnlyVariable2PpiGuid               ## CONSUMES
   gPeiGraphicsPlatformPpiGuid                   ## PRODUCES
-  gFspSiliconInitDonePpiGuid                    ## CONSUMES
 
 [Protocols]
 
 [Guids]
-  gEfiSmmSmramMemoryGuid                        ## CONSUMES
   gPlatformInitFvLocationGuid                   ## PRODUCES
 
 [Depex]
   gEfiPeiMemoryDiscoveredPpiGuid
 
 [Pcd]
-  gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress               ## CONSUMES
-  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedIobase              ## CONSUMES
-  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedIoLimit             ## CONSUMES
-  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemAbove4GBBase     ## CONSUMES
-  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemAbove4GBLimit    ## CONSUMES
-  gMinPlatformPkgTokenSpaceGuid.PcdPciSegmentCount                ## CONSUMES
-
   gIntelSiliconPkgTokenSpaceGuid.PcdIntelGraphicsVbtFileGuid      ## CONSUMES
 

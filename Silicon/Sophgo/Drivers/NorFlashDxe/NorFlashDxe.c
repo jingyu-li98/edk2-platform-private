@@ -24,7 +24,13 @@ SpiNorGetFlashId (
   UINT8      Id[NOR_FLASH_MAX_ID_LEN];
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->ReadRegister (Nor, SPINOR_OP_RDID, SPI_NOR_MAX_ID_LEN, Id);
+  Status = SpiMasterProtocol->ReadRegister (
+		  SpiMasterProtocol,
+		  Nor,
+		  SPINOR_OP_RDID,
+		  SPI_NOR_MAX_ID_LEN,
+		  Id
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -56,7 +62,13 @@ SpiNorReadStatus (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->ReadRegister (Nor, SPINOR_OP_RDSR, 1, Sr);
+  Status = SpiMasterProtocol->ReadRegister (
+		  SpiMasterProtocol,
+		  Nor,
+		  SPINOR_OP_RDSR,
+		  1,
+		  Sr
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -108,7 +120,13 @@ SpiNorWriteEnable (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WREN, NULL, 0);
+  Status = SpiMasterProtocol->WriteRegister (
+		  SpiMasterProtocol,
+		  Nor,
+		  SPINOR_OP_WREN,
+		  NULL,
+		  0
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR,
       "%a: SpiNor error while write enable\n",
@@ -138,7 +156,13 @@ SpiNorWriteDisable (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WRDI, NULL, 0);
+  Status = SpiMasterProtocol->WriteRegister (
+		  SpiMasterProtocol,
+		  Nor,
+		  SPINOR_OP_WRDI,
+		  NULL,
+		  0
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR,
       "%a: SpiNor error while write disable\n",
@@ -170,7 +194,13 @@ SpiNorWriteStatus (
     return Status;
   }
 
-  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WRSR, Sr, Length);
+  Status = SpiMasterProtocol->WriteRegister (
+		  SpiMasterProtocol,
+		  Nor,
+		  SPINOR_OP_WRSR,
+		  Sr,
+		  Length
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -263,7 +293,13 @@ SpiNorReadData (
       PageOffset
       ));
 
-    Status = SpiMasterProtocol->Read (Nor, Address, PageRemain, Buffer + Index);
+    Status = SpiMasterProtocol->Read (
+		    SpiMasterProtocol,
+		    Nor,
+		    Address,
+		    PageRemain,
+		    Buffer + Index
+		    );
     if (EFI_ERROR(Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -342,7 +378,13 @@ SpiNorWriteData (
       return Status;
     }
 
-    Status = SpiMasterProtocol->Write (Nor, Address, PageRemain, Buffer + Index);
+    Status = SpiMasterProtocol->Write (
+		    SpiMasterProtocol,
+		    Nor,
+		    Address,
+		    PageRemain,
+		    Buffer + Index
+		    );
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -456,7 +498,11 @@ SpiNorErase (
       Address
       ));
 
-    Status = SpiMasterProtocol->Erase (Nor, Address);
+    Status = SpiMasterProtocol->Erase (
+		    SpiMasterProtocol,
+		    Nor,
+		    Address
+		    );
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -517,7 +563,11 @@ SpiNorEraseChip (
     return Status;
   }
 
-  Status = SpiMasterProtocol->Erase (Nor, 0x0);
+  Status = SpiMasterProtocol->Erase (
+		  SpiMasterProtocol,
+		  Nor,
+		  0x0
+		  );
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -582,7 +632,12 @@ SpiNorGetFlashVariableOffset (
   }
 
   do {
-    Status = SpiNorReadData (Nor, Address, sizeof (FLASH_PARTITION_INFO), (UINT8 *)Info);
+    Status = SpiNorReadData (
+		    Nor,
+		    Address,
+		    sizeof (FLASH_PARTITION_INFO),
+		    (UINT8 *)Info
+		    );
     if (EFI_ERROR(Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -596,10 +651,13 @@ SpiNorGetFlashVariableOffset (
     if (Info->Magic != DPT_MAGIC) {
       DEBUG ((
         DEBUG_ERROR,
-        "%a: Bad partition table magic!\n",
+        "%a: Bad partition table magic, set default variable offset!\n",
         __func__,
         Status
         ));
+
+      PcdSet64S (PcdFlashVariableOffset, PcdGet64 (PcdFdOffset) + PcdGet32 (PcdRiscVDxeFvSize));
+
       goto Error;
     }
 
@@ -657,7 +715,13 @@ SpiNorInit (
     //
     // Enter 4-byte mode
     //
-    Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_EN4B, NULL, 0);
+    Status = SpiMasterProtocol->WriteRegister (
+		    SpiMasterProtocol,
+		    Nor,
+		    SPINOR_OP_EN4B,
+		    NULL,
+		    0
+		    );
     if (EFI_ERROR (Status)) {
       DEBUG((
         DEBUG_ERROR,

@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2018-2023, ARM Limited. All rights reserved.
+*  Copyright (c) 2018-2024, Arm Limited. All rights reserved.
 *
 *  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
@@ -18,7 +18,8 @@
 
 // Total number of descriptors, including the final "end-of-table" descriptor.
 #define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS                                     \
-          ((14 + (FixedPcdGet32 (PcdChipCount) * 2)) +                         \
+          ((13 + (FixedPcdGet32 (PcdChipCount) * 2)) +                         \
+           ((FeaturePcdGet (PcdPcieEnable) == TRUE) ? 1 : 0) +                 \
            (FixedPcdGet32 (PcdIoVirtSocExpBlkUartEnable) *                     \
             FixedPcdGet32 (PcdChipCount) * 2))
 
@@ -167,8 +168,8 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
 
   // Sub System Peripherals - SMMU
-  VirtualMemoryTable[++Index].PhysicalBase  = FixedPcdGet32 (PcdSmmuBase);
-  VirtualMemoryTable[Index].VirtualBase     = FixedPcdGet32 (PcdSmmuBase);
+  VirtualMemoryTable[++Index].PhysicalBase  = FixedPcdGet64 (PcdSmmuBase);
+  VirtualMemoryTable[Index].VirtualBase     = FixedPcdGet64 (PcdSmmuBase);
   VirtualMemoryTable[Index].Length          = FixedPcdGet32 (PcdSmmuSize);
   VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
 
@@ -263,13 +264,15 @@ ArmPlatformGetVirtualMemoryMap (
 #endif
 #endif
 
-  // PCI Configuration Space
-  VirtualMemoryTable[++Index].PhysicalBase  = PcdGet64 (PcdPciExpressBaseAddress);
-  VirtualMemoryTable[Index].VirtualBase     = PcdGet64 (PcdPciExpressBaseAddress);
-  VirtualMemoryTable[Index].Length          = (FixedPcdGet32 (PcdPciBusMax) -
-                                               FixedPcdGet32 (PcdPciBusMin) + 1) *
-                                               SIZE_1MB;
-  VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
+  if (FeaturePcdGet (PcdPcieEnable)) {
+    // PCI Configuration Space
+    VirtualMemoryTable[++Index].PhysicalBase  = PcdGet64 (PcdPciExpressBaseAddress);
+    VirtualMemoryTable[Index].VirtualBase     = PcdGet64 (PcdPciExpressBaseAddress);
+    VirtualMemoryTable[Index].Length          = (FixedPcdGet32 (PcdPciBusMax) -
+                                                 FixedPcdGet32 (PcdPciBusMin) + 1) *
+                                                 SIZE_1MB;
+    VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
+  }
 
  // MM Memory Space
   VirtualMemoryTable[++Index].PhysicalBase  = PcdGet64 (PcdMmBufferBase);

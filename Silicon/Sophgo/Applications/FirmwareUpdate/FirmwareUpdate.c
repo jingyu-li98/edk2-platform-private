@@ -30,43 +30,12 @@
 
 #define STRING_BUFFER_SIZE 64
 
-#define CMD_NAME_STRING       L"fwupdate"
-
-#define SHELL_USE_DEVICE_PATH_PARAM  L"-p"
-#define SHELL_DEVICE_NAME_PARAM      L"DeviceName"
-#define SHELL_FILE_NAME_PARAM        L"LocalFileName"
-#define SHELL_HELP_PARAM             L"-h"
-#define SHELL_LIST_PARAM             L"-l"
-
 CHAR16 *FirmwareNames[1] = {L"FIRMWARE.BIN"};
 
 STATIC SPI_NOR                        *Nor;
 STATIC SOPHGO_NOR_FLASH_PROTOCOL      *NorFlashProtocol;
 STATIC SOPHGO_SPI_MASTER_PROTOCOL     *SpiMasterProtocol;
 EFI_HII_HANDLE                        gFirmwareUpdateHandle;
-
-STATIC EFI_BLOCK_IO_PROTOCOL          *BlkIo;
-
-STATIC CONST CHAR16 gShellFirmwareUpdateFileName[] = L"ShellCommands";
-STATIC EFI_HANDLE gShellFirmwareUpdateHiiHandle = NULL;
-
-STATIC CONST SHELL_PARAM_ITEM ParamList[] = {
-  { SHELL_HELP_PARAM,            TypeFlag     },
-  { SHELL_LIST_PARAM,            TypeFlag     },
-  { SHELL_USE_DEVICE_PATH_PARAM, TypeFlag     },
-  { SHELL_FILE_NAME_PARAM,       TypePosition },
-  { SHELL_DEVICE_NAME_PARAM,     TypePosition },
-  { NULL ,                       TypeMax      }
-  };
-
-typedef
-EFI_STATUS
-(EFIAPI *FLASH_COMMAND) (
-  UINT64           FileSize,
-  UINTN            *FileBuffer,
-  EFI_LBA          Offset
-);
-
 
 /**
   Show copyrights and warning.
@@ -464,7 +433,7 @@ PopupInvalidInformation (
   EFI_INPUT_KEY  InputKey;
   UINTN          EventIndex;
 
-  //
+  // 
   // Retrieve and format the two strings
   //
   if (EFI_ERROR (RetrieveAndFormatString (StringToken1, Str1))) {
@@ -540,190 +509,6 @@ NorFlashProbe (
 }
 
 /**
-  Verify if selected device is valid for the firmware update.
-
-  @param[in]   Handle            Handle of verified device
-  @param[in]   Offset            [OPTIONAL] Additional parameter
-                                 required for BlkIo->WriteBlocks,
-                                 filled depending on detected device
-                                 type.
-
-**/
-STATIC
-EFI_STATUS
-IsDeviceSupported (
-  IN  EFI_HANDLE   Handle,
-  OUT EFI_LBA     *Offset OPTIONAL
-  )
-{
-  EFI_STATUS                  Status;
-  EFI_DEVICE_PATH_PROTOCOL    *DevicePath;
-
-  //
-  // Skip handles that do not have device path protocol
-  //
-  Status = gBS->OpenProtocol (Handle,
-                  &gEfiDevicePathProtocolGuid,
-                  (VOID**)&DevicePath,
-                  gImageHandle,
-                  NULL,
-                  EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-  if (EFI_ERROR (Status)) {
-    return EFI_UNSUPPORTED;
-  }
-
-  //
-  // Skip handles that are not block devices
-  //
-  Status = gBS->OpenProtocol (Handle,
-                  &gEfiBlockIoProtocolGuid,
-                  NULL,
-                  NULL,
-                  NULL,
-                  EFI_OPEN_PROTOCOL_TEST_PROTOCOL);
-  if (EFI_ERROR (Status)) {
-    return EFI_UNSUPPORTED;
-  }
-
-  while (!IsDevicePathEnd (DevicePath)) {
-    if (DevicePath->Type == MESSAGING_DEVICE_PATH) {
-      //
-      // Search for SD/MMC devices.
-      //
-      if (DevicePath->SubType == MSG_SD_DP) {
-        //
-        // Only flashing in the beginning of SD card makes sense.
-        //
-        DevicePath = NextDevicePathNode (DevicePath);
-        if (!IsDevicePathEnd (DevicePath)) {
-          return EFI_UNSUPPORTED;
-        }
-
-        if (Offset != NULL) {
-          *Offset = 1;
-        }
-
-        return EFI_SUCCESS;
-      }
-
-      if (DevicePath->SubType == MSG_EMMC_DP) {
-        //
-        // Filter out entire MMC device (ctrl(0x0))
-        // and boot partitions (ctrl(0x1)/ctrl(0x2)) as valid for
-        // the firmware update.
-        //
-        DevicePath = NextDevicePathNode (DevicePath);
-        if (IsDevicePathEnd (DevicePath)) {
-          return EFI_UNSUPPORTED;
-        }
-
-        DevicePath = NextDevicePathNode (DevicePath);
-        if (!IsDevicePathEnd (DevicePath)) {
-          return EFI_UNSUPPORTED;
-        }
-
-        if (Offset != NULL) {
-          *Offset = 0;
-        }
-
-        return EFI_SUCCESS;
-      }
-    }
-
-    DevicePath = NextDevicePathNode (DevicePath);
-  }
-
-  return EFI_UNSUPPORTED;
-}
-
-/**
-  Print information about single device supporting the firmware update.
-
-  @param[in]   Handle            Handle of verified device
-
-**/
-STATIC
-EFI_STATUS
-PrintSupportedDevice (
-  IN EFI_HANDLE  Handle
-  )
-{
-  CHAR16         *Name;
-
-  gEfiShellProtocol->GetDeviceName (Handle,
-    EFI_DEVICE_NAME_USE_DEVICE_PATH,
-    NULL,
-    &Name);
-  if (Name != NULL) {
-    ShellPrintEx (-1,
-      -1,
-      L"%H%02x%N      %s\n",
-      ConvertHandleToHandleIndex (Handle),
-      Name);
-  }
-
-  return EFI_SUCCESS;
-}
-
-/**
-  Print information about all devices supporting the firmware update.
-
-**/
-STATIC
-EFI_STATUS
-ListSupportedDevices (
-  )
-{
-  UINTN          LoopVar;
-  EFI_HANDLE     Handle;
-  EFI_STATUS     Status;
-
-  ShellPrintEx (-1, -1, L"%BHandle  Path%N\n");
-  ShellPrintEx (-1, -1, L"%Hspi%N     spi\n");
-
-  for (LoopVar = 1; ; LoopVar++) {
-    Handle = ConvertHandleIndexToHandle (LoopVar);
-    if (Handle == NULL) {
-      break;
-    }
-
-    Status = IsDeviceSupported (Handle, NULL);
-    if (!EFI_ERROR (Status)) {
-      PrintSupportedDevice (Handle);
-    }
-  }
-
-  return EFI_SUCCESS;
-}
-
-STATIC
-VOID
-FirmwareUpdateUsage (
-  VOID
-  )
-{
-  Print (L"\nFirmware update command\n"
-         "fwupdate <LocalFilePath> [-p] [Device]\n\n"
-         "LocalFilePath - path to local firmware image file\n"
-         "-p            - When flag is selected Device is interpreted\n"
-         "                as device path, not device handle.\n"
-         "Device        - Select device which will be flashed.\n"
-         "                Supported devices can be listed using \"fupdate list\"\n"
-         "                command. Device is represented by its handle.\n"
-         "                The default value is spi.\n"
-         "EXAMPLES:\n"
-         " * Update firmware in SPI Flash from file fs2:firmware.bin\n"
-         "     fwupdate fs2:firmware.bin\n"
-         " * Update firmware in device with handle 5F from file firmware.bin\n"
-         "     fwupdate firmware.bin 5F\n"
-         " * Update firmware in device with selected path from file firmware.bin\n"
-         "     fwupdate firmware.bin -p VenHw(0D51905B-B77E-452A-A2C0-ECA0CC8D514A,000078F20000000000)/SD(0x0)\n"
-         " * List supported devices\n"
-         "     fwupdate list\n"
-  );
-}
-
-/**
   Entry of the app.
 
   @param[in] ImageHandle    The firmware allocated handle for the EFI image.
@@ -734,12 +519,11 @@ FirmwareUpdateUsage (
 **/
 EFI_STATUS
 EFIAPI
-ShellCommandRunFirmwareUpdate (
+FirmwareUpdateEntry (
   IN EFI_HANDLE         ImageHandle,
   IN EFI_SYSTEM_TABLE   *SystemTable
   )
 {
-  SHELL_FILE_HANDLE FileHandle;
   UINT8         *FirmwareData;
   UINTN         FirmwareSize;
   UINTN         Attribute;
@@ -873,147 +657,4 @@ Error:
   HiiRemovePackages (gFirmwareUpdateHandle);
 
   return Status;
-}
-
-/**
-  Entry of the app.
-
-  @param[in] ImageHandle    The firmware allocated handle for the EFI image.
-  @param[in] SystemTable    A pointer to the EFI System Table.
-
-  @retval EFI_SUCCESS       The entry point is executed successfully.
-  @retval other             Some error occurs when executing this entry point.
-**/
-EFI_STATUS
-EFIAPI
-ShellCommandRunFirmwareUpdate (
-  IN EFI_HANDLE         ImageHandle,
-  IN EFI_SYSTEM_TABLE   *SystemTable
-  )
-{
-  Status = ShellInitialize ();
-  if (EFI_ERROR (Status)) {
-    Print (L"ShellInitialize error[%r]\n", Status);
-    return SHELL_ABORTED;
-  }
-
-  Status = ShellCommandLineParse (ParamList, &CheckPackage, &ProblemParam, TRUE);
-  if (EFI_ERROR (Status)) {
-    Print (L"%s: Invalid parameter\n", CMD_NAME_STRING);
-    return SHELL_ABORTED;
-  }
-
-  //
-  // -h
-  //
-  if (ShellCommandLineGetFlag (CheckPackage, SHELL_HELP_PARAM)) {
-    FirmwareUpdateUsage ();
-    return EFI_SUCCESS;
-  }
-
-  //
-  // -l
-  //
-  if (ShellCommandLineGetFlag (CheckPackage, SHELL_LIST_PARAM)) {
-    ListSupportedDevices ();
-    return EFI_SUCCESS;
-  }
-
-  // Select device to flash
-  Status = SelectDevice (CheckPackage, &FlashCommand, &Alignment, &Offset);
-  if (EFI_ERROR (Status)) {
-    return SHELL_ABORTED;
-  }
-
-  // Prepare local file to be burned into flash
-  Status = PrepareFirmwareImage (CheckPackage,
-             &FileHandle,
-             &FileBuffer,
-             &FileSize,
-             Alignment);
-  if (EFI_ERROR (Status)) {
-    return SHELL_ABORTED;
-  }
-
-  // Check image checksum and magic
-  Status = CheckImageHeader (FileBuffer);
-  if (EFI_ERROR(Status)) {
-    goto HeaderError;
-  }
-
-  // Update firmware image
-  Status = FlashCommand (FileSize, FileBuffer, Offset);
-  if (EFI_ERROR (Status)) {
-    goto HeaderError;
-  }
-
-  FreePool (FileBuffer);
-  ShellCloseFile (&FileHandle);
-
-  Print (L"%s: Update %d bytes at offset 0x%x succeeded!\n",
-    CMD_NAME_STRING,
-    FileSize,
-    Offset * Alignment);
-
-  return EFI_SUCCESS;
-
-HeaderError:
-  FreePool (FileBuffer);
-  ShellCloseFile (&FileHandle);
-
-  return SHELL_ABORTED;
-  
-
-}
-
-EFI_STATUS
-EFIAPI
-ShellFirmwareUpdateConstructor (
-  IN EFI_HANDLE        ImageHandle,
-  IN EFI_SYSTEM_TABLE  *SystemTable
-  )
-{
-  EFI_STATUS Status;
-
-  gShellFirmwareUpdateHiiHandle = NULL;
-
-  gShellFirmwareUpdateHiiHandle = HiiAddPackages (&gShellFirmwareUpdateHiiGuid,
-                                         gImageHandle,
-                                         UefiShellFirmwareUpdateStrings,
-                                         NULL);
-  if (gShellFirmwareUpdateHiiHandle == NULL) {
-    Print (L"%s: HiiAddPackages ERR!\n", CMD_NAME_STRING);
-    return EFI_DEVICE_ERROR;
-  }
-
-  Status = ShellCommandRegisterCommandName (
-		  CMD_NAME_STRING,
-		  ShellCommandRunFirmwareUpdate,
-		  ShellCommandGetManFileNameFirmwareUpdate,
-		  0,
-		  CMD_NAME_STRING,
-		  TRUE,
-		  gShellFimwareUpdateHiiHandle,
-		  STRING_TOKEN (STR_GET_HELP_FWUPDATE)
-		  );
-  if (EFI_ERROR (Status)) {
-    Print (L"%s: Error while registering command\n", CMD_NAME_STRING);
-    return SHELL_ABORTED;
-  }
-
-  return EFI_SUCCESS;
-}
-
-EFI_STATUS
-EFIAPI
-ShellFirmwareUpdateCommandDestructor (
-  IN EFI_HANDLE        ImageHandle,
-  IN EFI_SYSTEM_TABLE  *SystemTable
-  )
-{
-  if (gShellFirmwareUpdateHiiHandle != NULL) {
-    HiiRemovePackages (gShellFirmwareUpdateHiiHandle);
-  }
-
-  return EFI_SUCCESS;
 }

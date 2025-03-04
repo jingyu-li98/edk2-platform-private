@@ -3,6 +3,7 @@
     IPMI Manageability Protocol common header file.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, Ampere Computing LLC. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
@@ -20,6 +21,19 @@
 #define IPMI_KCS_REG_DATA_OUT  IPMI_KCS_BASE_ADDRESS + IPMI_KCS_DATA_OUT_REGISTER_OFFSET
 #define IPMI_KCS_REG_COMMAND   IPMI_KCS_BASE_ADDRESS + IPMI_KCS_COMMAND_REGISTER_OFFSET
 #define IPMI_KCS_REG_STATUS    IPMI_KCS_BASE_ADDRESS + IPMI_KCS_STATUS_REGISTER_OFFSET
+
+///
+/// IPMI SSIF hardware information.
+///
+#define IPMI_SSIF_BMC_SLAVE_ADDRESS FixedPcdGet8 (PcdIpmiSsifSmbusSlaveAddr)
+
+///
+/// IPMI Serial hardware information.
+///
+#define IPMI_SERIAL_REQUESTER_ADDRESS  FixedPcdGet8 (PcdIpmiSerialRequesterAddress)
+#define IPMI_SERIAL_RESPONDER_ADDRESS  FixedPcdGet8 (PcdIpmiSerialResponderAddress)
+#define IPMI_SERIAL_REQUESTER_LUN      FixedPcdGet8 (PcdIpmiSerialRequesterLun)
+#define IPMI_SERIAL_RESPONDER_LUN      FixedPcdGet8 (PcdIpmiSerialResponderLun)
 
 /**
   This functions setup the IPMI transport hardware information according

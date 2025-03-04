@@ -1,0 +1,46 @@
+#/** @file
+#
+#    Copyright (c) 2025, SOPHGO Technologies Inc. All rights reserved.
+#
+#    SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                = 0x0001001B
+  BASE_NAME                  = TpcmVerification
+  FILE_GUID                  = FB7EB93C-BA04-4592-9CC6-92409C33E648
+  MODULE_TYPE                = UEFI_DRIVER
+  VERSION_STRING             = 1.0
+  ENTRY_POINT                = InitializeTpcmVerification
+
+[Sources]
+  TpcmImageVerify.c
+  TpcmImageVerify.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SecurityPkg/SecurityPkg.dec
+  CryptoPkg/CryptoPkg.dec
+  Silicon/Sophgo/Sophgo.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  DebugLib
+  SecurityManagementLib
+  BaseLib
+  BaseMemoryLib
+  BaseCryptLib
+
+[Guids]
+
+[Protocols]
+  gTpcmImageVerifyProtocolGuid     ## PRODUCES
+  gSophgoTpcmProtocolGuid          ## CONSUMES
+
+[Depex]
+  gSophgoTpcmProtocolGuid
+

@@ -18,6 +18,7 @@ typedef struct {
   UINT32   Flags;
   UINT32   SocketNum;
   UINT32   Thread;
+  UINT8    CoreType;
 } EFI_CPU_ID_ORDER_MAP;
 
 //
@@ -53,7 +54,6 @@ VOID  *mLocalTable[] = {
 EFI_ACPI_TABLE_PROTOCOL     *mAcpiTable;
 
 UINT32                      mNumOfBitShift = 6;
-BOOLEAN                     mForceX2ApicId;
 BOOLEAN                     mX2ApicEnabled;
 
 EFI_MP_SERVICES_PROTOCOL    *mMpService;
@@ -72,15 +72,16 @@ DebugDisplayReOrderTable (
 {
   UINT32 Index;
 
-  DEBUG ((DEBUG_INFO, "Index  AcpiProcId  ApicId   Thread  Flags   Skt\n"));
+  DEBUG ((DEBUG_INFO, "Index  AcpiProcId  ApicId   Thread  Flags   Skt  CoreType\n"));
   for (Index = 0; Index < mNumberOfCpus; Index++) {
-    DEBUG ((DEBUG_INFO, " %02d       0x%02X      0x%02X       %d      %d      %d\n",
+    DEBUG ((DEBUG_INFO, " %02d       0x%02X      0x%02X       %d      %d      %d      0x%x\n",
                            Index,
                            CpuApicIdOrderTable[Index].AcpiProcessorUid,
                            CpuApicIdOrderTable[Index].ApicId,
                            CpuApicIdOrderTable[Index].Thread,
                            CpuApicIdOrderTable[Index].Flags,
-                           CpuApicIdOrderTable[Index].SocketNum));
+                           CpuApicIdOrderTable[Index].SocketNum,
+                           CpuApicIdOrderTable[Index].CoreType));
   }
 }
 
@@ -132,6 +133,87 @@ AppendCpuMapTableEntry (
 }
 
 /**
+  Sort CpuApicIdOrderTable based on the following rules:
+  1.Make sure BSP is the first entry.
+  2.Big core first, then small core.
+
+  @param[in] CpuApicIdOrderTable      Pointer to EFI_CPU_ID_ORDER_MAP
+  @param[in] Count                    Number to EFI_CPU_ID_ORDER_MAP
+  @param[in] BspIndex                 BSP index
+**/
+VOID
+SortApicIdOrderTable (
+  IN  EFI_CPU_ID_ORDER_MAP  *CpuApicIdOrderTable,
+  IN  UINTN                 Count,
+  IN  UINTN                 BspIndex
+  )
+{
+  UINTN                 Index;
+  UINTN                 SubIndex;
+  EFI_CPU_ID_ORDER_MAP  SortBuffer;
+
+  //
+  // Put BSP at the first entry.
+  //
+  if (BspIndex != 0) {
+    CopyMem (&SortBuffer, &CpuApicIdOrderTable[BspIndex], sizeof (EFI_CPU_ID_ORDER_MAP));
+    CopyMem (&CpuApicIdOrderTable[1], CpuApicIdOrderTable, (BspIndex) * sizeof (EFI_CPU_ID_ORDER_MAP));
+    CopyMem (CpuApicIdOrderTable, &SortBuffer, sizeof (EFI_CPU_ID_ORDER_MAP));
+  }
+
+  //
+  // If there are more than 2 cores, perform insertion sort for rest cores except the bsp in first entry
+  // to move big cores in front of small cores.
+  // Also the original order based on the MpService index inside big cores and small cores are retained.
+  //
+  for (Index = 2; Index < Count; Index++) {
+    if (CpuApicIdOrderTable[Index].CoreType == CPUID_CORE_TYPE_INTEL_ATOM) {
+      continue;
+    }
+
+    CopyMem (&SortBuffer, &CpuApicIdOrderTable[Index], sizeof (EFI_CPU_ID_ORDER_MAP));
+
+    for (SubIndex = Index - 1; SubIndex >= 1; SubIndex--) {
+      if (CpuApicIdOrderTable[SubIndex].CoreType == CPUID_CORE_TYPE_INTEL_ATOM) {
+        CopyMem (&CpuApicIdOrderTable[SubIndex + 1], &CpuApicIdOrderTable[SubIndex], sizeof (EFI_CPU_ID_ORDER_MAP));
+      } else {
+        //
+        // Except the BSP, all cores in front of SubIndex must be big cores.
+        //
+        break;
+      }
+    }
+
+    CopyMem (&CpuApicIdOrderTable[SubIndex + 1], &SortBuffer, sizeof (EFI_CPU_ID_ORDER_MAP));
+  }
+}
+
+/**
+  Get CPU core type.
+
+  @param[in] CpuApicIdOrderTable         Point to a buffer which will be filled in Core type information.
+**/
+VOID
+EFIAPI
+CollectCpuCoreType (
+  IN EFI_CPU_ID_ORDER_MAP  *CpuApicIdOrderTable
+  )
+{
+  UINTN                                    ApNumber;
+  EFI_STATUS                               Status;
+  CPUID_NATIVE_MODEL_ID_AND_CORE_TYPE_EAX  NativeModelIdAndCoreTypeEax;
+
+  Status = mMpService->WhoAmI (
+                         mMpService,
+                         &ApNumber
+                         );
+  ASSERT_EFI_ERROR (Status);
+
+  AsmCpuidEx (CPUID_HYBRID_INFORMATION, CPUID_HYBRID_INFORMATION_MAIN_LEAF, &NativeModelIdAndCoreTypeEax.Uint32, NULL, NULL, NULL);
+  CpuApicIdOrderTable[ApNumber].CoreType = (UINT8)NativeModelIdAndCoreTypeEax.Bits.CoreType;
+}
+
+/**
   Collect all processors information and create a Cpu Apic Id table.
 
   @param[in]  CpuApicIdOrderTable       Buffer to store information of Cpu.
@@ -147,8 +229,24 @@ CreateCpuLocalApicInTable (
   UINT32                                    CurrProcessor;
   EFI_CPU_ID_ORDER_MAP                      *CpuIdMapPtr;
   UINT32                                    Socket;
+  UINT32                                    CpuidMaxInput;
+  UINTN                                     BspIndex;
 
-  Status     = EFI_SUCCESS;
+  Status = EFI_SUCCESS;
+
+  AsmCpuid (CPUID_SIGNATURE, &CpuidMaxInput, NULL, NULL, NULL);
+  if (CpuidMaxInput >= CPUID_HYBRID_INFORMATION) {
+    CollectCpuCoreType (CpuApicIdOrderTable);
+    mMpService->StartupAllAPs (
+                  mMpService,                               // This
+                  (EFI_AP_PROCEDURE) CollectCpuCoreType,    // Procedure
+                  TRUE,                                     // SingleThread
+                  NULL,                                     // WaitEvent
+                  0,                                        // TimeoutInMicrosecsond
+                  CpuApicIdOrderTable,                      // ProcedureArgument
+                  NULL                                      // FailedCpuList
+                  );
+  }
 
   for (CurrProcessor = 0, Index = 0; CurrProcessor < mNumberOfCpus; CurrProcessor++, Index++) {
     Status = mMpService->GetProcessorInfo (
@@ -157,20 +255,16 @@ CreateCpuLocalApicInTable (
                            &ProcessorInfoBuffer
                            );
 
+    if ((ProcessorInfoBuffer.StatusFlag & PROCESSOR_AS_BSP_BIT) != 0) {
+      BspIndex = Index;
+    }
+
     CpuIdMapPtr = (EFI_CPU_ID_ORDER_MAP *) &CpuApicIdOrderTable[Index];
     if ((ProcessorInfoBuffer.StatusFlag & PROCESSOR_ENABLED_BIT) != 0) {
       CpuIdMapPtr->ApicId  = (UINT32)ProcessorInfoBuffer.ProcessorId;
       CpuIdMapPtr->Thread  = ProcessorInfoBuffer.Location.Thread;
       CpuIdMapPtr->Flags   = ((ProcessorInfoBuffer.StatusFlag & PROCESSOR_ENABLED_BIT) != 0);
       CpuIdMapPtr->SocketNum = ProcessorInfoBuffer.Location.Package;
-
-      //update processorbitMask
-      if (CpuIdMapPtr->Flags == 1) {
-        if (mForceX2ApicId) {
-          CpuIdMapPtr->SocketNum        &= 0x7;
-          CpuIdMapPtr->AcpiProcessorUid &= 0xFF; //keep lower 8bit due to use Proc obj in dsdt
-        }
-      }
     } else {  //not enabled
       CpuIdMapPtr->ApicId     = (UINT32)-1;
       CpuIdMapPtr->Thread     = (UINT32)-1;
@@ -190,12 +284,14 @@ CreateCpuLocalApicInTable (
   //
   for (Socket = 0; Socket < FixedPcdGet32 (PcdMaxCpuSocketCount); Socket++) {
     for (CurrProcessor = 0, Index = 0; CurrProcessor < mNumberOfCpus; CurrProcessor++) {
-      if (CpuApicIdOrderTable[CurrProcessor].Flags && (CpuApicIdOrderTable[CurrProcessor].SocketNum == Socket)) {
+      if (CpuApicIdOrderTable[CurrProcessor].SocketNum == Socket) {
         CpuApicIdOrderTable[CurrProcessor].AcpiProcessorUid = (CpuApicIdOrderTable[CurrProcessor].SocketNum << mNumOfBitShift) + Index;
         Index++;
       }
     }
   }
+
+  SortApicIdOrderTable (CpuApicIdOrderTable, mNumberOfCpus, BspIndex);
 
   DEBUG ((DEBUG_INFO, "::ACPI::  APIC ID Order Table Init.   mNumOfBitShift = %x\n", mNumOfBitShift));
   DebugDisplayReOrderTable (CpuApicIdOrderTable);
@@ -975,7 +1071,7 @@ InstallMcfgFromScratch (
              FixedPcdGet32 (PcdAcpiDefaultOemRevision)
              );
   if (EFI_ERROR (Status)) {
-    return Status;
+    goto Done;
   }
 
   //
@@ -1002,7 +1098,8 @@ InstallMcfgFromScratch (
                          McfgTable->Header.Length,
                          &TableHandle
                          );
-
+Done:
+  FreePool (McfgTable);
   return Status;
 }
 
@@ -1375,7 +1472,7 @@ IsAcpiTableChange (
   Xsdt           = NULL;
   FacsPtr        = NULL;
 
-  DEBUG ((DEBUG_INFO, "%a() - Start\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a() - Start\n", __func__));
 
   Status = EfiGetSystemConfigurationTable (&gEfiAcpiTableGuid, (VOID **)&Rsdp);
   if (EFI_ERROR (Status) || (Rsdp == NULL)) {
@@ -1430,7 +1527,7 @@ IsAcpiTableChange (
   DEBUG ((DEBUG_INFO, "HardwareSignature = %x and Status = %r\n", FacsPtr->HardwareSignature, Status));
 
   FreePool (TableCrcRecord);
-  DEBUG ((DEBUG_INFO, "%a() - End\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a() - End\n", __func__));
 }
 
 VOID
@@ -1537,7 +1634,6 @@ InstallAcpiPlatform (
   }
 
   DEBUG ((DEBUG_INFO, "mX2ApicEnabled - 0x%x\n", mX2ApicEnabled));
-  DEBUG ((DEBUG_INFO, "mForceX2ApicId - 0x%x\n", mForceX2ApicId));
 
   // support up to 64 threads/socket
   AsmCpuidEx (CPUID_EXTENDED_TOPOLOGY, 1, &mNumOfBitShift, NULL, NULL, NULL);

@@ -15,8 +15,6 @@
 #include <Library/PeiSiPolicyUpdateLib.h>
 #include <Library/PmcLib.h>
 #include <Library/SiPolicyLib.h>
-#include <Library/SpiLib.h>
-#include <Ppi/Spi.h>
 #include <Register/CommonMsr.h>
 #include <Register/PchRegs.h>
 #include <PlatformBoardConfig.h>
@@ -44,25 +42,13 @@ UpdatePeiCpuPolicyPreMem (
   CPU_CONFIG_LIB_PREMEM_CONFIG    *CpuConfigLibPreMemConfig;
   SI_PREMEM_POLICY_PPI            *SiPreMemPolicyPpi;
   UINT32                          MaxLogicProcessors;
-  UINT16                          BiosSize;
-  UINT16                          BiosMemSizeInMb;
-  FW_BOOT_MEDIA_TYPE              FwBootMediaType;
   MSR_CORE_THREAD_COUNT_REGISTER  MsrCoreThreadCount;
-  UINT8                           AllCoreCount;
-  UINT8                           AllSmallCoreCount;
-  UINT32                          DisablePerCoreMask;
 
   DEBUG ((DEBUG_INFO, "Update PeiCpuPolicyUpdate Pre-Mem Start\n"));
 
   SiPreMemPolicyPpi           = NULL;
   CpuSecurityPreMemConfig     = NULL;
   CpuConfigLibPreMemConfig    = NULL;
-  BiosSize                    = 0;
-  BiosMemSizeInMb             = 0;
-  FwBootMediaType             = FwBootMediaMax;
-  AllCoreCount                = 0;
-  AllSmallCoreCount           = 0;
-  DisablePerCoreMask          = 0;
 
   Status = PeiServicesLocatePpi (&gSiPreMemPolicyPpiGuid, 0, NULL, (VOID **) &SiPreMemPolicyPpi);
   ASSERT_EFI_ERROR (Status);
@@ -73,7 +59,6 @@ UpdatePeiCpuPolicyPreMem (
 
   UPDATE_POLICY (((FSPM_UPD *) FspmUpd)->FspmConfig.SkipStopPbet, CpuSecurityPreMemConfig->SkipStopPbet, FALSE);
 
-  SpiServiceInit ();
   DEBUG ((DEBUG_INFO, "BIOS Guard PCD and Policy are disabled\n"));
   UPDATE_POLICY (((FSPM_UPD *) FspmUpd)->FspmConfig.BiosGuard, CpuSecurityPreMemConfig->BiosGuard, CPU_FEATURE_DISABLE);
 

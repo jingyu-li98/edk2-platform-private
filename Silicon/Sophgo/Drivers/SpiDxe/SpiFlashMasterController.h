@@ -96,6 +96,7 @@
 #define SPIFMC_OPT                        0x30
 
 #define SPIFMC_MAX_FIFO_DEPTH             8
+#define SPIFMC_TRAN_CSR_DEFAULT           0x3B00
 
 #define SPI_MASTER_SIGNATURE                      SIGNATURE_32 ('M', 'S', 'P', 'I')
 #define SPI_MASTER_FROM_SPI_MASTER_PROTOCOL(a)    CR (a, SPI_MASTER, SpiMasterProtocol, SPI_MASTER_SIGNATURE)

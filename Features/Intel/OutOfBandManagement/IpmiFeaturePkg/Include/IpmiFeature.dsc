@@ -37,7 +37,7 @@
 [LibraryClasses]
   IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf
 
-  IpmiCommandLib|IpmiFeaturePkg/Library/IpmiCommandLib/IpmiCommandLib.inf
+  IpmiCommandLib|ManageabilityPkg/Library/IpmiCommandLib/IpmiCommandLib.inf
   IpmiPlatformHookLib|IpmiFeaturePkg/Library/IpmiPlatformHookLibNull/IpmiPlatformHookLibNull.inf
 
 [LibraryClasses.common.PEI_CORE,LibraryClasses.common.PEIM]
@@ -51,14 +51,19 @@
 [LibraryClasses.common]
   BmcCommonInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/BmcCommonInterfaceLib.inf
   BtInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/BtInterfaceLib/BtInterfaceLib.inf
+  ServerManagementLib|IpmiFeaturePkg/Library/ServerManagementLib/ServerManagementLib.inf
 
 [LibraryClasses.common.DXE_RUNTIME_DRIVER, LibraryClasses.common.DXE_DRIVER]
   SsifInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/SsifInterfaceLib/DxeSsifInterfaceLib.inf
   IpmbInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/IpmbInterfaceLib/DxeIpmbInterfaceLib.inf
 
-[LibraryClasses.common.DXE_SMM_DRIVER]
+[LibraryClasses.common.DXE_SMM_DRIVER,LibraryClasses.common.MM_STANDALONE]
+  IpmiBaseLib|IpmiFeaturePkg/Library/SmmIpmiBaseLib/SmmIpmiBaseLib.inf
   SsifInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/SsifInterfaceLib/SmmSsifInterfaceLib.inf
   IpmbInterfaceLib|IpmiFeaturePkg/Library/BmcInterfaceCommonAccess/IpmbInterfaceLib/SmmIpmbInterfaceLib.inf
+
+[LibraryClasses.common.MM_STANDALONE]
+  ServerManagementLib|IpmiFeaturePkg/Library/ServerManagementLib/StandaloneMmServerManagementLib.inf
 
 ################################################################################
 #
@@ -77,10 +82,7 @@
 #
 # Feature PEI Components
 #
-
-# @todo: Change below line to [Components.$(PEI_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed.
-[Components.IA32]
+[Components.$(PEI_ARCH)]
   #####################################
   # IPMI Feature Package
   #####################################
@@ -96,14 +98,12 @@
   IpmiFeaturePkg/GenericIpmi/Pei/PeiGenericIpmi.inf
   IpmiFeaturePkg/Frb/FrbPei.inf
   IpmiFeaturePkg/IpmiInit/PeiIpmiInit.inf
+  IpmiFeaturePkg/BmcElog/PeiBmcElog.inf
 
 #
 # Feature DXE Components
 #
-
-# @todo: Change below line to [Components.$(DXE_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed.
-[Components.X64]
+[Components.$(DXE_ARCH)]
   #####################################
   # IPMI Feature Package
   #####################################
@@ -119,9 +119,18 @@
   IpmiFeaturePkg/GenericIpmi/Dxe/GenericIpmi.inf
   IpmiFeaturePkg/Library/SmmIpmiBaseLib/SmmIpmiBaseLib.inf
   IpmiFeaturePkg/BmcAcpi/BmcAcpi.inf
-  IpmiFeaturePkg/BmcElog/BmcElog.inf
+  IpmiFeaturePkg/BmcAcpiState/BmcAcpiState.inf
+  IpmiFeaturePkg/BmcAcpiSwChild/BmcAcpiSwChild.inf
+  IpmiFeaturePkg/BmcAcpiSwChild/BmcAcpiSwChildStandaloneMm.inf
+  IpmiFeaturePkg/BmcElog/DxeBmcElog.inf
+  IpmiFeaturePkg/BmcElog/SmmBmcElog.inf
+  IpmiFeaturePkg/BmcElog/StandaloneMmBmcElog.inf
+  IpmiFeaturePkg/GenericElog/Dxe/GenericElog.inf
+  IpmiFeaturePkg/GenericElog/Smm/GenericElog.inf
+  IpmiFeaturePkg/GenericElog/Smm/GenericElogStandaloneMm.inf
   IpmiFeaturePkg/Frb/FrbDxe.inf
-  IpmiFeaturePkg/IpmiFru/IpmiFru.inf
+  IpmiFeaturePkg/IpmiRedirFru/IpmiRedirFru.inf
+  IpmiFeaturePkg/GenericFru/GenericFru.inf
   IpmiFeaturePkg/IpmiInit/DxeIpmiInit.inf
   IpmiFeaturePkg/OsWdt/OsWdt.inf
   IpmiFeaturePkg/SolStatus/SolStatus.inf

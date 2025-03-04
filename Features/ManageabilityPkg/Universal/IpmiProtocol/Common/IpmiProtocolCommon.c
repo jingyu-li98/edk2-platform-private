@@ -3,6 +3,7 @@
   IPMI Manageability Protocol common file.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, Ampere Computing LLC. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -27,7 +28,8 @@
                                  once it doesn't need it.
   @retval EFI_UNSUPPORTED        No hardware information for the specification specified
                                  in the transport token.
-  #retval EFI_OUT_OF_RESOURCES   Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.
+  @retval EFI_OUT_OF_RESOURCES   Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO
+                                 or MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO.
 **/
 EFI_STATUS
 SetupIpmiTransportHardwareInformation (
@@ -35,16 +37,18 @@ SetupIpmiTransportHardwareInformation (
   OUT  MANAGEABILITY_TRANSPORT_HARDWARE_INFORMATION  *HardwareInformation
   )
 {
-  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO  *KcsHardwareInfo;
-
-  KcsHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO));
-  if (KcsHardwareInfo == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.\n", __func__));
-    return EFI_OUT_OF_RESOURCES;
-  }
+  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO     *KcsHardwareInfo;
+  MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO    *SsifHardwareInfo;
+  MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO  *SerialHardwareInfo;
 
   if (CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
     // This is KCS transport interface.
+    KcsHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO));
+    if (KcsHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
     KcsHardwareInfo->MemoryMap                    = MANAGEABILITY_TRANSPORT_KCS_IO_MAP_IO;
     KcsHardwareInfo->IoBaseAddress.IoAddress16    = IPMI_KCS_BASE_ADDRESS;
     KcsHardwareInfo->IoDataInAddress.IoAddress16  = IPMI_KCS_REG_DATA_IN;
@@ -52,6 +56,31 @@ SetupIpmiTransportHardwareInformation (
     KcsHardwareInfo->IoCommandAddress.IoAddress16 = IPMI_KCS_REG_COMMAND;
     KcsHardwareInfo->IoStatusAddress.IoAddress16  = IPMI_KCS_REG_STATUS;
     HardwareInformation->Kcs                      = KcsHardwareInfo;
+    return EFI_SUCCESS;
+  } else if (CompareGuid (&gManageabilityTransportSmbusI2cGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
+    // This is SSIF transport interface.
+    SsifHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO));
+    if (SsifHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    SsifHardwareInfo->BmcSlaveAddress = IPMI_SSIF_BMC_SLAVE_ADDRESS;
+    HardwareInformation->Ssif         = SsifHardwareInfo;
+    return EFI_SUCCESS;
+  } else if (CompareGuid (&gManageabilityTransportSerialGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
+    // This is Serial transport interface.
+    SerialHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO));
+    if (SerialHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    SerialHardwareInfo->IpmiRequesterAddress = IPMI_SERIAL_REQUESTER_ADDRESS;
+    SerialHardwareInfo->IpmiResponderAddress = IPMI_SERIAL_RESPONDER_ADDRESS;
+    SerialHardwareInfo->IpmiRequesterLUN     = IPMI_SERIAL_REQUESTER_LUN;
+    SerialHardwareInfo->IpmiResponderLUN     = IPMI_SERIAL_RESPONDER_LUN;
+    HardwareInformation->Serial              = SerialHardwareInfo;
     return EFI_SUCCESS;
   } else {
     DEBUG ((DEBUG_ERROR, "%a: No implementation of setting hardware information.", __func__));
@@ -102,8 +131,10 @@ SetupIpmiRequestTransportPacket (
 {
   MANAGEABILITY_IPMI_TRANSPORT_HEADER  *IpmiHeader;
 
-  if (CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
-    // This is KCS transport interface.
+  if (  CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)
+     || CompareGuid (&gManageabilityTransportSmbusI2cGuid, TransportToken->Transport->ManageabilityTransportSpecification)
+     || CompareGuid (&gManageabilityTransportSerialGuid, TransportToken->Transport->ManageabilityTransportSpecification))
+  {
     IpmiHeader = AllocateZeroPool (sizeof (MANAGEABILITY_IPMI_TRANSPORT_HEADER));
     if (IpmiHeader == NULL) {
       return EFI_OUT_OF_RESOURCES;
@@ -112,7 +143,7 @@ SetupIpmiRequestTransportPacket (
     *PacketHeaderSize   = 0;
     *PacketTrailerSize  = 0;
     IpmiHeader->Command = Command;
-    IpmiHeader->Lun     = 0;
+    IpmiHeader->Lun     = MANAGEABILITY_IPMI_BMC_LUN;
     IpmiHeader->NetFn   = NetFunction;
     if (PacketHeader != NULL) {
       *PacketHeader     = (MANAGEABILITY_TRANSPORT_HEADER *)IpmiHeader;
