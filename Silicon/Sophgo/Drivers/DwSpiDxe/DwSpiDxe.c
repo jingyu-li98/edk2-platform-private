@@ -639,7 +639,7 @@ DwSpiTransferOne (
     return EFI_INVALID_PARAMETER;
   } else if ((Transfer->TxBuf == NULL) ||
              (Transfer->RxBuf == NULL) ||
-             (Transfer->Len   == 0)) {
+             (Transfer->TxLen   == 0)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -655,7 +655,7 @@ DwSpiTransferOne (
 
   Dws->NBytes = RoundupPowOfTwo (BITS_TO_BYTES (Transfer->BitsPerWord));
   Dws->Tx     = (VOID *)Transfer->TxBuf;
-  Dws->TxLen  = Transfer->Len / Dws->NBytes;
+  Dws->TxLen  = Transfer->TxLen / Dws->NBytes;
   Dws->Rx     = Transfer->RxBuf;
   Dws->RxLen  = Dws->TxLen;
 
@@ -678,6 +678,92 @@ DwSpiTransferOne (
 
   return Status;
 }
+
+/**
+  Transfer data in two phases: first send TX data, then receive RX data starting from TxLen position.
+
+  @param[in]   This               The pointer to SOPHGO_SPI_PROTOCOL.
+  @param[in]   Spi                The pointer to SPI_DEVICE.
+  @param[in]   Transfer           The pointer to SPI_TRANSFER.
+
+  @retval  EFI_SUCCESS            The operation completed successfully.
+  @retval  EFI_INVALID_PARAMETER  The parameter in SPI_TRANSFER is invalid.
+  @retval  EFI_DEVICE_ERROR       Abnormal interruption occurred during transmission.
+**/
+EFI_STATUS
+EFIAPI
+DwSpiTransferTwo (
+  IN  SOPHGO_SPI_PROTOCOL *This,
+  IN  SPI_DEVICE          *Spi,
+  IN  SPI_TRANSFER        *Transfer
+  )
+{
+  EFI_STATUS  Status;
+  DW_SPI      *Dws;
+  DW_SPI_CFG  Cfg;
+  UINTN       NBytes;
+
+  if (Spi->SpiBus >= mSpiBusCount) {
+    return EFI_INVALID_PARAMETER;
+  } else if ((Transfer->TxBuf == NULL) ||
+             (Transfer->RxBuf == NULL) ||
+             (Transfer->TxLen == 0) ||
+             (Transfer->RxLen == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Dws = &mSpiMasterInstances[Spi->SpiBus];
+  if (Transfer->SpeedHz == 0)
+    Transfer->SpeedHz = Dws->MaxFreq;
+  if (Transfer->BitsPerWord == 0)
+    Transfer->BitsPerWord = 8;
+
+  NBytes = RoundupPowOfTwo (BITS_TO_BYTES (Transfer->BitsPerWord));
+  
+  // 
+  // Check if the length is a multiple of NBytes
+  // 
+  if ((Transfer->TxLen % NBytes != 0) || (Transfer->RxLen % NBytes != 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Cfg.Tmode = CTRLR0_TMOD_TR;
+  Cfg.Dfs   = Transfer->BitsPerWord;
+  Cfg.Freq  = Transfer->SpeedHz;
+
+  Dws->NBytes = NBytes;
+  Dws->Tx     = (VOID *)Transfer->TxBuf;
+  Dws->TxLen  = Transfer->TxLen / NBytes;
+  Dws->Rx     = (VOID *)((UINT8 *)Transfer->RxBuf + Transfer->TxLen);
+  Dws->RxLen  = Transfer->RxLen / NBytes;
+
+  // 
+  //  Check if the Rx buffer has enough space
+  // 
+  if (Dws->RxLen > (Transfer->RxLen / NBytes)) {
+    return EFI_BUFFER_TOO_SMALL;
+  }
+
+  DwSpiEnableChip (Dws, 0);
+
+  DwSpiUpdateConfig (Dws, Spi, &Cfg);
+
+  Transfer->EffectiveSpeedHz = Dws->CurrentFreq;
+
+  //
+  // For poll mode just disable all interrupts
+  //
+  DwSpiMaskIntr (Dws, 0xff);
+
+  Dws->SetCs(Spi, 0);
+
+  DwSpiEnableChip (Dws, 1);
+
+  Status = DwSpiPollTransfer (Dws, Transfer);
+
+  return Status;
+}
+
 
 STATIC
 EFI_STATUS
@@ -912,6 +998,65 @@ DwSpiExecMemOp (
   return Status;
 }
 
+EFI_STATUS
+DwSpiTpmXfer (
+  IN     SOPHGO_SPI_PROTOCOL  *This,
+  IN     SPI_DEVICE           *Spi,
+  IN     SPI_TPM_OP           *Op
+  )
+{
+  EFI_STATUS  Status;
+  DW_SPI      *Dws;
+  DW_SPI_CFG  Cfg;
+
+  if (Spi->SpiBus >= mSpiBusCount)
+    return EFI_INVALID_PARAMETER;
+
+  Dws = &mSpiMasterInstances[Spi->SpiBus];
+
+  Dws->NBytes = 1;
+  Dws->Tx     = Op->Send.Buf;
+  Dws->TxLen  = Op->Send.NBytes;
+  Dws->Rx     = Op->Receive.Buf;
+  Dws->RxLen  = Op->Receive.NBytes;
+
+  //
+  // DW SPI EEPROM-read mode is required only for the SPI memory Data-IN
+  // operation. Transmit-only mode is suitable for the rest of them.
+  //
+  Cfg.Dfs   = 8;
+  Cfg.Freq  = Clamp (Op->SpeedHz, 0U, Dws->MaxMemFreq);
+  Cfg.Tmode = CTRLR0_TMOD_EPROMREAD;
+  Cfg.Ndf   = Op->Receive.NBytes;
+
+  DwSpiEnableChip (Dws, 0);
+
+  DwSpiUpdateConfig (Dws, Spi, &Cfg);
+
+  DwSpiMaskIntr (Dws, 0xff);
+
+  DwSpiEnableChip (Dws, 1);
+
+  Status = DwSpiWriteThenRead (Dws, Spi);
+
+  //
+  // Wait for the operation being finished and check the controller
+  // status only if there hasn't been any run-time error detected. In the
+  // former case it's just pointless. In the later one to prevent an
+  // additional error message printing since any hw error flag being set
+  // would be due to an error detected on the data transfer.
+  //
+  if (!EFI_ERROR (Status)) {
+    Status = DwSpiWaitMemOpDone (Dws);
+    if (!EFI_ERROR (Status))
+      Status = DwSpiCheckStatus (Dws, TRUE);
+  }
+
+  DwSpiStopMemOp (Dws, Spi);
+
+  return Status;
+}
+
 STATIC
 VOID
 SpiHwInit (
@@ -1139,6 +1284,7 @@ DwSpiEntryPoint (
   mSpiProtocol->SpiCleanupDevice = DwSpiCleanup;
   mSpiProtocol->SpiTransferOne   = DwSpiTransferOne;
   mSpiProtocol->SpiExecMemOp     = DwSpiExecMemOp;
+  mSpiProtocol->SpiTpmXfer       = DwSpiTpmXfer;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &ImageHandle,

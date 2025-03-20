@@ -1,0 +1,126 @@
+diff --git a/Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.c b/Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.c
+index b50493b34d..d370adb7a6 100644
+--- a/Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.c
++++ b/Silicon/Sophgo/Drivers/DwSpiDxe/DwSpiDxe.c
+@@ -912,6 +912,65 @@ DwSpiExecMemOp (
+   return Status;
+ }
+ 
++EFI_STATUS
++DwSpiTpmXfer (
++  IN     SOPHGO_SPI_PROTOCOL  *This,
++  IN     SPI_DEVICE           *Spi,
++  IN     SPI_TPM_OP           *Op
++  )
++{
++  EFI_STATUS  Status;
++  DW_SPI      *Dws;
++  DW_SPI_CFG  Cfg;
++
++  if (Spi->SpiBus >= mSpiBusCount)
++    return EFI_INVALID_PARAMETER;
++
++  Dws = &mSpiMasterInstances[Spi->SpiBus];
++
++  Dws->NBytes = 1;
++  Dws->Tx     = Op->Send.Buf;
++  Dws->TxLen  = Op->Send.NBytes;
++  Dws->Rx     = Op->Receive.Buf;
++  Dws->RxLen  = Op->Receive.NBytes;
++
++  //
++  // DW SPI EEPROM-read mode is required only for the SPI memory Data-IN
++  // operation. Transmit-only mode is suitable for the rest of them.
++  //
++  Cfg.Dfs   = 8;
++  Cfg.Freq  = Clamp (Op->SpeedHz, 0U, Dws->MaxMemFreq);
++  Cfg.Tmode = CTRLR0_TMOD_EPROMREAD;
++  Cfg.Ndf   = Op->Receive.NBytes;
++
++  DwSpiEnableChip (Dws, 0);
++
++  DwSpiUpdateConfig (Dws, Spi, &Cfg);
++
++  DwSpiMaskIntr (Dws, 0xff);
++
++  DwSpiEnableChip (Dws, 1);
++
++  Status = DwSpiWriteThenRead (Dws, Spi);
++
++  //
++  // Wait for the operation being finished and check the controller
++  // status only if there hasn't been any run-time error detected. In the
++  // former case it's just pointless. In the later one to prevent an
++  // additional error message printing since any hw error flag being set
++  // would be due to an error detected on the data transfer.
++  //
++  if (!EFI_ERROR (Status)) {
++    Status = DwSpiWaitMemOpDone (Dws);
++    if (!EFI_ERROR (Status))
++      Status = DwSpiCheckStatus (Dws, TRUE);
++  }
++
++  DwSpiStopMemOp (Dws, Spi);
++
++  return Status;
++}
++
+ STATIC
+ VOID
+ SpiHwInit (
+@@ -1139,6 +1198,7 @@ DwSpiEntryPoint (
+   mSpiProtocol->SpiCleanupDevice = DwSpiCleanup;
+   mSpiProtocol->SpiTransferOne   = DwSpiTransferOne;
+   mSpiProtocol->SpiExecMemOp     = DwSpiExecMemOp;
++  mSpiProtocol->SpiTpmXfer       = DwSpiTpmXfer;
+ 
+   Status = gBS->InstallMultipleProtocolInterfaces (
+                   &ImageHandle,
+diff --git a/Silicon/Sophgo/Include/DwSpi.h b/Silicon/Sophgo/Include/DwSpi.h
+index d3eceff002..5b67cc2253 100644
+--- a/Silicon/Sophgo/Include/DwSpi.h
++++ b/Silicon/Sophgo/Include/DwSpi.h
+@@ -78,6 +78,22 @@ typedef struct {
+   UINT32  SpeedHz;      // mem operation speed in HZ
+ } SPI_MEM_OP;
+ 
++typedef struct {
++  struct {
++    UINT8  NBytes;      // number of opcode bytes (only 1 or 2 are valid).
++                        // The opcode is sent MSB-first
++    UINT8* Buf;      // operation opcode
++  } Send;
++
++  struct {
++    UINT8  NBytes;      // number of opcode bytes (only 1 or 2 are valid).
++                        // The opcode is sent MSB-first
++    UINT8* Buf;      // operation opcode
++  } Receive;
++
++  UINT32  SpeedHz;
++} SPI_TPM_OP;
++
+ typedef
+ EFI_STATUS
+ (EFIAPI *SPI_SETUP_DEVICE) (
+@@ -111,11 +127,20 @@ EFI_STATUS
+   IN     SPI_MEM_OP           *Op
+   );
+ 
++typedef
++EFI_STATUS
++(EFIAPI *SPI_TPM_XFER) (
++  IN     SOPHGO_SPI_PROTOCOL  *This,
++  IN     SPI_DEVICE           *Spi,
++  IN     SPI_TPM_OP           *Op
++  );
++
+ struct _SOPHGO_SPI_PROTOCOL {
+   SPI_SETUP_DEVICE    SpiSetupDevice;
+   SPI_CLEANUP_DEVICE  SpiCleanupDevice;
+   SPI_TRANSFER_ONE    SpiTransferOne;
+   SPI_EXEC_MEM_OP     SpiExecMemOp;
++  SPI_TPM_XFER        SpiTpmXfer;
+ };
+ 
+ extern EFI_GUID  gSophgoSpiProtocolGuid;

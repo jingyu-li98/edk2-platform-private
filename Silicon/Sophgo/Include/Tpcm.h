@@ -35,7 +35,7 @@ typedef struct _TPCM_IMAGE_VERIFY_PROTOCOL TPCM_IMAGE_VERIFY_PROTOCOL;
 
 #define TPCM_SPI_BUS_NUM             0
 #define TPCM_SPI_CHIP_SELECT         0        // SPI_CS
-#define TPCM_SPI_MODE                3        // CPHA=0, CPOL=0
+#define TPCM_SPI_MODE                0        // CPHA=0, CPOL=0
 #define TPCM_MAX_CLOCK               5000000  // 5MHz
 #define TPCM_MAX_DATA_SIZE           4096
 

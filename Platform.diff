@@ -1,0 +1,24 @@
+diff --git a/Silicon/Sophgo/PlatformPei/PlatformPeiLib.c b/Silicon/Sophgo/PlatformPei/PlatformPeiLib.c
+index f1ec14b674..102e24b870 100644
+--- a/Silicon/Sophgo/PlatformPei/PlatformPeiLib.c
++++ b/Silicon/Sophgo/PlatformPei/PlatformPeiLib.c
+@@ -159,11 +159,19 @@ PlatformPeimInitialization (
+ 
+   BuildFvHob (PcdGet32 (PcdRiscVDxeFvBase), PcdGet32 (PcdRiscVDxeFvSize));
+ 
++  DEBUG ((
++    DEBUG_INFO,
++    "Platform builds DXE FV at %x, size %x.\n",
++    PcdGet32 (PcdRiscVDxeFvBase),
++    PcdGet32 (PcdRiscVDxeFvSize)
++    ));
++
+   //
+   // Add SDHI resource
+   //
+   PopulateIoResources (Base, "bitmain,bm-sd");
+   PopulateIoResources (Base, "sophgo,sg2044-dwcmshc");
++AddIoMemoryBaseSizeHob (0x7050003000, 0x20);
+ 
+   return EFI_SUCCESS;
+ }

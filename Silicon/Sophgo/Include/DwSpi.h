@@ -33,7 +33,8 @@ typedef struct {
 typedef struct {
   CONST VOID  *TxBuf;
   VOID        *RxBuf;
-  UINT32      Len;              // size of TxBuf and RxBuf (in bytes)
+  UINT32      TxLen;            // size of TxBuf (in bytes)
+  UINT32      RxLen;            // size of RxBuf (in bytes)
   UINT32      BitsPerWord;      // select a BitsPerWord for this transfer. If 0 the default 8 is used.
   UINT32      SpeedHz;          // Select a speed for this transfer. If 0 the default is used.
   UINT32      EffectiveSpeedHz;
@@ -78,6 +79,22 @@ typedef struct {
   UINT32  SpeedHz;      // mem operation speed in HZ
 } SPI_MEM_OP;
 
+typedef struct {
+  struct {
+    UINT8  NBytes;      // number of opcode bytes (only 1 or 2 are valid).
+                        // The opcode is sent MSB-first
+    UINT8* Buf;      // operation opcode
+  } Send;
+
+  struct {
+    UINT8  NBytes;      // number of opcode bytes (only 1 or 2 are valid).
+                        // The opcode is sent MSB-first
+    UINT8* Buf;      // operation opcode
+  } Receive;
+
+  UINT32  SpeedHz;
+} SPI_TPM_OP;
+
 typedef
 EFI_STATUS
 (EFIAPI *SPI_SETUP_DEVICE) (
@@ -105,17 +122,35 @@ EFI_STATUS
 
 typedef
 EFI_STATUS
+(EFIAPI *SPI_TRANSFER_TWO) (
+  IN     SOPHGO_SPI_PROTOCOL  *This,
+  IN     SPI_DEVICE           *Spi,
+  IN     SPI_TRANSFER         *Transfer
+  );
+
+typedef
+EFI_STATUS
 (EFIAPI *SPI_EXEC_MEM_OP) (
   IN     SOPHGO_SPI_PROTOCOL  *This,
   IN     SPI_DEVICE           *Spi,
   IN     SPI_MEM_OP           *Op
   );
 
+typedef
+EFI_STATUS
+(EFIAPI *SPI_TPM_XFER) (
+  IN     SOPHGO_SPI_PROTOCOL  *This,
+  IN     SPI_DEVICE           *Spi,
+  IN     SPI_TPM_OP           *Op
+  );
+
 struct _SOPHGO_SPI_PROTOCOL {
   SPI_SETUP_DEVICE    SpiSetupDevice;
   SPI_CLEANUP_DEVICE  SpiCleanupDevice;
   SPI_TRANSFER_ONE    SpiTransferOne;
+  SPI_TRANSFER_TWO    SpiTransferTwo;
   SPI_EXEC_MEM_OP     SpiExecMemOp;
+  SPI_TPM_XFER        SpiTpmXfer;
 };
 
 extern EFI_GUID  gSophgoSpiProtocolGuid;

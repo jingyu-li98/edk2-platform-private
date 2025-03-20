@@ -24,13 +24,7 @@ SpiNorGetFlashId (
   UINT8      Id[NOR_FLASH_MAX_ID_LEN];
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->ReadRegister (
-		  SpiMasterProtocol,
-		  Nor,
-		  SPINOR_OP_RDID,
-		  SPI_NOR_MAX_ID_LEN,
-		  Id
-		  );
+  Status = SpiMasterProtocol->ReadRegister (Nor, SPINOR_OP_RDID, SPI_NOR_MAX_ID_LEN, Id);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -62,13 +56,7 @@ SpiNorReadStatus (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->ReadRegister (
-		  SpiMasterProtocol,
-		  Nor,
-		  SPINOR_OP_RDSR,
-		  1,
-		  Sr
-		  );
+  Status = SpiMasterProtocol->ReadRegister (Nor, SPINOR_OP_RDSR, 1, Sr);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -91,22 +79,25 @@ SpiNorWaitTillReady (
   )
 {
   UINT32 WaitTime;
+  /* Unit is us */
+  CONST UINT32 CHECK_INTERVAL = 100;
+  /*
+   * Maximum 4K sector erase time of GD25LB512ME is 700ms, in -40 ~ 125 celsius.
+   * Set 2 seconds for safe and compatibility.
+   */
+  CONST UINT32 MAX_WAIT_TIME = 2000000;
 
-  WaitTime = 0;
-
-  while (1) {
-    MicroSecondDelay (100);
+  for (WaitTime = 0; WaitTime <= MAX_WAIT_TIME / CHECK_INTERVAL; ++WaitTime) {
+    MicroSecondDelay (CHECK_INTERVAL);
 
     //
     // Query the Status Register to see if the flash is ready for new commands.
     //
     SpiNorReadStatus (Nor, Nor->BounceBuf);
 
-    if (!(Nor->BounceBuf[0] & SR_WIP) || WaitTime > 600) {
+    if (!(Nor->BounceBuf[0] & SR_WIP)) {
       return EFI_SUCCESS;
     }
-
-    WaitTime ++;
   }
 
   return EFI_TIMEOUT;
@@ -120,13 +111,7 @@ SpiNorWriteEnable (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->WriteRegister (
-		  SpiMasterProtocol,
-		  Nor,
-		  SPINOR_OP_WREN,
-		  NULL,
-		  0
-		  );
+  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WREN, NULL, 0);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR,
       "%a: SpiNor error while write enable\n",
@@ -156,13 +141,7 @@ SpiNorWriteDisable (
 {
   EFI_STATUS Status;
 
-  Status = SpiMasterProtocol->WriteRegister (
-		  SpiMasterProtocol,
-		  Nor,
-		  SPINOR_OP_WRDI,
-		  NULL,
-		  0
-		  );
+  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WRDI, NULL, 0);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR,
       "%a: SpiNor error while write disable\n",
@@ -194,13 +173,7 @@ SpiNorWriteStatus (
     return Status;
   }
 
-  Status = SpiMasterProtocol->WriteRegister (
-		  SpiMasterProtocol,
-		  Nor,
-		  SPINOR_OP_WRSR,
-		  Sr,
-		  Length
-		  );
+  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_WRSR, Sr, Length);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -293,13 +266,7 @@ SpiNorReadData (
       PageOffset
       ));
 
-    Status = SpiMasterProtocol->Read (
-		    SpiMasterProtocol,
-		    Nor,
-		    Address,
-		    PageRemain,
-		    Buffer + Index
-		    );
+    Status = SpiMasterProtocol->Read (Nor, Address, PageRemain, Buffer + Index);
     if (EFI_ERROR(Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -378,13 +345,7 @@ SpiNorWriteData (
       return Status;
     }
 
-    Status = SpiMasterProtocol->Write (
-		    SpiMasterProtocol,
-		    Nor,
-		    Address,
-		    PageRemain,
-		    Buffer + Index
-		    );
+    Status = SpiMasterProtocol->Write (Nor, Address, PageRemain, Buffer + Index);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -444,8 +405,6 @@ SpiNorErase (
     return EFI_INVALID_PARAMETER;
   }
 
-  Address = FlashOffset;
-
   if (Nor->Info->Flags & NOR_FLASH_ERASE_4K) {
     EraseSize = SIZE_4KB;
   } else {
@@ -474,7 +433,7 @@ SpiNorErase (
     EraseSize
     ));
   for (Index = 0; Index < ErasedSectors; Index++) {
-    Address += Index * EraseSize;
+    Address = FlashOffset + Index * EraseSize;
     //
     // Write enable
     //
@@ -498,11 +457,7 @@ SpiNorErase (
       Address
       ));
 
-    Status = SpiMasterProtocol->Erase (
-		    SpiMasterProtocol,
-		    Nor,
-		    Address
-		    );
+    Status = SpiMasterProtocol->Erase (Nor, Address);
     if (EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -563,11 +518,7 @@ SpiNorEraseChip (
     return Status;
   }
 
-  Status = SpiMasterProtocol->Erase (
-		  SpiMasterProtocol,
-		  Nor,
-		  0x0
-		  );
+  Status = SpiMasterProtocol->Erase (Nor, 0x0);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_ERROR,
@@ -632,12 +583,7 @@ SpiNorGetFlashVariableOffset (
   }
 
   do {
-    Status = SpiNorReadData (
-		    Nor,
-		    Address,
-		    sizeof (FLASH_PARTITION_INFO),
-		    (UINT8 *)Info
-		    );
+    Status = SpiNorReadData (Nor, Address, sizeof (FLASH_PARTITION_INFO), (UINT8 *)Info);
     if (EFI_ERROR(Status)) {
       DEBUG ((
         DEBUG_ERROR,
@@ -686,6 +632,46 @@ Error:
 
 EFI_STATUS
 EFIAPI
+SpiNorSoftReset (
+  IN SPI_NOR     *Nor
+  )
+{
+  EFI_STATUS Status;
+
+  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_SRSTEN_OP, NULL, 0);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Enable Soft Reset - %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_SRST_OP, NULL, 0);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Soft Reset - %r\n",
+      __func__,
+      Status
+      ));
+    return Status;
+  }
+
+  //
+  // Software Reset is not instant, and the delay varies from flash to
+  // flash. Looking at a few flashes, most range somewhere below 100
+  // microseconds.
+  //
+  MicroSecondDelay (200);
+
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
 SpiNorInit (
   IN SOPHGO_NOR_FLASH_PROTOCOL *This,
   IN SPI_NOR                   *Nor
@@ -715,13 +701,7 @@ SpiNorInit (
     //
     // Enter 4-byte mode
     //
-    Status = SpiMasterProtocol->WriteRegister (
-		    SpiMasterProtocol,
-		    Nor,
-		    SPINOR_OP_EN4B,
-		    NULL,
-		    0
-		    );
+    Status = SpiMasterProtocol->WriteRegister (Nor, SPINOR_OP_EN4B, NULL, 0);
     if (EFI_ERROR (Status)) {
       DEBUG((
         DEBUG_ERROR,
@@ -831,7 +811,7 @@ SpiNorEntryPoint (
     mNorFlashInstance->NorFlashProtocol.Erase                   = SpiNorErase;
     mNorFlashInstance->NorFlashProtocol.EraseChip               = SpiNorEraseChip;
     mNorFlashInstance->NorFlashProtocol.GetFlashVariableOffset  = SpiNorGetFlashVariableOffset;
-
+    mNorFlashInstance->NorFlashProtocol.SoftReset               = SpiNorSoftReset;
     mNorFlashInstance->Signature = NOR_FLASH_SIGNATURE;
 
     Status = gBS->InstallMultipleProtocolInterfaces (

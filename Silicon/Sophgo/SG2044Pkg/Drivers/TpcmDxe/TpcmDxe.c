@@ -14,6 +14,7 @@
 #include <Library/DebugLib.h>
 #include <Include/DwSpi.h>
 #include <Include/Tpcm.h>
+#include <Library/BaseLib.h>
 #include "TpcmDxe.h"
 
 STATIC SOPHGO_SPI_PROTOCOL  *mSpiProtocol;
@@ -47,6 +48,7 @@ CalculateCrc8 (
   return Crc;
 }
 
+#if 1
 /**
   Send and receive SPI packets to/from TPCM device.
 
@@ -105,8 +107,14 @@ TpcmSendReceiveSpiPacket (
   // Allocate memory for SPI buffers
   //
   MaxPackets = (RequestSize + 249) / 250;
-  TxBuffer = AllocateZeroPool (sizeof (TPCM_SPI_PACKET) * MaxPackets);
-  RxBuffer = AllocateZeroPool (sizeof (TPCM_SPI_PACKET) * MaxPackets);
+  UINTN TxLen = MaxPackets * sizeof (TPCM_SPI_PACKET);
+  UINTN RxLen = ((ResponseSize + 249) / 250) * sizeof (TPCM_SPI_PACKET);
+
+  //
+  // Allocate memory for Tx/Rx buffers
+  //
+  TxBuffer = AllocateZeroPool (TxLen);
+  RxBuffer = AllocateZeroPool (TxLen + RxLen);
   if (TxBuffer == NULL || RxBuffer == NULL) {
     DEBUG ((
       DEBUG_ERROR,
@@ -155,8 +163,8 @@ TpcmSendReceiveSpiPacket (
     DEBUG ((DEBUG_INFO, "  Category: 0x%02X\n", TxPacket.Category));
     DEBUG ((DEBUG_INFO, "  DataLength: %d\n", TxPacket.DataLength));
     DEBUG ((DEBUG_INFO, "  Data: "));
-    for (UINTN i = 0; i < TxPacket.DataLength; i++) {
-      DEBUG ((DEBUG_INFO, "%02X ", TxPacket.Data[i]));
+    for (UINTN Index = 0; Index < TxPacket.DataLength; Index ++) {
+      DEBUG ((DEBUG_INFO, "%02X ", TxPacket.Data[Index]));
     }
     DEBUG ((DEBUG_INFO, "\n"));
     DEBUG ((DEBUG_INFO, "  Tail: 0x%02X\n", TxPacket.Tail));
@@ -184,14 +192,17 @@ TpcmSendReceiveSpiPacket (
 
   SpiTransfer->TxBuf       = TxBuffer;
   SpiTransfer->RxBuf       = RxBuffer;
-  SpiTransfer->Len         = PacketIndex * sizeof (TPCM_SPI_PACKET);
   SpiTransfer->SpeedHz     = TPCM_MAX_CLOCK;
   SpiTransfer->BitsPerWord = 8;
+  SpiTransfer->TxLen       = TxLen;
+  SpiTransfer->RxLen       = RxLen;
 
-  //
-  // Perform SPI transfer
-  //
-  Status = mSpiProtocol->SpiTransferOne (
+  DEBUG ((DEBUG_INFO, "SPI Transfer Info:\n"));
+  DEBUG ((DEBUG_INFO, "  TxLen: %d bytes\n", TxLen));
+  DEBUG ((DEBUG_INFO, "  RxLen: %d bytes\n", RxLen));
+  DEBUG ((DEBUG_INFO, "  Total Transfer Length: %d bytes\n", TxLen + RxLen));
+
+  Status = mSpiProtocol->SpiTransferTwo (
                   mSpiProtocol,
                   mTpcmDevice,
                   SpiTransfer
@@ -211,8 +222,9 @@ TpcmSendReceiveSpiPacket (
   //
   Offset = 0;
   PacketIndex = 0;
-  while (Offset < SpiTransfer->Len) {
+  while (Offset < RxLen) {
     ZeroMem (&RxPacket, sizeof (TPCM_SPI_PACKET));
+    // Read RxPacket from RxBuffer
     CopyMem (&RxPacket, RxBuffer + PacketIndex * sizeof (TPCM_SPI_PACKET), sizeof (TPCM_SPI_PACKET));
 
     //
@@ -223,8 +235,8 @@ TpcmSendReceiveSpiPacket (
     DEBUG ((DEBUG_INFO, "  Category: 0x%02X\n", RxPacket.Category));
     DEBUG ((DEBUG_INFO, "  DataLength: %d\n", RxPacket.DataLength));
     DEBUG ((DEBUG_INFO, "  Data: "));
-    for (UINTN i = 0; i < RxPacket.DataLength; i++) {
-      DEBUG ((DEBUG_INFO, "%02X ", RxPacket.Data[i]));
+    for (UINTN Index = 0; Index < RxPacket.DataLength; Index ++) {
+      DEBUG ((DEBUG_INFO, "%02X ", RxPacket.Data[Index]));
     }
     DEBUG ((DEBUG_INFO, "\n"));
     DEBUG ((DEBUG_INFO, "  Tail: 0x%02X\n", RxPacket.Tail));
@@ -305,7 +317,266 @@ Exit:
 
   return Status;
 }
+#else
+/**
+  Send and receive SPI packets to/from TPCM device.
 
+  @param[in]  Command       The TPCM command to send.
+  @param[in]  RequestData   Pointer to the request data buffer.
+  @param[in]  RequestSize   Size of the request data buffer.
+  @param[out] ResponseData  Pointer to the response data buffer.
+  @param[in]  ResponseSize  Size of the response data buffer.
+
+  @retval EFI_SUCCESS           The SPI transaction completed successfully.
+  @retval EFI_INVALID_PARAMETER Invalid input parameters.
+  @retval EFI_DEVICE_ERROR      The TPCM device returned an invalid response.
+  @retval EFI_OUT_OF_RESOURCES  Failed to allocate memory.
+**/
+EFI_STATUS
+TpcmSendReceiveSpiPacket (
+  IN  UINT32  Command,
+  IN  VOID    *RequestData,
+  IN  UINTN   RequestSize,
+  OUT VOID    *ResponseData,
+  IN  UINTN   ResponseSize
+  )
+{
+  EFI_STATUS      Status;
+  TPCM_SPI_PACKET TxPacket;
+  TPCM_SPI_PACKET RxPacket;
+  UINT8           *TxBuffer = NULL;
+  UINT8           *RxBuffer = NULL;
+  UINT8           Crc8;
+  UINTN           Offset, ChunkSize, PacketIndex;
+  UINTN           MaxPackets;
+  UINTN           MaxTotalDataSize;
+  SPI_TPM_OP      *SpiTpmOp;
+
+  if (RequestData == NULL || ResponseData == NULL || RequestSize == 0 || ResponseSize == 0) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Invalid input parameters!\n",
+      __func__
+      ));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  MaxTotalDataSize = TPCM_MAX_DATA_SIZE / sizeof (TPCM_SPI_PACKET) * 250;
+  if (RequestSize > MaxTotalDataSize) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Data size exceeds maximum limit of %d bytes!\n",
+      __func__,
+      MaxTotalDataSize
+      ));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  //
+  // Allocate memory for SPI buffers
+  //
+  MaxPackets = (RequestSize + 249) / 250;
+  TxBuffer = AllocateZeroPool (sizeof (TPCM_SPI_PACKET) * MaxPackets);
+  RxBuffer = AllocateZeroPool (sizeof (TPCM_SPI_PACKET) * MaxPackets);
+  if (TxBuffer == NULL || RxBuffer == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Cannot allocate Tx/Rx buffer\n",
+      __func__
+      ));
+    Status = EFI_OUT_OF_RESOURCES;
+    goto Exit;
+  }
+
+  //
+  // Fill SPI packets
+  //
+  Offset = 0;
+  PacketIndex = 0;
+  while (Offset < RequestSize) {
+    ChunkSize = MIN (250, RequestSize - Offset);
+
+    //
+    // Fill Tx Packet
+    //
+    ZeroMem (&TxPacket, sizeof (TPCM_SPI_PACKET));
+    TxPacket.Head          = 0xAC;
+    TxPacket.Category      = TDD_CMD_CATEGORY_TPCM;
+    TxPacket.DataLength    = (UINT8)ChunkSize;
+    CopyMem (TxPacket.Data, (UINT8 *)RequestData + Offset, ChunkSize);
+    TxPacket.Tail          = 0xAA;
+    TxPacket.NextPacketFlag = (Offset + ChunkSize < RequestSize) ? 1 : 0;
+
+    //
+    // Calculate CRC8
+    //
+    Crc8 = CalculateCrc8 ((UINT8 *)&TxPacket, sizeof (TPCM_SPI_PACKET) - 2);
+    TxPacket.Crc8 = Crc8;
+
+    //
+    // Copy TxPacket to TxBuffer
+    //
+    CopyMem (TxBuffer + PacketIndex * sizeof (TPCM_SPI_PACKET), &TxPacket, sizeof (TPCM_SPI_PACKET));
+
+    //
+    // Debug: Print Tx Packet
+    //
+    DEBUG ((DEBUG_INFO, "Tx Packet %d:\n", PacketIndex));
+    DEBUG ((DEBUG_INFO, "  Head: 0x%02X\n", TxPacket.Head));
+    DEBUG ((DEBUG_INFO, "  Category: 0x%02X\n", TxPacket.Category));
+    DEBUG ((DEBUG_INFO, "  DataLength: %d\n", TxPacket.DataLength));
+    DEBUG ((DEBUG_INFO, "  Data: "));
+    for (UINTN Index = 0; Index < TxPacket.DataLength; Index ++) {
+      DEBUG ((DEBUG_INFO, "%02X ", TxPacket.Data[Index]));
+    }
+    DEBUG ((DEBUG_INFO, "\n"));
+    DEBUG ((DEBUG_INFO, "  Tail: 0x%02X\n", TxPacket.Tail));
+    DEBUG ((DEBUG_INFO, "  NextPacketFlag: %d\n", TxPacket.NextPacketFlag));
+    DEBUG ((DEBUG_INFO, "  CRC8: 0x%02X\n", TxPacket.Crc8));
+    DEBUG ((DEBUG_INFO, "\n"));
+
+    Offset += ChunkSize;
+    PacketIndex ++;
+  }
+
+  //
+  // Initialize SPI_TPM_OP
+  //
+  SpiTpmOp = AllocateZeroPool (sizeof (SPI_TPM_OP));
+  if (SpiTpmOp == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): Cannot allocate SpiTpmOp\n",
+      __func__
+      ));
+    Status = EFI_OUT_OF_RESOURCES;
+    goto Exit;
+  }
+
+  SpiTpmOp->Send.NBytes    = PacketIndex * sizeof (TPCM_SPI_PACKET);
+  SpiTpmOp->Receive.NBytes = (ResponseSize + 249) / 250  * sizeof (TPCM_SPI_PACKET);
+  SpiTpmOp->SpeedHz        = TPCM_MAX_CLOCK;
+  SpiTpmOp->Send.Buf       = TxBuffer;
+  SpiTpmOp->Receive.Buf    = RxBuffer;
+
+  //
+  // Perform SPI transfer: Send
+  //
+  Status = mSpiProtocol->SpiTpmXfer (
+                  mSpiProtocol,
+                  mTpcmDevice,
+                  SpiTpmOp
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a(): SPI transfer failed (Status = %r)!\n",
+      __func__,
+      Status
+      ));
+    goto Exit;
+  }
+
+  //
+  // Rebuild SPI response packets
+  //
+  Offset = 0;
+  PacketIndex = 0;
+  while (Offset < SpiTpmOp->Receive.NBytes) {
+    ZeroMem (&RxPacket, sizeof (TPCM_SPI_PACKET));
+    CopyMem (&RxPacket, RxBuffer + PacketIndex * sizeof (TPCM_SPI_PACKET), sizeof (TPCM_SPI_PACKET));
+
+    //
+    // Debug: Print Rx Packet
+    //
+    DEBUG ((DEBUG_INFO, "Rx Packet %d:\n", PacketIndex));
+    DEBUG ((DEBUG_INFO, "  Head: 0x%02X\n", RxPacket.Head));
+    DEBUG ((DEBUG_INFO, "  Category: 0x%02X\n", RxPacket.Category));
+    DEBUG ((DEBUG_INFO, "  DataLength: %d\n", RxPacket.DataLength));
+    DEBUG ((DEBUG_INFO, "  Data: "));
+    for (UINTN Index = 0; Index < RxPacket.DataLength; Index ++) {
+      DEBUG ((DEBUG_INFO, "%02X ", RxPacket.Data[Index]));
+    }
+    DEBUG ((DEBUG_INFO, "\n"));
+    DEBUG ((DEBUG_INFO, "  Tail: 0x%02X\n", RxPacket.Tail));
+    DEBUG ((DEBUG_INFO, "  NextPacketFlag: %d\n", RxPacket.NextPacketFlag));
+    DEBUG ((DEBUG_INFO, "  CRC8: 0x%02X\n", RxPacket.Crc8));
+    DEBUG ((DEBUG_INFO, "\n"));
+
+    //
+    // Verify packet format
+    //
+    if (RxPacket.Head != 0xAC || RxPacket.Tail != 0xAA) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Rx packet format invalid! RxPacket.Head = 0x%x\t RxPacket.Tail = 0x%x!\n",
+        __func__,
+        RxPacket.Head,
+        RxPacket.Tail
+        ));
+      Status = EFI_DEVICE_ERROR;
+      goto Exit;
+    }
+
+    //
+    // Verify CRC8
+    //
+    Crc8 = CalculateCrc8 ((UINT8 *)&RxPacket, sizeof (TPCM_SPI_PACKET) - 2);
+    if (Crc8 != RxPacket.Crc8) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): CRC verify failed! RxPacket.Crc8 = 0x%x\t Crc8 = 0x%x!\n",
+        __func__,
+        RxPacket.Crc8,
+        Crc8
+        ));
+      Status = EFI_DEVICE_ERROR;
+      goto Exit;
+    }
+
+    //
+    // Copy response data
+    //
+    if (Offset + RxPacket.DataLength > ResponseSize) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "%a(): Response buffer overflow!\n",
+        __func__
+        ));
+      Status = EFI_BUFFER_TOO_SMALL;
+      goto Exit;
+    }
+    CopyMem ((UINT8 *)ResponseData + Offset, RxPacket.Data, RxPacket.DataLength);
+
+    //
+    // Check for more packets
+    //
+    if (RxPacket.NextPacketFlag == 0) {
+      break;
+    }
+
+    Offset += RxPacket.DataLength;
+    PacketIndex ++;
+  }
+
+  Status = EFI_SUCCESS;
+
+Exit:
+  if (TxBuffer) {
+    FreePool (TxBuffer);
+  }
+
+  if (RxBuffer) {
+    FreePool (RxBuffer);
+  }
+
+  if (SpiTpmOp) {
+    FreePool (SpiTpmOp);
+  }
+
+  return Status;
+}
+#endif
 /**
   Initialize the TPCM.
 
@@ -391,7 +662,7 @@ TpcmInit (
     goto Exit;
   }
 
-#if 0
+#if 1
   SPI_MEM_OP  *OpFlash;
   UINT8 *Buffer;
   OpFlash = AllocateZeroPool (sizeof (SPI_MEM_OP));
@@ -524,18 +795,18 @@ TpcmMeasure (
   // Initialize request
   //
   ZeroMem (TpcmReq, sizeof (TPCM_MEASURE_REQ_HEADER));
-  TpcmReq->Tag         = TPCM_TAG_INPUT;
-  TpcmReq->Length      = sizeof (TPCM_MEASURE_REQ_HEADER);
-  TpcmReq->Command     = TPCM_CMD_START_MEASURE;
+  TpcmReq->Tag         = SwapBytes32 (TPCM_TAG_INPUT);
+  TpcmReq->Length      = SwapBytes32 (sizeof (TPCM_MEASURE_REQ_HEADER));
+  TpcmReq->Command     = SwapBytes32 (TPCM_CMD_START_MEASURE);
   CopyMem (TpcmReq->Hash, Hash, MIN (DataSize, sizeof (TpcmReq->Hash)));
 
   //
   // Debug: Print request data
   //
   DEBUG ((DEBUG_INFO, "%a(): Sending measure request:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmReq->Tag));
-  DEBUG ((DEBUG_INFO, "  Length: %d\n", TpcmReq->Length));
-  DEBUG ((DEBUG_INFO, "  Command: 0x%08X\n", TpcmReq->Command));
+  DEBUG ((DEBUG_INFO, "  Tag (LE): 0x%08X, (BE): 0x%08X\n", TPCM_TAG_INPUT, TpcmReq->Tag));
+  DEBUG ((DEBUG_INFO, "  Length (LE): %d, (BE): 0x%08X\n", sizeof (TPCM_MEASURE_REQ_HEADER), TpcmReq->Length));
+  DEBUG ((DEBUG_INFO, "  Command (LE): 0x%08X, (BE): 0x%08X\n", TPCM_CMD_START_MEASURE, TpcmReq->Command));
   DEBUG ((DEBUG_INFO, "  Hash: "));
   for (UINTN i = 0; i < MIN (DataSize, sizeof (TpcmReq->Hash)); i++) {
     DEBUG ((DEBUG_INFO, "%02X ", TpcmReq->Hash[i]));
@@ -560,26 +831,26 @@ TpcmMeasure (
   // Debug: Print response data
   //
   DEBUG ((DEBUG_INFO, "%a(): Received measure response:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmRes->Tag));
-  DEBUG ((DEBUG_INFO, "  Ret: 0x%08X\n", TpcmRes->Ret));
+  DEBUG ((DEBUG_INFO, "  Tag (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Tag, SwapBytes32 (TpcmRes->Tag)));
+  DEBUG ((DEBUG_INFO, "  Ret (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Ret, SwapBytes32 (TpcmRes->Ret)));
 
-  if (TpcmRes->Tag != TPCM_TAG_OUTPUT) {
+  if (SwapBytes32 (TpcmRes->Tag) != TPCM_TAG_OUTPUT) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Invalid response tag: 0x%08x\n",
       __func__,
-      TpcmRes->Tag
+      SwapBytes32 (TpcmRes->Tag)
       ));
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  if (TpcmRes->Ret != 0) {
+  if (SwapBytes32 (TpcmRes->Ret) != 0) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): TPCM command failed: 0x%08x\n",
       __func__,
-      TpcmRes->Ret
+      SwapBytes32 (TpcmRes->Ret)
       ));
     Status = EFI_DEVICE_ERROR;
     goto Exit;
@@ -662,19 +933,19 @@ TpcmGetLicenseRemainingDays (
   // Initialize request
   //
   ZeroMem (TpcmReq, sizeof (TPCM_GET_LICENSE_REQ_HEADER));
-  TpcmReq->Tag         = TPCM_TAG_INPUT;
-  TpcmReq->Length      = sizeof (TPCM_GET_LICENSE_REQ_HEADER);
-  TpcmReq->Command     = TPCM_CMD_GET_LICENSE_STS;
-  TpcmReq->LicenseType = LICENSE_TYPE;
+  TpcmReq->Tag         =  (TPCM_TAG_INPUT);
+  TpcmReq->Length      =  (sizeof (TPCM_GET_LICENSE_REQ_HEADER));
+  TpcmReq->Command     =  (TPCM_CMD_GET_LICENSE_STS);
+  TpcmReq->LicenseType =  (LICENSE_TYPE);
 
   //
   // Debug: Print request data
   //
   DEBUG ((DEBUG_INFO, "%a(): Sending license status request:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmReq->Tag));
-  DEBUG ((DEBUG_INFO, "  Length: %d\n", TpcmReq->Length));
-  DEBUG ((DEBUG_INFO, "  Command: 0x%08X\n", TpcmReq->Command));
-  DEBUG ((DEBUG_INFO, "  LicenseType: 0x%08X\n", TpcmReq->LicenseType));
+  DEBUG ((DEBUG_INFO, "  Tag (LE): 0x%08X, (BE): 0x%08X\n", TPCM_TAG_INPUT, TpcmReq->Tag));
+  DEBUG ((DEBUG_INFO, "  Length (LE): %d, (BE): 0x%08X\n", sizeof (TPCM_GET_LICENSE_REQ_HEADER), TpcmReq->Length));
+  DEBUG ((DEBUG_INFO, "  Command (LE): 0x%08X, (BE): 0x%08X\n", TPCM_CMD_GET_LICENSE_STS, TpcmReq->Command));
+  DEBUG ((DEBUG_INFO, "  LicenseType (LE): 0x%08X, (BE): 0x%08X\n", LICENSE_TYPE, TpcmReq->LicenseType));
 
   //
   // Send and receive SPI packet
@@ -694,27 +965,27 @@ TpcmGetLicenseRemainingDays (
   // Debug: Print response data
   //
   DEBUG ((DEBUG_INFO, "%a(): Received license status response:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmRes->Tag));
-  DEBUG ((DEBUG_INFO, "  Ret: 0x%08X\n", TpcmRes->Ret));
-  DEBUG ((DEBUG_INFO, "  RemainDays: %d\n", TpcmRes->RemainDays));
+  DEBUG ((DEBUG_INFO, "  Tag (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Tag, SwapBytes32 (TpcmRes->Tag)));
+  DEBUG ((DEBUG_INFO, "  Ret (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Ret, SwapBytes32 (TpcmRes->Ret)));
+  DEBUG ((DEBUG_INFO, "  RemainDays (BE): %d, (LE): %d\n", TpcmRes->RemainDays, SwapBytes32 (TpcmRes->RemainDays)));
 
   //
-  // Validate response
+  // Validate response (需要转换为小端进行比较)
   //
-  if (TpcmRes->Tag != TPCM_TAG_OUTPUT || TpcmRes->Ret != 0) {
+  if (SwapBytes32 (TpcmRes->Tag) != TPCM_TAG_OUTPUT || SwapBytes32 (TpcmRes->Ret) != 0) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Invalid response! Tag = 0x%08X, Ret = 0x%08X\n",
       __func__,
-      TpcmRes->Tag,
-      TpcmRes->Ret
+      SwapBytes32 (TpcmRes->Tag),
+      SwapBytes32 (TpcmRes->Ret)
       ));
 
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  *ShelfLife = TpcmRes->RemainDays;
+  *ShelfLife = SwapBytes32 (TpcmRes->RemainDays);
 
   DEBUG ((DEBUG_INFO, "%a(): Remaining days: %u\n", __func__, *ShelfLife));
 
@@ -876,19 +1147,19 @@ TpcmGetStatus (
   // Initialize TPCM request
   //
   ZeroMem (TpcmReq, sizeof (TPCM_GET_STS_REQ_HEADER));
-  TpcmReq->Tag         = TPCM_TAG_INPUT;
-  TpcmReq->Length      = sizeof (TPCM_GET_STS_REQ_HEADER);
-  TpcmReq->Command     = TPCM_CMD_GET_STS;
-  TpcmReq->ReportTime  = ConvertEfiTimeToSeconds (&Time);
+  TpcmReq->Tag         = SwapBytes32 (TPCM_TAG_INPUT);
+  TpcmReq->Length      = SwapBytes32 (sizeof (TPCM_GET_STS_REQ_HEADER));
+  TpcmReq->Command     = SwapBytes32 (TPCM_CMD_GET_STS);
+  TpcmReq->ReportTime  = SwapBytes64 (ConvertEfiTimeToSeconds (&Time));
 
   //
   // Debug: Print request data
   //
   DEBUG ((DEBUG_INFO, "%a(): Sending status request:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmReq->Tag));
-  DEBUG ((DEBUG_INFO, "  Length: %d\n", TpcmReq->Length));
-  DEBUG ((DEBUG_INFO, "  Command: 0x%08X\n", TpcmReq->Command));
-  DEBUG ((DEBUG_INFO, "  ReportTime: %llu\n", TpcmReq->ReportTime));
+  DEBUG ((DEBUG_INFO, "  Tag (LE): 0x%08X, (BE): 0x%08X\n", TPCM_TAG_INPUT, TpcmReq->Tag));
+  DEBUG ((DEBUG_INFO, "  Length (LE): %d, (BE): 0x%08X\n", sizeof (TPCM_GET_STS_REQ_HEADER), TpcmReq->Length));
+  DEBUG ((DEBUG_INFO, "  Command (LE): 0x%08X, (BE): 0x%08X\n", TPCM_CMD_GET_STS, TpcmReq->Command));
+  DEBUG ((DEBUG_INFO, "  ReportTime (LE): %llu, (BE): %llu\n", ConvertEfiTimeToSeconds (&Time), TpcmReq->ReportTime));
 
   //
   // Send and receive SPI packet
@@ -908,30 +1179,30 @@ TpcmGetStatus (
   // Debug: Print response data
   //
   DEBUG ((DEBUG_INFO, "%a(): Received status response:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmRes->Tag));
-  DEBUG ((DEBUG_INFO, "  Ret: 0x%08X\n", TpcmRes->Ret));
+  DEBUG ((DEBUG_INFO, "  Tag (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Tag, SwapBytes32 (TpcmRes->Tag)));
+  DEBUG ((DEBUG_INFO, "  Ret (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Ret, SwapBytes32 (TpcmRes->Ret)));
 
   //
   // Check received message
   //
-  if (TpcmRes->Tag != TPCM_TAG_OUTPUT) {
+  if (SwapBytes32 (TpcmRes->Tag) != TPCM_TAG_OUTPUT) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Invalid response tag: 0x%08x\n",
       __func__,
-      TpcmRes->Tag
+      SwapBytes32 (TpcmRes->Tag)
       ));
 
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  if (TpcmRes->Ret != 0) {
+  if (SwapBytes32 (TpcmRes->Ret) != 0) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): TPCM command failed: 0x%08x\n",
       __func__,
-      TpcmRes->Ret
+      SwapBytes32 (TpcmRes->Ret)
       ));
 
     Status = EFI_DEVICE_ERROR;
@@ -939,7 +1210,16 @@ TpcmGetStatus (
   }
 
   ZeroMem (TpcmInfo, sizeof (TPCM_STATUS));
-  CopyMem (TpcmInfo, &TpcmRes->TpcmInfo, sizeof (TPCM_STATUS));
+
+  TPCM_STATUS TempStatus;
+  CopyMem (&TempStatus, &TpcmRes->TpcmInfo, sizeof (TPCM_STATUS));
+
+  TpcmInfo->BeTpcmType = SwapBytes32 (TempStatus.BeTpcmType);
+  TpcmInfo->BeTpcmTotalFlash = SwapBytes32 (TempStatus.BeTpcmTotalFlash);
+  TpcmInfo->BeTpcmWhiltelistAvaiFlash = SwapBytes32 (TempStatus.BeTpcmWhiltelistAvaiFlash);
+  TpcmInfo->BeTpcmFirmwareVersion = SwapBytes32 (TempStatus.BeTpcmFirmwareVersion);
+  TpcmInfo->BeSmkGenerated = SwapBytes32 (TempStatus.BeSmkGenerated);
+  CopyMem (TpcmInfo->TpcmId, TempStatus.TpcmId, sizeof (TpcmInfo->TpcmId));
 
   //
   // Debug: Print TPCM info
@@ -950,8 +1230,11 @@ TpcmGetStatus (
     DEBUG ((DEBUG_INFO, "%02X ", TpcmInfo->TpcmId[i]));
   }
   DEBUG ((DEBUG_INFO, "\n"));
-  DEBUG ((DEBUG_INFO, "    Version: %d\n", TpcmInfo->Version));
-  DEBUG ((DEBUG_INFO, "    Status: 0x%08X\n", TpcmInfo->Status));
+  DEBUG ((DEBUG_INFO, "    BeTpcmType (LE): 0x%08X\n", TpcmInfo->BeTpcmType));
+  DEBUG ((DEBUG_INFO, "    BeTpcmTotalFlash (LE): 0x%08X\n", TpcmInfo->BeTpcmTotalFlash));
+  DEBUG ((DEBUG_INFO, "    BeTpcmWhiltelistAvaiFlash (LE): 0x%08X\n", TpcmInfo->BeTpcmWhiltelistAvaiFlash));
+  DEBUG ((DEBUG_INFO, "    BeTpcmFirmwareVersion (LE): 0x%08X\n", TpcmInfo->BeTpcmFirmwareVersion));
+  DEBUG ((DEBUG_INFO, "    BeSmkGenerated (LE): 0x%08X\n", TpcmInfo->BeSmkGenerated));
 
   Status = EFI_SUCCESS;
 
@@ -1032,21 +1315,21 @@ TpcmGetControlStatus (
   }
 
   //
-  // Initialize TPCM request
+  // Initialize TPCM request (TpcmGetControlStatus)
   //
   ZeroMem (TpcmReq, sizeof (TPCM_GET_CTRL_STS_REQ_HEADER));
-  TpcmReq->Tag         = TPCM_TAG_INPUT;
-  TpcmReq->Length      = sizeof (TPCM_GET_CTRL_STS_REQ_HEADER);
-  TpcmReq->Command     = TPCM_CMD_GET_CTRL_STS;
+  TpcmReq->Tag         = SwapBytes32 (TPCM_TAG_INPUT);
+  TpcmReq->Length      = SwapBytes32 (sizeof (TPCM_GET_CTRL_STS_REQ_HEADER));
+  TpcmReq->Command     = SwapBytes32 (TPCM_CMD_GET_CTRL_STS);
   CopyMem (TpcmReq->TpcmId, TpcmInfo->TpcmId, sizeof (TpcmInfo->TpcmId));
 
   //
   // Debug: Print request data
   //
   DEBUG ((DEBUG_INFO, "%a(): Sending control status request:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmReq->Tag));
-  DEBUG ((DEBUG_INFO, "  Length: %d\n", TpcmReq->Length));
-  DEBUG ((DEBUG_INFO, "  Command: 0x%08X\n", TpcmReq->Command));
+  DEBUG ((DEBUG_INFO, "  Tag (LE): 0x%08X, (BE): 0x%08X\n", TPCM_TAG_INPUT, TpcmReq->Tag));
+  DEBUG ((DEBUG_INFO, "  Length (LE): %d, (BE): 0x%08X\n", sizeof (TPCM_GET_CTRL_STS_REQ_HEADER), TpcmReq->Length));
+  DEBUG ((DEBUG_INFO, "  Command (LE): 0x%08X, (BE): 0x%08X\n", TPCM_CMD_GET_CTRL_STS, TpcmReq->Command));
   DEBUG ((DEBUG_INFO, "  TpcmId: "));
   for (UINTN i = 0; i < sizeof (TpcmReq->TpcmId); i++) {
     DEBUG ((DEBUG_INFO, "%02X ", TpcmReq->TpcmId[i]));
@@ -1071,38 +1354,38 @@ TpcmGetControlStatus (
   // Debug: Print response data
   //
   DEBUG ((DEBUG_INFO, "%a(): Received control status response:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmRes->Tag));
-  DEBUG ((DEBUG_INFO, "  Ret: 0x%08X\n", TpcmRes->Ret));
-  DEBUG ((DEBUG_INFO, "  Enabled: %d\n", TpcmRes->Enabled));
+  DEBUG ((DEBUG_INFO, "  Tag (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Tag, SwapBytes32 (TpcmRes->Tag)));
+  DEBUG ((DEBUG_INFO, "  Ret (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Ret, SwapBytes32 (TpcmRes->Ret)));
+  DEBUG ((DEBUG_INFO, "  Enabled (BE): %d, (LE): %d\n", TpcmRes->Enabled, SwapBytes32 (TpcmRes->Enabled)));
 
   //
   // Check received message
   //
-  if (TpcmRes->Tag != TPCM_TAG_OUTPUT) {
+  if (SwapBytes32 (TpcmRes->Tag) != TPCM_TAG_OUTPUT) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Invalid response tag: 0x%08x\n",
       __func__,
-      TpcmRes->Tag
+      SwapBytes32 (TpcmRes->Tag)
       ));
 
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  if (TpcmRes->Ret != 0) {
+  if (SwapBytes32 (TpcmRes->Ret) != 0) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): TPCM command failed: 0x%08x\n",
       __func__,
-      TpcmRes->Ret
+      SwapBytes32 (TpcmRes->Ret)
       ));
 
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  *IsEnabled = TpcmRes->Enabled ? TRUE : FALSE;
+  *IsEnabled = SwapBytes32 (TpcmRes->Enabled) ? TRUE : FALSE;
 
   DEBUG ((DEBUG_INFO, "TPCM is %s!\n", *IsEnabled ? L"enabled" : L"disabled"));
 
@@ -1191,25 +1474,25 @@ TpcmSetControlStatus (
   // Initialize TPCM request
   //
   ZeroMem (TpcmReq, sizeof (TPCM_SET_CTRL_STS_REQ_HEADER));
-  TpcmReq->Tag         = TPCM_TAG_INPUT;
-  TpcmReq->Length      = sizeof (TPCM_SET_CTRL_STS_REQ_HEADER);
-  TpcmReq->Command     = TPCM_CMD_SET_CTRL_STS;
+  TpcmReq->Tag         = SwapBytes32 (TPCM_TAG_INPUT);
+  TpcmReq->Length      = SwapBytes32 (sizeof (TPCM_SET_CTRL_STS_REQ_HEADER));
+  TpcmReq->Command     = SwapBytes32 (TPCM_CMD_SET_CTRL_STS);
   CopyMem (TpcmReq->TpcmId, TpcmInfo->TpcmId, sizeof (TpcmInfo->TpcmId));
-  TpcmReq->Enabled     = IsEnabled;
+  TpcmReq->Enabled     = SwapBytes32 (IsEnabled ? 1 : 0);
 
   //
   // Debug: Print request data
   //
   DEBUG ((DEBUG_INFO, "%a(): Sending set control status request:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmReq->Tag));
-  DEBUG ((DEBUG_INFO, "  Length: %d\n", TpcmReq->Length));
-  DEBUG ((DEBUG_INFO, "  Command: 0x%08X\n", TpcmReq->Command));
+  DEBUG ((DEBUG_INFO, "  Tag (LE): 0x%08X, (BE): 0x%08X\n", TPCM_TAG_INPUT, TpcmReq->Tag));
+  DEBUG ((DEBUG_INFO, "  Length (LE): %d, (BE): 0x%08X\n", sizeof (TPCM_SET_CTRL_STS_REQ_HEADER), TpcmReq->Length));
+  DEBUG ((DEBUG_INFO, "  Command (LE): 0x%08X, (BE): 0x%08X\n", TPCM_CMD_SET_CTRL_STS, TpcmReq->Command));
   DEBUG ((DEBUG_INFO, "  TpcmId: "));
   for (UINTN i = 0; i < sizeof (TpcmReq->TpcmId); i++) {
     DEBUG ((DEBUG_INFO, "%02X ", TpcmReq->TpcmId[i]));
   }
   DEBUG ((DEBUG_INFO, "\n"));
-  DEBUG ((DEBUG_INFO, "  Enabled: %d\n", TpcmReq->Enabled));
+  DEBUG ((DEBUG_INFO, "  Enabled (LE): %d, (BE): 0x%08X\n", IsEnabled, TpcmReq->Enabled));
 
   //
   // Send and receive SPI packet
@@ -1229,29 +1512,29 @@ TpcmSetControlStatus (
   // Debug: Print response data
   //
   DEBUG ((DEBUG_INFO, "%a(): Received set control status response:\n", __func__));
-  DEBUG ((DEBUG_INFO, "  Tag: 0x%08X\n", TpcmRes->Tag));
-  DEBUG ((DEBUG_INFO, "  Ret: 0x%08X\n", TpcmRes->Ret));
+  DEBUG ((DEBUG_INFO, "  Tag (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Tag, SwapBytes32 (TpcmRes->Tag)));
+  DEBUG ((DEBUG_INFO, "  Ret (BE): 0x%08X, (LE): 0x%08X\n", TpcmRes->Ret, SwapBytes32 (TpcmRes->Ret)));
 
   //
   // Check received message
   //
-  if (TpcmRes->Tag != TPCM_TAG_OUTPUT) {
+  if (SwapBytes32 (TpcmRes->Tag) != TPCM_TAG_OUTPUT) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): Invalid response tag: 0x%08x\n",
       __func__,
-      TpcmRes->Tag
+      SwapBytes32 (TpcmRes->Tag)
       ));
     Status = EFI_DEVICE_ERROR;
     goto Exit;
   }
 
-  if (TpcmRes->Ret != 0) {
+  if (SwapBytes32 (TpcmRes->Ret) != 0) {
     DEBUG ((
       DEBUG_ERROR,
       "%a(): TPCM command failed: 0x%08x\n",
       __func__,
-      TpcmRes->Ret
+      SwapBytes32 (TpcmRes->Ret)
       ));
     Status = EFI_DEVICE_ERROR;
     goto Exit;

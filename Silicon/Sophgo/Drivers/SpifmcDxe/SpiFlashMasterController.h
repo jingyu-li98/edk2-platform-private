@@ -35,6 +35,7 @@
 #define SPIFMC_CTRL_LSBF                      BIT20
 #define SPIFMC_CTRL_SRST                      BIT21
 #define SPIFMC_CTRL_SCK_DIV_SHIFT             0
+#define SPIFMC_CTRL_SCK_DIV_SHIFT_MASK        0x7FF
 #define SPIFMC_CTRL_FRAME_LEN_SHIFT           16
 
 #define SPIFMC_CE_CTRL                     0x04
@@ -114,79 +115,73 @@ typedef struct {
 EFI_STATUS
 EFIAPI
 SpifmcReadRegister (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT8                      Opcode,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer
+  IN  SPI_NOR *Nor,
+  IN  UINT8   Opcode,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcWriteRegister (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT8                      Opcode,
-  IN  CONST UINT8                *Buffer,
-  IN  UINTN                      Length
+  IN SPI_NOR      *Nor,
+  IN UINT8        Opcode,
+  IN CONST UINT8 *Buffer,
+  IN UINTN        Length
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcRead (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      From,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer
+  IN  SPI_NOR *Nor,
+  IN  UINTN   From,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcDmmrRead (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      From,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer
+  IN  SPI_NOR *Nor,
+  IN  UINTN   From,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcWrite (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      To,
-  IN  UINTN                      Length,
-  IN  CONST UINT8                *Buffer
+  IN SPI_NOR     *Nor,
+  IN UINTN       To,
+  IN UINTN       Length,
+  IN CONST UINT8 *Buffer
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcErase (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      Offs
+  IN SPI_NOR *Nor,
+  IN UINTN   Offs
   );
 
 SPI_NOR *
 EFIAPI
 SpiMasterSetupSlave (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT8                      SelectedFlashNumber
+  IN SOPHGO_SPI_MASTER_PROTOCOL *This,
+  IN SPI_NOR                    *Nor,
+  IN UINT8                      SelectedFlashNumber
   );
 
 EFI_STATUS
 EFIAPI
 SpiMasterFreeSlave (
-  IN  SPI_NOR                    *Nor
+  IN SPI_NOR *Nor
   );
 
 EFI_STATUS
 EFIAPI
 SpifmcInit (
-  IN  SPI_NOR                    *Nor
+  IN SPI_NOR *Nor
   );
 
 EFI_STATUS

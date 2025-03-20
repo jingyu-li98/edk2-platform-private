@@ -1,0 +1,60 @@
+## @file
+#  Component description file for SOPHGO APEI (Advanced Platform Error Interface) driver.
+#
+#  This driver implements APEI initialization for SOPHGO platform, including
+#  BERT, HEST, EINJ and error record serialization support.
+#
+#  Copyright (C) 2025, Sophgo Technologies Ltd. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = SophgoApeiDxe
+  FILE_GUID                      = 1550ac96-4a6a-414e-9a7f-9abac2152aec
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = ApeiDriverEntryPoint
+
+[Sources]
+  ApeiDxe.c
+  Bert.c
+  Bert.h
+  Hest.c
+  Hest.h
+  Apei.c
+  Apei.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Sophgo/Sophgo.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+  IniParserLib
+
+[Protocols]
+  gEfiAcpiTableProtocolGuid                   ## CONSUMES
+  gEfiAcpiSdtProtocolGuid                     ## CONSUMES
+
+[Pcd]
+  #gSophgoTokenSpaceGuid.PcdRasMemoryBase
+  #gSophgoTokenSpaceGuid.PcdBertRegionOffset
+  #gSophgoTokenSpaceGuid.PcdEinjRegionOffset
+  #gSophgoTokenSpaceGuid.PcdHestRegionOffset
+  #gSophgoTokenSpaceGuid.PcdBertRegionSize
+
+[Depex]
+  gEfiAcpiTableProtocolGuid AND
+  gEfiAcpiSdtProtocolGuid

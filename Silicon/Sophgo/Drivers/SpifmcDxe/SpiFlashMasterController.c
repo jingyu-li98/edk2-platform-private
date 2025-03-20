@@ -13,47 +13,7 @@
 
 SPI_MASTER                  *mSpiMasterInstance;
 STATIC EFI_EVENT            mNorFlashVirtualAddrChangeEvent;
-#if 0
-/**
-  Lock all pending read/write to Nor flash device
 
-  @param[in]     *OriginalTPL     Pointer to Nor flash device Original TPL.
-**/
-VOID
-EFIAPI
-SpifmcLock (
-  IN EFI_TPL  *OriginalTPL
-  )
-{
-  if (!EfiAtRuntime ()) {
-    // Raise TPL to TPL_HIGH to stop anyone from interrupting us.
-    *OriginalTPL = gBS->RaiseTPL (TPL_HIGH_LEVEL);
-  } else {
-    // This initialization is only to prevent the compiler to complain about the
-    // use of uninitialized variables
-    *OriginalTPL = TPL_HIGH_LEVEL;
-  }
-}
-
-/**
-  Unlock all pending read/write to Nor flash device
-
-  @param[in]     OriginalTPL     Nor flash device Original TPL.
-**/
-VOID
-EFIAPI
-SpifmcUnlock (
-  IN EFI_TPL  OriginalTPL
-  )
-{
-  if (!EfiAtRuntime ()) {
-    //
-    // Interruptions can resume.
-    //
-    gBS->RestoreTPL (OriginalTPL);
-  }
-}
-#endif
 STATIC
 EFI_STATUS
 SpifmcWaitInt (
@@ -88,9 +48,12 @@ SpifmcInitReg (
            | SPIFMC_TRAN_CSR_BUS_WIDTH_2_BIT
            | SPIFMC_TRAN_CSR_BUS_WIDTH_4_BIT
            | SPIFMC_TRAN_CSR_DMA_EN
+           | SPIFMC_TRAN_CSR_MISO_LEVEL
            | SPIFMC_TRAN_CSR_ADDR_BYTES_MASK
            | SPIFMC_TRAN_CSR_WITH_CMD
-           | SPIFMC_TRAN_CSR_FIFO_TRG_LVL_MASK);
+           | SPIFMC_TRAN_CSR_FIFO_TRG_LVL_MASK
+           | SPIFMC_TRAN_CSR_ADDR4B
+           | SPIFMC_TRAN_CSR_CMD4B);
 
   return Register;
 }
@@ -104,24 +67,16 @@ SpifmcInitReg (
 EFI_STATUS
 EFIAPI
 SpifmcReadRegister (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT8                      Opcode,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer
+  IN  SPI_NOR *Nor,
+  IN  UINT8   Opcode,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   )
 {
   INT32      Index;
   UINTN      SpiBase;
   UINT32     Register;
   EFI_STATUS Status;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase = Nor->SpiBase;
   Register = SpifmcInitReg (SpiBase);
@@ -129,9 +84,6 @@ SpifmcReadRegister (
   Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_1_BYTE;
   Register |= SPIFMC_TRAN_CSR_WITH_CMD;
   Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX | SPIFMC_TRAN_CSR_TRAN_MODE_TX;
-
-  DEBUG ((DEBUG_INFO, "%a[%d] cmd 0x%x: TRAN_CSR: 0x%x\n", __func__, __LINE__, Opcode,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
 
   //
   // OPT bit[1]: Disable no address cmd fifo flush
@@ -166,34 +118,22 @@ SpifmcReadRegister (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
-
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
 SpifmcWriteRegister (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT8                      Opcode,
-  IN  CONST UINT8                *Buffer,
-  IN  UINTN                      Length
+  IN SPI_NOR      *Nor,
+  IN UINT8        Opcode,
+  IN CONST UINT8 *Buffer,
+  IN UINTN        Length
   )
 {
   INT32      Index;
   UINTN      SpiBase;
   UINT32     Register;
   EFI_STATUS Status;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase = Nor->SpiBase;
 
@@ -210,8 +150,6 @@ SpifmcWriteRegister (
     MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_NUM), Length);
   }
 
-  DEBUG ((DEBUG_INFO, "%a[%d] cmd 0x%x: TRAN_CSR: 0x%x\n", __func__, __LINE__, Opcode,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Opcode);
 
@@ -236,21 +174,16 @@ SpifmcWriteRegister (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
-
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
 SpifmcRead (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      From,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer
+  IN  SPI_NOR *Nor,
+  IN  UINTN   From,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   )
 {
   INT32      XferSize;
@@ -259,13 +192,6 @@ SpifmcRead (
   UINTN      SpiBase;
   UINT32     Register;
   EFI_STATUS Status;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase = Nor->SpiBase;
   Offset = 0;
@@ -278,8 +204,6 @@ SpifmcRead (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->ReadOpcode);
 
-  DEBUG ((DEBUG_INFO, "%a[%d] read: TRAN_CSR: 0x%x\n", __func__, __LINE__,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
   //
   // This is a workaround.
   // For Length<=SPIFMC_MAX_FIFO_DEPTH, we have to modify the Length manually.
@@ -335,49 +259,34 @@ SpifmcRead (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
-
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
-SpifmcDmmrReadSetting (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      From,
-  IN  UINTN                      Length,
-  OUT UINT8                      *Buffer,
-  IN  UINTN                      Nbytes
+SpifmcDmmrRead (
+  IN  SPI_NOR *Nor,
+  IN  UINTN   From,
+  IN  UINTN   Length,
+  OUT UINT8   *Buffer
   )
 {
   UINT32     Register;
   UINTN      SpiBase;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase = Nor->SpiBase;
 
   Register = SpifmcInitReg (SpiBase);
-  Register |= (Nbytes) << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
+  Register |= (Nor->AddrNbytes) << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
   Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_8_BYTE;
   Register |= SPIFMC_TRAN_CSR_WITH_CMD;
   Register |= SPIFMC_TRAN_CSR_TRAN_MODE_RX;
-  if (Nbytes == 4) {
+  if (Nor->AddrNbytes == 4) {
     Register |= SPIFMC_TRAN_CSR_ADDR4B;
     Register |= SPIFMC_TRAN_CSR_CMD4B;
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR), Register);
-  DEBUG ((DEBUG_INFO, "%a[%d] dmmr read: TRAN_CSR: 0x%x\n", __func__, __LINE__,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
 
   //
   // enable DMMR (Direct Memory Mapping Read)
@@ -394,51 +303,16 @@ SpifmcDmmrReadSetting (
   //
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_DMMR), 0);
 
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
-
-  return EFI_SUCCESS;
-}
-
-EFI_STATUS
-EFIAPI
-SpifmcDmmrRead (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINT64                     From,
-  IN  UINT64                     Length,
-  OUT UINT8                      *Buffer
-  )
-{
-#if 0
-  UINT64 Start, End, BufOffset;
-
-  if (From < SIZE_16MB) {
-    End = MIN (From + Length, SIZE_16MB);
-    SpifmcDmmrReadSetting (This, Nor, From, End, Buffer, 3);
-  }
-
-  if (From + Length > SIZE_16MB) {
-    Start = MAX (From, SIZE_16MB);
-    BufOffset = Start - From;
-    SpifmcDmmrReadSetting (This, Nor, Start, From + Length, Buffer + BufOffset, 4);
-  }
-#else
-    SpifmcDmmrReadSetting (This, Nor, From, Length, Buffer, 4);
-#endif
-
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
 SpifmcWrite (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      To,
-  IN  UINTN                      Length,
-  IN  CONST UINT8                *Buffer
+  IN  SPI_NOR     *Nor,
+  IN  UINTN       To,
+  IN  UINTN       Length,
+  IN  CONST UINT8 *Buffer
   )
 {
   INT32      Index;
@@ -448,13 +322,6 @@ SpifmcWrite (
   UINT32     Register;
   UINT32     WaitTime;
   EFI_STATUS Status;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase     = Nor->SpiBase;
   Offset      = 0;
@@ -468,8 +335,6 @@ SpifmcWrite (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->ProgramOpcode);
 
-  DEBUG ((DEBUG_INFO, "%a[%d] write: TRAN_CSR: 0x%x\n", __func__, __LINE__,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
   for (Index = Nor->AddrNbytes - 1; Index >= 0; Index--) {
     MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), (To >> Index * 8) & 0xff);
   }
@@ -520,32 +385,20 @@ SpifmcWrite (
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
 
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
-
   return EFI_SUCCESS;
 }
 
 EFI_STATUS
 EFIAPI
 SpifmcErase (
-  IN  SOPHGO_SPI_MASTER_PROTOCOL *This,
-  IN  SPI_NOR                    *Nor,
-  IN  UINTN                      Offs
+  IN  SPI_NOR *Nor,
+  IN  UINTN   Offs
   )
 {
   INT32      Index;
   UINTN      SpiBase;
   UINT32     Register;
   EFI_STATUS Status;
-  SPI_MASTER *SpiMaster;
-
-  SpiMaster = SPI_MASTER_FROM_SPI_MASTER_PROTOCOL (This);
-
-  if (!EfiAtRuntime ()) {
-    EfiAcquireLock (&SpiMaster->Lock);
-  }
 
   SpiBase = Nor->SpiBase;
 
@@ -556,8 +409,6 @@ SpifmcErase (
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
   MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), Nor->EraseOpcode);
 
-  DEBUG ((DEBUG_INFO, "%a[%d] erase: TRAN_CSR: 0x%x\n", __func__, __LINE__,
-			  MmioRead32 ((UINTN)(SpiBase + SPIFMC_TRAN_CSR))));
   for (Index = Nor->AddrNbytes - 1; Index >= 0; Index--) {
     MmioWrite8 ((UINTN)(SpiBase + SPIFMC_FIFO_PORT), (Offs >> Index * 8) & 0xff);
   }
@@ -578,10 +429,6 @@ SpifmcErase (
   }
 
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_FIFO_PT), 0);
-
-  if (!EfiAtRuntime ()) {
-    EfiReleaseLock (&SpiMaster->Lock);
-  }
 
   return EFI_SUCCESS;
 }
@@ -605,16 +452,18 @@ SpifmcInit (
   //
   // Soft reset
   //
-  MmioWrite32 (SpiBase + SPIFMC_CTRL, MmioRead32 ((UINTN)(SpiBase + SPIFMC_CTRL)) | SPIFMC_CTRL_SRST | 0x3);
+  Register = MmioRead32 ((UINTN)(SpiBase + SPIFMC_CTRL));
+  Register &= ~SPIFMC_CTRL_SCK_DIV_SHIFT_MASK;
+  Register |= SPIFMC_CTRL_SRST;
+  // SCK frequency = HCLK frequency / (2 * (SckDiv + 1))
+  Register |= 0x3;
+  MmioWrite32 (SpiBase + SPIFMC_CTRL, Register);
 
   //
   // Hardware CE contrl, soft reset cannot change the register
   //
   MmioWrite32 ((UINTN)(SpiBase + SPIFMC_CE_CTRL), 0);
 
-  //
-  // Configure TRAN_CSR for read Nor Flash ID.
-  //
   Register = Nor->AddrNbytes << SPIFMC_TRAN_CSR_ADDR_BYTES_SHIFT;
   Register |= SPIFMC_TRAN_CSR_FIFO_TRG_LVL_4_BYTE;
   Register |= SPIFMC_TRAN_CSR_WITH_CMD;
@@ -745,7 +594,7 @@ SpifmcEntryPoint (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  EfiInitializeLock (&mSpiMasterInstance->Lock, TPL_HIGH_LEVEL);
+  EfiInitializeLock (&mSpiMasterInstance->Lock, TPL_NOTIFY);
 
   mSpiMasterInstance->SpiMasterProtocol.ReadRegister   = SpifmcReadRegister;
   mSpiMasterInstance->SpiMasterProtocol.WriteRegister  = SpifmcWriteRegister;

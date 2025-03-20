@@ -1248,7 +1248,7 @@ SnpTransmit (
       CopyMem (Tmp, DwMac4Driver->RecycledTxBuf, sizeof (UINT64) * DwMac4Driver->RecycledTxBufCount);
       FreePool (DwMac4Driver->RecycledTxBuf);
       DwMac4Driver->RecycledTxBuf = Tmp;
-      DwMac4Driver->MaxRecycledTxBuf = SNP_TX_BUFFER_INCREASE;
+      DwMac4Driver->MaxRecycledTxBuf += SNP_TX_BUFFER_INCREASE;
     }
   }
 
@@ -1798,7 +1798,7 @@ DwMac4SnpDxeEntry (
   SnpMode->State           = EfiSimpleNetworkStopped;
   SnpMode->HwAddressSize   = NET_ETHER_ADDR_LEN;    // HW address is 6 bytes
   SnpMode->MediaHeaderSize = sizeof (ETHER_HEAD);
-  SnpMode->MaxPacketSize   = EFI_PAGE_SIZE;         // Preamble  SOF + Ether Frame (with VLAN tag +4bytes)
+  SnpMode->MaxPacketSize   = EFI_PAGE_SIZE;         // Preamble + SOF + Ether Frame (with VLAN tag +4bytes)
   SnpMode->NvRamSize       = 0;                     // No NVRAM with this device
   SnpMode->NvRamAccessSize = 0;                     // No NVRAM with this device
 

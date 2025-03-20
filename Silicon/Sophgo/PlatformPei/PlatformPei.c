@@ -20,7 +20,33 @@ CONST EFI_PEI_PPI_DESCRIPTOR  mPpiListBootMode = {
 };         
 
 STATIC EFI_BOOT_MODE  mBootMode = BOOT_WITH_FULL_CONFIGURATION;
+/**
+  Build memory map I/O range resource HOB using the
+  base address and size.
 
+  @param  MemoryBase     Memory map I/O base.
+  @param  MemorySize     Memory map I/O size.
+
+**/
+STATIC
+VOID
+AddIoMemoryBaseSizeHob (
+  EFI_PHYSICAL_ADDRESS  MemoryBase,
+  UINT64                MemorySize
+  )
+{
+  /* Align to EFI_PAGE_SIZE */
+  MemorySize = ALIGN_VALUE (MemorySize, EFI_PAGE_SIZE);
+  BuildResourceDescriptorHob (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    EFI_RESOURCE_ATTRIBUTE_PRESENT     |
+    EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+    EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
+    EFI_RESOURCE_ATTRIBUTE_TESTED,
+    MemoryBase,
+    MemorySize
+    );
+}
 /**
   Perform Platform PEI initialization.
 
@@ -52,6 +78,7 @@ InitializePlatform (
 
   Status = PlatformPeimInitialization ();
   ASSERT_EFI_ERROR (Status);
+
 
   //
   // Let PEI know about the DXE FV so it can find the DXE Core

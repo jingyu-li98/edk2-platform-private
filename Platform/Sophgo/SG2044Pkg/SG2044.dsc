@@ -283,6 +283,7 @@
   IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
 
   EfuseLib|Silicon/Sophgo/Library/EfuseLib/EfuseLib.inf
+  PasswordHashLib|Silicon/Sophgo/Library/PasswordHashLib/PasswordHashLib.inf
 
   #
   # Random Generator Library
@@ -292,6 +293,7 @@
 
   ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
   DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
+
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -366,17 +368,16 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
+  #
+  # Activate AcpiSdtProtocol
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 
 [PcdsFeatureFlag.common]
   ## Indicates if S3 performance data will be supported in ACPI FPDT table.
   #   TRUE  - S3 performance data will be supported in ACPI FPDT table.
   #   FALSE - S3 performance data will not be supported in ACPI FPDT table.
   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwarePerformanceDataTableS3Support|FALSE
-
-  #
-  # Activate AcpiSdtProtocol
-  #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 
 [PcdsFixedAtBuild]
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseMemory|FALSE
@@ -400,7 +401,7 @@
 !if $(TARGET) == RELEASE
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x13
 !else
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2B
 !endif
 
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -565,13 +566,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0x0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|0x0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0x0
-!endif
-
-[PcdsDynamicHii]
-!if $(ACPI_ENABLE) == TRUE
-  gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|FALSE|NV,BS
-!else
-  gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|L"ForceNoAcpi"|gOvmfVariableGuid|0x0|TRUE|NV,BS
 !endif
 
 ################################################################################
@@ -759,6 +753,12 @@
   Drivers/ASpeed/ASpeedGopBinPkg/ASpeedAst2500GopDxe.inf
 
   #
+  # iPXE Application
+  #
+  Silicon/Sophgo/SG2044/iPXE/iPXE.inf
+  MdeModulePkg/Universal/LoadFileOnFv2/LoadFileOnFv2.inf
+
+  #
   # ipmi ssif smbus driver
   #
   Silicon/Sophgo/Drivers/SmbusHcDxe/SmbusHcDxe.inf
@@ -774,13 +774,6 @@
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
   MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
-
-  #
-  # Update Firmware in Nor Flash (whole chip)
-  #
-!if $(FLASH_ENABLE) == TRUE
-  Silicon/Sophgo/Applications/FirmwareUpdate/FirmwareUpdate.inf
-!endif
 
   #
   # UEFI Application (Shell Embedded Boot Loader)
@@ -834,8 +827,6 @@
   SecurityPkg/EnrollFromDefaultKeysApp/EnrollFromDefaultKeysApp.inf
   SecurityPkg/VariableAuthenticated/SecureBootDefaultKeysDxe/SecureBootDefaultKeysDxe.inf
 !endif
-  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
-  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
 
   #
   # Bds
@@ -865,6 +856,9 @@
   Silicon/Sophgo/SG2044Pkg/Drivers/InformationDxe/InformationDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/ReserveMemoryDxe/ReserveMemoryDxe.inf
+  #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
+  #Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
 
   #
   # ACPI Support
@@ -879,4 +873,5 @@
     <LibraryClasses>
       LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
   }
+  #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
 !endif

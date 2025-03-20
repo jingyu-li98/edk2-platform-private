@@ -171,6 +171,7 @@ PlatformPeimInitialization (
   //
   PopulateIoResources (Base, "bitmain,bm-sd");
   PopulateIoResources (Base, "sophgo,sg2044-dwcmshc");
+AddIoMemoryBaseSizeHob (0x7050003000, 0x20);
 
   return EFI_SUCCESS;
 }

@@ -52,11 +52,15 @@
   UefiBootManagerLib
   SmbiosInformationLib
   ResetSystemLib
+  PasswordHashLib
 
 [Guids]
   gEfiIfrTianoGuid                              ## CONSUMES ## GUID (Extended IFR Guid Opcode)
   gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID
   gEfiSophgoGlobalVariableGuid                  ## CONSUMES ## GUID
+  gFdtTableGuid                                 ## CONSUMES ## GUID
+  gEfiAcpiTableGuid                             ## CONSUMES ## GUID
+  gEfiAcpi10TableGuid                           ## CONSUMES ## GUID
 
 [Protocols]
   gEfiSmbiosProtocolGuid                        ## CONSUMES
@@ -78,7 +82,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow                  ## CONSUMES ## SOMETIMES_PRODUCES
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution  ## CONSUMES
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution    ## CONSUMES
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString           ## CONSUMES
   gEfiMdeModulePkgTokenSpaceGuid.PcdTestKeyUsed                     ## CONSUMES
   gSophgoTokenSpaceGuid.PcdServerNamePrefix                         ## CONSUMES
 

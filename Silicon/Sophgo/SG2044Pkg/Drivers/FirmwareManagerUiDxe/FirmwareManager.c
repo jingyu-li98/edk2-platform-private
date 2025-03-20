@@ -320,8 +320,13 @@ UpdateFirmware (
   VariableSize = PcdGet32 (PcdFlashNvStorageVariableSize);
 
   BlockSize = Nor->Info->SectorSize;
-  TempBuffer = NULL;
   TempBuffer = AllocatePool (BlockSize);
+
+  if (TempBuffer == NULL) {
+    DEBUG ((DEBUG_ERROR, "Allocate temp buffer failed\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
   Status = EFI_SUCCESS;
   Count  = (Size / BlockSize);
   StringLen = StrLen (Space);
@@ -391,18 +396,16 @@ UpdateFirmware (
       }
     }
 
-    if (TempBuffer) {
-      NorFlashProtocol->ReadData (
-		      Nor,
-		      Address + Index * BlockSize,
-		      BlockSize,
-		      TempBuffer
-		      );
-      if (CompareMem (TempBuffer, Buffer + Index * BlockSize, BlockSize) == 0) {
-        gST->ConOut->SetCursorPosition (gST->ConOut, Columns, Rows);
-        Print (L"%s %02d%%%", String, ((Index + 1) * 100) / Count);
-        continue;
-      }
+    NorFlashProtocol->ReadData (
+        Nor,
+        Address + Index * BlockSize,
+        BlockSize,
+        TempBuffer
+        );
+    if (CompareMem (TempBuffer, Buffer + Index * BlockSize, BlockSize) == 0) {
+      gST->ConOut->SetCursorPosition (gST->ConOut, Columns, Rows);
+      Print (L"%s %02d%%%", String, ((Index + 1) * 100) / Count);
+      continue;
     }
 
     Status = NorFlashProtocol->Erase (
@@ -426,9 +429,32 @@ UpdateFirmware (
       goto ProExit;
     }
 
+    NorFlashProtocol->ReadData (
+        Nor,
+        Address + Index * BlockSize,
+        BlockSize,
+        TempBuffer
+        );
+    if (CompareMem (TempBuffer, Buffer + Index * BlockSize, BlockSize) != 0) {
+      Status = EFI_DEVICE_ERROR;
+      Print (L"\r%s Fail! Data compare error\n", String);
+      goto ProExit;
+    }
+
     gST->ConOut->SetCursorPosition (gST->ConOut, Columns, Rows);
 
     Print (L"%s %02d%%%", String, ((Index + 1) * 100) / Count);
+  }
+
+  Status = NorFlashProtocol->SoftReset (Nor);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: Soft Reset - %r\n",
+      __func__,
+      Status
+      ));
+    goto ProExit;
   }
 
 ProExit:
@@ -551,6 +577,25 @@ PressKeytoReset (
 
   ResetCold ();
 }
+/**
+  Press Enter to reboot.
+**/
+VOID
+PressKeytoContinue (
+  EFI_STRING_ID    TokenToUpdate
+  )
+{
+  CHAR16           Str1[64];
+  CHAR16           *UpdateSuccString;
+
+  UpdateSuccString = HiiGetString (gFirmwareUpdateHandle, TokenToUpdate, NULL);
+
+  PopupInformation (Str1, UpdateSuccString);
+
+  DEBUG ((DEBUG_VERBOSE, "The ENTER key is pressed, continue\n"));
+
+  ClearScreen();
+}
 
 /**
   Probe and initialize nor flash.
@@ -621,6 +666,7 @@ UpdateFromFile (
   BOOLEAN          PromptSkipVariable;
   EFI_STRING_ID    TokenToUpdate1;
   EFI_STRING_ID    TokenToUpdate2;
+  EFI_STRING_ID    TokenToUpdate3;
 
   //
   // Locate SPI Master protocol
@@ -652,11 +698,13 @@ UpdateFromFile (
     SelectedFlashNumber = 0;
     TokenToUpdate1 = STRING_TOKEN (STR_UPDATING_FIRMWARE);
     TokenToUpdate2 = STRING_TOKEN (STR_FIRMWARE_UPDATE_SUCC);
+    TokenToUpdate3 = STRING_TOKEN (STR_FIRMWARE_UPDATE_FAIL);
     PromptSkipVariable = TRUE;
   } else if (QuestionId == UPDATE_INI_KEY) {
     SelectedFlashNumber = 1;
     TokenToUpdate1 = STRING_TOKEN (STR_UPDATING_INI);
     TokenToUpdate2 = STRING_TOKEN (STR_INI_UPDATE_SUCC);
+    TokenToUpdate3 = STRING_TOKEN (STR_INI_UPDATE_FAIL);
     PromptSkipVariable = FALSE;
   }
 
@@ -698,7 +746,11 @@ UpdateFromFile (
 		    PromptSkipVariable
 		    );
 
-    PressKeytoReset (TokenToUpdate2);
+    if (EFI_ERROR(Status)) {
+      PressKeytoContinue (TokenToUpdate3);
+    } else {
+      PressKeytoReset (TokenToUpdate2);
+    }
   }
 
   FreePool (FileBuffer);
