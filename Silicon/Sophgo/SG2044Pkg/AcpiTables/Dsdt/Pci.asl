@@ -75,55 +75,17 @@
 
 Scope(_SB)
 {
-  LNK_DEVICE(0, RCA0, 64)
-  LNK_DEVICE(1, RCA1, 66)
-  LNK_DEVICE(2, RCA2, 65)
-  LNK_DEVICE(3, RCA3, 67)
-  LNK_DEVICE(4, RCA4, 73)
-  LNK_DEVICE(5, RCA5, 75)
-  LNK_DEVICE(6, RCA6, 74)
-  LNK_DEVICE(7, RCA7, 76)
-  LNK_DEVICE(8, RCA8, 125)
-  LNK_DEVICE(9, RCA9, 126)
 
-  Device (HED) {
-    Name (_HID, EISAID ("PNP0C33"))
-    Name (_UID, 0)
-    Name (_CRS, ResourceTemplate () {
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) { 64, 66, 65, 67, 73, 75, 74, 76, 125, 126 }
-    })
-
-    Method (_STA) {
-      Return (0xF)
-    }
-  }
-
-  Device (GED2) {
-    Name (_HID, "ACPI0013")
-    Name (_UID, 2)
-    Method(_STA) {
-      Return (0xF)
-    }
-
-    Name (_CRS, ResourceTemplate () {
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) { 64, 66, 65, 67, 73, 75, 74, 76, 125, 126 }
-    })
-
-    Method (_EVT, 1, Serialized) {
-      Switch (ToInteger(Arg0)) {
-        Case (64)  { Notify (\_SB.HED, 0x80) }
-        Case (66)  { Notify (\_SB.HED, 0x80) }
-        Case (65)  { Notify (\_SB.HED, 0x80) }
-        Case (67)  { Notify (\_SB.HED, 0x80) }
-        Case (73)  { Notify (\_SB.HED, 0x80) }
-        Case (75)  { Notify (\_SB.HED, 0x80) }
-        Case (74)  { Notify (\_SB.HED, 0x80) }
-        Case (76)  { Notify (\_SB.HED, 0x80) }
-        Case (125) { Notify (\_SB.HED, 0x80) }
-        Case (126) { Notify (\_SB.HED, 0x80) }
-      }
-    }
-  }
+  LNK_DEVICE(1, RCA0, 64)
+  LNK_DEVICE(2, RCA1, 66)
+  LNK_DEVICE(3, RCA2, 65)
+  LNK_DEVICE(4, RCA3, 67)
+  LNK_DEVICE(5, RCA4, 73)
+  LNK_DEVICE(6, RCA5, 75)
+  LNK_DEVICE(7, RCA6, 74)
+  LNK_DEVICE(8, RCA7, 76)
+  LNK_DEVICE(9, RCA8, 125)
+  LNK_DEVICE(10, RCA9, 126)
 
   // PCIe Root bus
   Device (PCI0)
@@ -143,17 +105,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA0),   // INTA
-      ROOT_PRT_ENTRY (1, RCA0),   // INTB
-      ROOT_PRT_ENTRY (2, RCA0),   // INTC
-      ROOT_PRT_ENTRY (3, RCA0),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA0),   // INTA
+      ROOT_PRT_ENTRY(1, RCA0),   // INTB
+      ROOT_PRT_ENTRY(2, RCA0),   // INTC
+      ROOT_PRT_ENTRY(3, RCA0),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -163,8 +125,8 @@ Scope(_SB)
         0x0,                // AddressGranularity
         0x0,                // AddressMinimum - Minimum Bus Number
         0xff,               // AddressMaximum - Maximum Bus Number
-        0x0,                // AddressTranslation - Set to 0
-        0x100               // RangeLength - Number of Busses
+        0x0,                  // AddressTranslation - Set to 0
+        0x100                // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -217,7 +179,7 @@ Scope(_SB)
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -292,7 +254,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI0)
+  } // Device(PCI0)
 
   // PCIe Root bus
   Device (PCI1)
@@ -300,7 +262,7 @@ Scope(_SB)
     Name (_HID, "PNP0A08") // PCI Express Root Bridge
     Name (_CID, "PNP0A03") // Compatible PCI Root Bridge
     Name (_SEG, 1)         // Segment of this Root complex
-    Name (_BBN, 0x0)       // Base Bus Number
+    Name (_BBN, 0x0)      // Base Bus Number
     Name (_CCA, 1)
 
     Method (_STA) {
@@ -313,17 +275,17 @@ Scope(_SB)
 
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA1),   // INTA
-      ROOT_PRT_ENTRY (1, RCA1),   // INTB
-      ROOT_PRT_ENTRY (2, RCA1),   // INTC
-      ROOT_PRT_ENTRY (3, RCA1),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA1),   // INTA
+      ROOT_PRT_ENTRY(1, RCA1),   // INTB
+      ROOT_PRT_ENTRY(2, RCA1),   // INTC
+      ROOT_PRT_ENTRY(3, RCA1),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package () { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -334,17 +296,17 @@ Scope(_SB)
         0x00,                   // AddressMinimum - Minimum Bus Number
         0xFF,                   // AddressMaximum - Maximum Bus Number
         0,                      // AddressTranslation - Set to 0
-        0x100                   // RangeLength - Number of Busses
+        0x100                    // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0,                   // Granularity
-        0x0008000000,          // Min Base Address
-        0x000BFFFFFF,          // Max Base Address
-        0x0000000000,          // Translate
-        0x0004000000           // Length
+        0x0,                 // Granularity
+        0x0008000000,        // Min Base Address
+        0x000BFFFFFF,        // Max Base Address
+        0x0000000000,        // Translate
+        0x0004000000         // Length
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -360,34 +322,34 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0,                 // Granularity
-        0x4600000000,        // Min Base Address pci address
-        0x47FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0,               // Granularity
+        0x4600000000,      // Min Base Address pci address
+        0x47FFFFFFFF,      // Max Base Address
+        0x0000000000,      // Translate
+        0x0200000000       // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0,                 // Granularity
-        0x4500000000,        // Min Base Address pci address
-        0x45FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0,               // Granularity
+        0x4500000000,      // Min Base Address pci address
+        0x45FFFFFFFF,      // Max Base Address
+        0x0000000000,      // Translate
+        0x0100000000       // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x4410000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x4410000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -413,8 +375,8 @@ Scope(_SB)
       Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
       {
         QWordMemory ( // dbi
-          ResourceProducer, PosDecode,
-          MinFixed, MaxFixed,
+          ResourceProducer, PosDecode, 
+          MinFixed, MaxFixed, 
           NonCacheable, ReadWrite,
           0x0000000000,                       // Granularity
           0x6C00800000,                       // Range Minimum
@@ -424,8 +386,8 @@ Scope(_SB)
           , , , AddressRangeMemory, TypeStatic)
 
         QWordMemory ( // ctrl
-          ResourceProducer, PosDecode,
-          MinFixed, MaxFixed,
+          ResourceProducer, PosDecode, 
+          MinFixed, MaxFixed, 
           NonCacheable, ReadWrite,
           0x0000000000,                       // Granularity
           0x6C00B80000,                       // Range Minimum
@@ -435,8 +397,8 @@ Scope(_SB)
           , , , AddressRangeMemory, TypeStatic)
 
         QWordMemory ( // atu
-          ResourceProducer, PosDecode,
-          MinFixed, MaxFixed,
+          ResourceProducer, PosDecode, 
+          MinFixed, MaxFixed, 
           NonCacheable, ReadWrite,
           0x0000000000,                       // Granularity
           0x6C00B00000,                       // Range Minimum
@@ -446,8 +408,8 @@ Scope(_SB)
           , , , AddressRangeMemory, TypeStatic)
 
         QWordMemory ( // config
-          ResourceProducer, PosDecode,
-          MinFixed, MaxFixed,
+          ResourceProducer, PosDecode, 
+          MinFixed, MaxFixed, 
           NonCacheable, ReadWrite,
           0x0000000000,                       // Granularity
           0x4400000000,                       // Range Minimum
@@ -461,7 +423,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI1)
+  } // Device(PCI1)
 
   // PCIe Root bus
   Device (PCI2)
@@ -481,17 +443,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package() {
-      ROOT_PRT_ENTRY (0, RCA2),   // INTA
-      ROOT_PRT_ENTRY (1, RCA2),   // INTB
-      ROOT_PRT_ENTRY (2, RCA2),   // INTC
-      ROOT_PRT_ENTRY (3, RCA2),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA2),   // INTA
+      ROOT_PRT_ENTRY(1, RCA2),   // INTB
+      ROOT_PRT_ENTRY(2, RCA2),   // INTC
+      ROOT_PRT_ENTRY(3, RCA2),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -502,7 +464,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -629,7 +591,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI2)
+  } // Device(PCI2)
 
   // PCIe Root bus
   Device (PCI3)
@@ -649,17 +611,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA3),   // INTA
-      ROOT_PRT_ENTRY (1, RCA3),   // INTB
-      ROOT_PRT_ENTRY (2, RCA3),   // INTC
-      ROOT_PRT_ENTRY (3, RCA3),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA3),   // INTA
+      ROOT_PRT_ENTRY(1, RCA3),   // INTB
+      ROOT_PRT_ENTRY(2, RCA3),   // INTC
+      ROOT_PRT_ENTRY(3, RCA3),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -670,7 +632,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -696,36 +658,36 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x4E00000000,        // Min Base Address pci address
-        0x4FFFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x4E00000000,       // Min Base Address pci address
+        0x4FFFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x4D00000000,        // Min Base Address pci address
-        0x4DFFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x4D00000000,       // Min Base Address pci address
+        0x4DFFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x4C10000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x4C10000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
-    Name (_DMA, ResourceTemplate () {
+    Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
         ,
         MinFixed,
@@ -797,15 +759,15 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI3)
+  } // Device(PCI3)
 
   // PCIe Root bus
   Device (PCI4)
   {
     Name (_HID, "PNP0A08") // PCI Express Root Bridge
     Name (_CID, "PNP0A03") // Compatible PCI Root Bridge
-    Name (_SEG, 0x4)       // Segment of this Root complex
-    Name (_BBN, 0x0)       // Base Bus Number
+    Name (_SEG, 0x4)         // Segment of this Root complex
+    Name (_BBN, 0x0)      // Base Bus Number
     Name (_CCA, 1)
 
     Method (_STA) {
@@ -817,17 +779,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA4),   // INTA
-      ROOT_PRT_ENTRY (1, RCA4),   // INTB
-      ROOT_PRT_ENTRY (2, RCA4),   // INTC
-      ROOT_PRT_ENTRY (3, RCA4),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA4),   // INTA
+      ROOT_PRT_ENTRY(1, RCA4),   // INTB
+      ROOT_PRT_ENTRY(2, RCA4),   // INTC
+      ROOT_PRT_ENTRY(3, RCA4),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -838,7 +800,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -864,34 +826,34 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5200000000,        // Min Base Address pci address
-        0x53FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x5200000000,       // Min Base Address pci address
+        0x53FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5100000000,        // Min Base Address pci address
-        0x51FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x5100000000,       // Min Base Address pci address
+        0x51FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x5010000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x5010000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -965,15 +927,15 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI4)
+  } // Device(PCI4)
 
   // PCIe Root bus
   Device (PCI5)
   {
     Name (_HID, "PNP0A08") // PCI Express Root Bridge
     Name (_CID, "PNP0A03") // Compatible PCI Root Bridge
-    Name (_SEG, 0x5)       // Segment of this Root complex
-    Name (_BBN, 0x0)       // Base Bus Number
+    Name (_SEG, 0x5)         // Segment of this Root complex
+    Name (_BBN, 0x0)      // Base Bus Number
     Name (_CCA, 1)
 
     Method (_STA) {
@@ -985,17 +947,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA5),   // INTA
-      ROOT_PRT_ENTRY (1, RCA5),   // INTB
-      ROOT_PRT_ENTRY (2, RCA5),   // INTC
-      ROOT_PRT_ENTRY (3, RCA5),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA5),   // INTA
+      ROOT_PRT_ENTRY(1, RCA5),   // INTB
+      ROOT_PRT_ENTRY(2, RCA5),   // INTC
+      ROOT_PRT_ENTRY(3, RCA5),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -1006,7 +968,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -1032,36 +994,36 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5600000000,        // Min Base Address pci address
-        0x57FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x5600000000,       // Min Base Address pci address
+        0x57FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5500000000,        // Min Base Address pci address
-        0x55FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x5500000000,       // Min Base Address pci address
+        0x55FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                // Granularity
-        0x0000000000,       // Min Base Address
-        0x00001FFFFF,       // Max Base Address
-        0x5410000000,       // Translate
-        0x0000200000        // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x5410000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
-    Name (_DMA, ResourceTemplate () {
+    Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
         ,
         MinFixed,
@@ -1078,7 +1040,7 @@ Scope(_SB)
         )
     })
 
-    Device (RES5)
+    Device (RES4)
     {
       Name (_HID, "SOPH0000" /* PNP Motherboard Resources */)  // _HID: Hardware ID
       Name (_UID, 0x5)  // Unique ID
@@ -1133,7 +1095,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI5)
+  } // Device(PCI5)
 
   // PCIe Root bus
   Device (PCI6)
@@ -1153,17 +1115,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA6),   // INTA
-      ROOT_PRT_ENTRY (1, RCA6),   // INTB
-      ROOT_PRT_ENTRY (2, RCA6),   // INTC
-      ROOT_PRT_ENTRY (3, RCA6),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA6),   // INTA
+      ROOT_PRT_ENTRY(1, RCA6),   // INTB
+      ROOT_PRT_ENTRY(2, RCA6),   // INTC
+      ROOT_PRT_ENTRY(3, RCA6),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -1174,7 +1136,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -1200,34 +1162,34 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5A00000000,        // Min Base Address pci address
-        0x5BFFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x5A00000000,       // Min Base Address pci address
+        0x5BFFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5900000000,        // Min Base Address pci address
-        0x59FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x5900000000,       // Min Base Address pci address
+        0x59FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x5810000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x5810000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -1246,7 +1208,7 @@ Scope(_SB)
         )
     })
 
-    Device (RES6)
+    Device (RES4)
     {
       Name (_HID, "SOPH0000" /* PNP Motherboard Resources */)  // _HID: Hardware ID
       Name (_UID, 0x6)  // Unique ID
@@ -1301,15 +1263,15 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI6)
+  } // Device(PCI6)
 
   // PCIe Root bus
   Device (PCI7)
   {
     Name (_HID, "PNP0A08") // PCI Express Root Bridge
     Name (_CID, "PNP0A03") // Compatible PCI Root Bridge
-    Name (_SEG, 0x7)       // Segment of this Root complex
-    Name (_BBN, 0x0)       // Base Bus Number
+    Name (_SEG, 0x7)         // Segment of this Root complex
+    Name (_BBN, 0x0)      // Base Bus Number
     Name (_CCA, 1)
 
     Method (_STA) {
@@ -1321,17 +1283,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA7),   // INTA
-      ROOT_PRT_ENTRY (1, RCA7),   // INTB
-      ROOT_PRT_ENTRY (2, RCA7),   // INTC
-      ROOT_PRT_ENTRY (3, RCA7),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA7),   // INTA
+      ROOT_PRT_ENTRY(1, RCA7),   // INTB
+      ROOT_PRT_ENTRY(2, RCA7),   // INTC
+      ROOT_PRT_ENTRY(3, RCA7),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -1342,7 +1304,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -1368,34 +1330,34 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5E00000000,        // Min Base Address pci address
-        0x5FFFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x5E00000000,       // Min Base Address pci address
+        0x5FFFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x5D00000000,        // Min Base Address pci address
-        0x5DFFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x5D00000000,       // Min Base Address pci address
+        0x5DFFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x5C10000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x5C10000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -1414,7 +1376,7 @@ Scope(_SB)
         )
     })
 
-    Device (RES7)
+    Device (RES4)
     {
       Name (_HID, "SOPH0000" /* PNP Motherboard Resources */)  // _HID: Hardware ID
       Name (_UID, 0x7)  // Unique ID
@@ -1469,7 +1431,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI7)
+  } // Device(PCI7)
 
   // PCIe Root bus
   Device (PCI8)
@@ -1489,17 +1451,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA8),   // INTA
-      ROOT_PRT_ENTRY (1, RCA8),   // INTB
-      ROOT_PRT_ENTRY (2, RCA8),   // INTC
-      ROOT_PRT_ENTRY (3, RCA8),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA8),   // INTA
+      ROOT_PRT_ENTRY(1, RCA8),   // INTB
+      ROOT_PRT_ENTRY(2, RCA8),   // INTC
+      ROOT_PRT_ENTRY(3, RCA8),   // INTD
     })
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -1510,7 +1472,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -1536,34 +1498,34 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x6200000000,        // Min Base Address pci address
-        0x63FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x6200000000,       // Min Base Address pci address
+        0x63FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x6100000000,        // Min Base Address pci address
-        0x61FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x6100000000,       // Min Base Address pci address
+        0x61FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x6010000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x6010000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
     Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
@@ -1582,7 +1544,7 @@ Scope(_SB)
         )
     })
 
-    Device (RES8)
+    Device (RES4)
     {
       Name (_HID, "SOPH0000" /* PNP Motherboard Resources */)  // _HID: Hardware ID
       Name (_UID, 0x8)  // Unique ID
@@ -1637,7 +1599,7 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI8)
+  } // Device(PCI8)
 
   // PCIe Root bus
   Device (PCI9)
@@ -1657,17 +1619,17 @@ Scope(_SB)
     })
 
     // PCI Routing Table
-    Name (_PRT, Package () {
-      ROOT_PRT_ENTRY (0, RCA9),   // INTA
-      ROOT_PRT_ENTRY (1, RCA9),   // INTB
-      ROOT_PRT_ENTRY (2, RCA9),   // INTC
-      ROOT_PRT_ENTRY (3, RCA9),   // INTD
+    Name(_PRT, Package() {
+      ROOT_PRT_ENTRY(0, RCA9),   // INTA
+      ROOT_PRT_ENTRY(1, RCA9),   // INTB
+      ROOT_PRT_ENTRY(2, RCA9),   // INTC
+      ROOT_PRT_ENTRY(3, RCA9),   // INTD
     })
 
     Name (_DSD, Package () {
-      ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+      ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "interrupt-parent" , Package() { \_SB.MSI } },
+        Package () { "interrupt-parent" , Package() { \_SB.MSI }},
       }
     })
 
@@ -1678,7 +1640,7 @@ Scope(_SB)
         0x00,                // AddressMinimum - Minimum Bus Number
         0xFF,                // AddressMaximum - Maximum Bus Number
         0,                   // AddressTranslation - Set to 0
-        0x100                // RangeLength - Number of Busses
+        0x100                 // RangeLength - Number of Busses
       )
       QWordMemory ( // 32-bit BAR Windows
         ResourceProducer, PosDecode,
@@ -1704,36 +1666,36 @@ Scope(_SB)
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Prefetchable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x6600000000,        // Min Base Address pci address
-        0x67FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0200000000         // Length
+        0x0000000000,       // Granularity
+        0x6600000000,       // Min Base Address pci address
+        0x67FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0200000000        // Length
       )
       QWordMemory ( // 64-bit BAR Windows
         ResourceProducer, PosDecode,
         MinFixed, MaxFixed,
         Cacheable, ReadWrite,
-        0x0000000000,        // Granularity
-        0x6500000000,        // Min Base Address pci address
-        0x65FFFFFFFF,        // Max Base Address
-        0x0000000000,        // Translate
-        0x0100000000         // Length
+        0x0000000000,       // Granularity
+        0x6500000000,       // Min Base Address pci address
+        0x65FFFFFFFF,       // Max Base Address
+        0x0000000000,       // Translate
+        0x0100000000        // Length
       )
       QWordIO (
         ResourceProducer, MinFixed, MaxFixed,
         PosDecode, EntireRange,
-        0x0,                 // Granularity
-        0x0000000000,        // Min Base Address
-        0x00001FFFFF,        // Max Base Address
-        0x6410000000,        // Translate
-        0x0000200000         // Length
+        0x0,               // Granularity
+        0x0000000000,      // Min Base Address
+        0x00001FFFFF,      // Max Base Address
+        0x6410000000,      // Translate
+        0x0000200000       // Length
       )
     })
 
-    PCI_OSC_SUPPORT ()
+    PCI_OSC_SUPPORT()
 
-    Name (_DMA, ResourceTemplate () {
+    Name (_DMA, ResourceTemplate() {
       QWordMemory (ResourceProducer,
         ,
         MinFixed,
@@ -1750,7 +1712,7 @@ Scope(_SB)
         )
     })
 
-    Device (RES9)
+    Device (RES4)
     {
       Name (_HID, "SOPH0000" /* PNP Motherboard Resources */)  // _HID: Hardware ID
       Name (_UID, 0x9)  // Unique ID
@@ -1805,5 +1767,5 @@ Scope(_SB)
       }
     }
 
-  } // Device (PCI9)
+  } // Device(PCI9)
 }

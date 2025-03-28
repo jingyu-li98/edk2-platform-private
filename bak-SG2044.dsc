@@ -43,7 +43,7 @@
   DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
   DEFINE FLASH_ENABLE             = TRUE
-  DEFINE ETH_ENABLE               = TRUE
+  DEFINE ETH_ENABLE               = FALSE
   DEFINE ACPI_ENABLE              = TRUE
 
   #
@@ -283,6 +283,7 @@
   IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
 
   EfuseLib|Silicon/Sophgo/Library/EfuseLib/EfuseLib.inf
+  PasswordHashLib|Silicon/Sophgo/Library/PasswordHashLib/PasswordHashLib.inf
 
   #
   # Random Generator Library
@@ -292,6 +293,9 @@
 
   ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
   DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
+  DxeRiscVMpxyLib|MdePkg/Library/DxeRiscVMpxyLib/DxeRiscVMpxy.inf
+  DxeRiscVRasAgentClientLib|MdePkg/Library/DxeRiscVRasAgentClientLib/DxeRiscVRasAgentClientLib.inf
+
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -366,17 +370,16 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
+  #
+  # Activate AcpiSdtProtocol
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 
 [PcdsFeatureFlag.common]
   ## Indicates if S3 performance data will be supported in ACPI FPDT table.
   #   TRUE  - S3 performance data will be supported in ACPI FPDT table.
   #   FALSE - S3 performance data will not be supported in ACPI FPDT table.
   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwarePerformanceDataTableS3Support|FALSE
-
-  #
-  # Activate AcpiSdtProtocol
-  #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 
 [PcdsFixedAtBuild]
   gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseMemory|FALSE
@@ -400,7 +403,7 @@
 !if $(TARGET) == RELEASE
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x13
 !else
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2B
 !endif
 
 !ifdef $(SOURCE_DEBUG_ENABLE)
@@ -855,8 +858,7 @@
   Silicon/Sophgo/SG2044Pkg/Drivers/InformationDxe/InformationDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/ReserveMemoryDxe/ReserveMemoryDxe.inf
-  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
-  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
+  #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
 
   #
   # ACPI Support
@@ -871,5 +873,6 @@
     <LibraryClasses>
       LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
   }
+  MdeModulePkg/Universal/Acpi/AcpiHardwareErrorTableDxe/HardwareErrorSourceTableDxe.inf
   #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
 !endif

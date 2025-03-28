@@ -16,7 +16,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 #include <IndustryStandard/Acpi65.h>
-#include "Common.h"
+#include <Include/SG2044AcpiHeader.h>
 
 //
 // Default ACPI table information

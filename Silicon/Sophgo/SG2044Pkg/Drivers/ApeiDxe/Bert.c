@@ -25,7 +25,7 @@ BertHeaderCreator (
   IN BERT_CONTEXT  *Context
   )
 {
-  UINT8  AcpiOemId[6] = ACPI_OEM_ID;
+  EFI_ACPI_DESCRIPTION_HEADER  Header;
 
   if (Context == NULL) {
     DEBUG ((DEBUG_ERROR, "%a: Invalid Context parameter\n", __func__));
@@ -39,16 +39,18 @@ BertHeaderCreator (
   }
 
   //
-  // Initialize minimal BERT header according to ACPI 6.5 specification
+  // Initialize BERT header using RISCV_ACPI_HEADER macro
   //
-  Context->BertHeader->Header.Signature = EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_SIGNATURE;
-  Context->BertHeader->Header.Length = sizeof (EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_HEADER);
-  Context->BertHeader->Header.Revision = EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_REVISION;
-  CopyMem (Context->BertHeader->Header.OemId, AcpiOemId, sizeof (AcpiOemId));
-  Context->BertHeader->Header.OemTableId = ACPI_OEM_TABLE_ID;
-  Context->BertHeader->Header.OemRevision = ACPI_OEM_REVISION;
-  Context->BertHeader->Header.CreatorId = ACPI_CREATOR_ID;
-  Context->BertHeader->Header.CreatorRevision = ACPI_CREATOR_REVISION;
+  Header = (EFI_ACPI_DESCRIPTION_HEADER) RISCV_ACPI_HEADER (
+    EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_SIGNATURE,
+    EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_HEADER,
+    EFI_ACPI_6_5_BOOT_ERROR_RECORD_TABLE_REVISION
+    );
+
+  //
+  // Copy header to BERT table
+  //
+  CopyMem (&Context->BertHeader->Header, &Header, sizeof (EFI_ACPI_DESCRIPTION_HEADER));
 
   //
   // Initialize BERT specific fields

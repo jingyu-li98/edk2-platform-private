@@ -24,7 +24,6 @@
 #include <Library/IniParserLib.h>
 #include <Protocol/FdtClient.h>
 
-#include <Include/Tpcm.h>
 #include "DwMac4SnpDxe.h"
 #include "DwMac4DxeUtil.h"
 
@@ -1572,120 +1571,6 @@ DwMac4SnpDxeEntry (
   FDT_CLIENT_PROTOCOL               *FdtClient;
 
   Handle = NULL;
-
-  UINT32                ShelfLife;
-  TPCM_STATUS           *TpcmInfo;
-  SOPHGO_TPCM_PROTOCOL  *TpcmProtocol;
-  BOOLEAN               IsEnabled;
-
-  ShelfLife = 0;
-  IsEnabled = TRUE;
-  TpcmInfo = AllocateZeroPool (sizeof (TPCM_STATUS));
-  if (TpcmInfo == NULL) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Allocate TPCM INFO failed!\n",
-      __func__
-      ));
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  //
-  // Locate TPCM protocol
-  //
-  Status = gBS->LocateProtocol (
-		  &gSophgoTpcmProtocolGuid,
-		  NULL,
-		  (VOID **)&TpcmProtocol
-		  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Cannot locate TPCM protocol!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
-
-  //
-  // Init TPCM
-  //
-  Status = TpcmProtocol->InitTpcm ();
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Init TPCM failed!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
-
-  //
-  // Get TPCM License remaining days
-  //
-  Status = TpcmProtocol->GetTpcmLicense (&ShelfLife);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Get TPCM license remaining days failed!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
-
-  DEBUG ((DEBUG_INFO, "%a(): Remaining days: %d\n", __func__, ShelfLife));
-
-  //
-  // Get TPCM Information
-  //
-  Status = TpcmProtocol->GetTpcmStatus (TpcmInfo);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Get TPCM status failed!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
-
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeHostTime: 0x%llx\n", __func__, TpcmInfo->BeHostTime));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeTpcmType: %d\n", __func__, TpcmInfo->BeTpcmType));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeTpcmTotalFlash: 0x%lx\n", __func__, TpcmInfo->BeTpcmTotalFlash));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeTpcmWhiltelistAvaiFlash: 0x%lx\n", __func__, TpcmInfo->BeTpcmWhiltelistAvaiFlash));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeTpcmFirmwareVersion: 0x%lx\n", __func__, TpcmInfo->BeTpcmFirmwareVersion));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM BeSmkGenerated: %d\n", __func__, TpcmInfo->BeSmkGenerated));
-  DEBUG ((DEBUG_INFO, "%a(): TPCM ID: %s\n", __func__, TpcmInfo->TpcmId));
-
-  Status = TpcmProtocol->GetTpcmCtrlStatus (TpcmInfo, &IsEnabled);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Get TPCM control status failed!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
-
-  DEBUG ((DEBUG_INFO, "TPCM is %s!\n", IsEnabled ? L"enabled" : L"disabled"));
-
-  //
-  // Disable TPCM
-  //
-  Status = TpcmProtocol->SetTpcmCtrlStatus (TpcmInfo, FALSE);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "%a(): Set TPCM control status failed!\n",
-      __func__
-      ));
-    FreePool (TpcmInfo);
-    return Status;
-  }
 
   //
   // Extract reg addr from device tree

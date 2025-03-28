@@ -13,7 +13,7 @@
 [Defines]
   INF_VERSION                    = 0x0001001B
   BASE_NAME                      = SophgoApeiDxe
-  FILE_GUID                      = 1550ac96-4a6a-414e-9a7f-9abac2152aec
+  FILE_GUID                      = 1550AC96-4A6A-414E-9A7F-9ABAC2152AEC
   MODULE_TYPE                    = DXE_DRIVER
   VERSION_STRING                 = 1.0
   ENTRY_POINT                    = ApeiDriverEntryPoint
@@ -30,7 +30,9 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
   Silicon/Sophgo/Sophgo.dec
+  Silicon/Sophgo/SG2044Pkg/SG2044Pkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -42,11 +44,12 @@
   UefiDriverEntryPoint
   UefiLib
   UefiRuntimeServicesTableLib
-  IniParserLib
+  DxeServicesTableLib
 
 [Protocols]
   gEfiAcpiTableProtocolGuid                   ## CONSUMES
   gEfiAcpiSdtProtocolGuid                     ## CONSUMES
+  gFdtClientProtocolGuid                      ## CONSUMES
 
 [Pcd]
   #gSophgoTokenSpaceGuid.PcdRasMemoryBase

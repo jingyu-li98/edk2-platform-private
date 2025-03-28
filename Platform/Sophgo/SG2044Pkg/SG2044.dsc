@@ -30,7 +30,7 @@
   # Defines for default states.  These can be changed on the command line.
   # -D FLAG=VALUE
   #
-  DEFINE SECURE_BOOT_ENABLE      = FALSE
+  DEFINE SECURE_BOOT_ENABLE      = TRUE
   DEFINE DEBUG_ON_SERIAL_PORT    = TRUE
 
   #
@@ -43,7 +43,7 @@
   DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
   DEFINE FLASH_ENABLE             = TRUE
-  DEFINE ETH_ENABLE               = TRUE
+  DEFINE ETH_ENABLE               = FALSE
   DEFINE ACPI_ENABLE              = TRUE
 
   #
@@ -277,13 +277,15 @@
   # Nor Flash Library
   NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
 
+  # Hash Password
+  HashPasswordLib|Silicon/Sophgo/Library/HashPasswordLib/HashPasswordLib.inf
+
   # Ds1307 RTC Library
   RealTimeClockLib|Silicon/Sophgo/Library/Ds1307RealTimeClockLib/Ds1307RealTimeClockLib.inf
 
   IniParserLib|Silicon/Sophgo/Library/IniParserLib/IniParserLib.inf
 
   EfuseLib|Silicon/Sophgo/Library/EfuseLib/EfuseLib.inf
-  PasswordHashLib|Silicon/Sophgo/Library/PasswordHashLib/PasswordHashLib.inf
 
   #
   # Random Generator Library
@@ -293,7 +295,6 @@
 
   ResetSystemLib|OvmfPkg/RiscVVirt/Library/ResetSystemLib/BaseResetSystemLib.inf
   DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
-
 [LibraryClasses.common.SEC]
   ReportStatusCodeLib|MdeModulePkg/Library/PeiReportStatusCodeLib/PeiReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
@@ -856,9 +857,6 @@
   Silicon/Sophgo/SG2044Pkg/Drivers/InformationDxe/InformationDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/PasswordConfigDxe/PasswordConfigUiDxe.inf
   Silicon/Sophgo/SG2044Pkg/Drivers/ReserveMemoryDxe/ReserveMemoryDxe.inf
-  #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
-  Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmDxe.inf
-  #Silicon/Sophgo/SG2044Pkg/Drivers/TpcmDxe/TpcmImageVerify.inf
 
   #
   # ACPI Support
@@ -869,9 +867,9 @@
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   Silicon/Sophgo/SG2044Pkg/AcpiTables/SG2044AcpiTables.inf
   Silicon/Sophgo/SG2044Pkg/Pptt/Pptt.inf
+  Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
   MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf {
     <LibraryClasses>
       LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
   }
-  #Silicon/Sophgo/SG2044Pkg/Drivers/ApeiDxe/ApeiDxe.inf
 !endif

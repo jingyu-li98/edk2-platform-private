@@ -21,7 +21,7 @@
 
 #define MAX_BERT_TABLES  2
 #define MAX_HEST_TABLES  5
-#define MAX_GHES        10
+#define MAX_GHES         42
 
 //
 // APEI Trusted Firmware Data Structure

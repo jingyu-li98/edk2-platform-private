@@ -17,3 +17,4 @@
 [BuildOptions]
   MSFT:*_*_*_CC_FLAGS = /W4
   GCC:*_*_*_CC_FLAGS = -Wall -Wextra
+  *_*_*_CC_FLAGS = -I$(WORKSPACE)/edk2-platforms/Silicon/Sophgo/SG2044Pkg/Include

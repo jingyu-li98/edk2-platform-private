@@ -20,6 +20,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/DxeServicesTableLib.h>
 #include <Protocol/AcpiTable.h>
 #include <Protocol/AcpiSystemDescriptionTable.h>
 #include <Guid/Cper.h>
@@ -27,6 +28,7 @@
 #include "Bert.h"
 #include "Hest.h"
 
+#define MAX_ERROR_SOURCES   0x1000
 //
 // Error section GUIDs
 //
@@ -38,7 +40,6 @@ EFI_GUID gEfiPlatformMemoryErrorSectionGuid = EFI_ERROR_SECTION_PLATFORM_MEMORY_
 //
 EFI_ACPI_TABLE_PROTOCOL         *mAcpiTableProtocol = NULL;
 EFI_ACPI_SDT_PROTOCOL           *mAcpiSdtProtocol = NULL;
-APEI_TRUSTED_FIRMWARE_STRUCTURE *mApeiTrustedfirmwareData;
 
 //
 // Error handling statistics
@@ -122,6 +123,12 @@ ERROR_SOURCE_HANDLER mErrorHandlers[] = {
   },
   { NULL, NULL, NULL } // Terminator
 };
+
+//
+// Add HEST and BERT table key definitions
+//
+UINTN                          mHestTableKey = 0;
+UINTN                          mBertTableKey = 0;
 
 /**
   Handle PCIe AER error.
@@ -288,88 +295,88 @@ HandleDdrEccError (
   return Status;
 }
 
-/**
-  Register error handlers with GHES.
+// /**
+//   Register error handlers with GHES.
 
-  @param[in] GhesV2  Pointer to GHES v2 structure
+//   @param[in] GhesV2  Pointer to GHES v2 structure
 
-  @retval EFI_SUCCESS           Handlers registered successfully
-  @retval EFI_ALREADY_STARTED   Handlers already registered
-  @retval Others                Registration failed
-**/
-STATIC
-EFI_STATUS
-RegisterErrorHandlers (
-  IN EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE *GhesV2
-  )
-{
-  ERROR_SOURCE_HANDLER *Handler;
+//   @retval EFI_SUCCESS           Handlers registered successfully
+//   @retval EFI_ALREADY_STARTED   Handlers already registered
+//   @retval Others                Registration failed
+// **/
+// STATIC
+// EFI_STATUS
+// RegisterErrorHandlers (
+//   IN EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE *GhesV2
+//   )
+// {
+//   ERROR_SOURCE_HANDLER *Handler;
 
-  //
-  // Define GSI mapping for HED devices
-  //
-  static const UINT32 HedGsiMap[] = {
-    64,  // HED0
-    66,  // HED1
-    65,  // HED2
-    67,  // HED3
-    73,  // HED4
-    75,  // HED5
-    74,  // HED6
-    76,  // HED7
-    125, // HED8
-    126  // HED9
-  };
+//   //
+//   // Define GSI mapping for HED devices
+//   //
+//   static const UINT32 HedGsiMap[] = {
+//     64,  // HED0
+//     66,  // HED1
+//     65,  // HED2
+//     67,  // HED3
+//     73,  // HED4
+//     75,  // HED5
+//     74,  // HED6
+//     76,  // HED7
+//     125, // HED8
+//     126  // HED9
+//   };
 
-  //
-  // Register each handler
-  //
-  for (Handler = mErrorHandlers; Handler->ErrorType != NULL; Handler++) {
-    if (CompareGuid (Handler->ErrorType, &gEfiPcieErrorSectionGuid)) {
-      if (mHandlerStatus.PcieAerHandlerRegistered) {
-        continue;
-      }
+//   //
+//   // Register each handler
+//   //
+//   for (Handler = mErrorHandlers; Handler->ErrorType != NULL; Handler++) {
+//     if (CompareGuid (Handler->ErrorType, &gEfiPcieErrorSectionGuid)) {
+//       if (mHandlerStatus.PcieAerHandlerRegistered) {
+//         continue;
+//       }
       
-      //
-      // Configure GHES to match HED AER device
-      //
-      GhesV2->Enabled = TRUE;
-      GhesV2->ErrorStatusBlockLength = sizeof(EFI_PCIE_ERROR_DATA);
+//       //
+//       // Configure GHES to match HED AER device
+//       //
+//       GhesV2->Enabled = TRUE;
+//       GhesV2->ErrorStatusBlockLength = sizeof(EFI_PCIE_ERROR_DATA);
       
-      // Configure notification structure for GED2
-      GhesV2->NotificationStructure.Type = EFI_ACPI_6_5_HARDWARE_ERROR_NOTIFICATION_GSIV;
-      GhesV2->NotificationStructure.Vector = HedGsiMap[GhesV2->SourceId];
-      GhesV2->NotificationStructure.PollInterval = 0;  // Not used for GSIV
-      GhesV2->NotificationStructure.SwitchToPollingThresholdValue = 0;
-      GhesV2->NotificationStructure.SwitchToPollingThresholdWindow = 0;
-      GhesV2->NotificationStructure.ErrorThresholdValue = 0;
-      GhesV2->NotificationStructure.ErrorThresholdWindow = 0;
+//       // Configure notification structure for GED2
+//       GhesV2->NotificationStructure.Type = EFI_ACPI_6_5_HARDWARE_ERROR_NOTIFICATION_GSIV;
+//       GhesV2->NotificationStructure.Vector = HedGsiMap[GhesV2->SourceId];
+//       GhesV2->NotificationStructure.PollInterval = 0;  // Not used for GSIV
+//       GhesV2->NotificationStructure.SwitchToPollingThresholdValue = 0;
+//       GhesV2->NotificationStructure.SwitchToPollingThresholdWindow = 0;
+//       GhesV2->NotificationStructure.ErrorThresholdValue = 0;
+//       GhesV2->NotificationStructure.ErrorThresholdWindow = 0;
       
-      mHandlerStatus.PcieAerHandlerRegistered = TRUE;
-      DEBUG ((DEBUG_INFO, "Registered PCIe AER handler for HED%d (GSI: %d)\n", 
-              GhesV2->SourceId, GhesV2->NotificationStructure.Vector));
+//       mHandlerStatus.PcieAerHandlerRegistered = TRUE;
+//       DEBUG ((DEBUG_INFO, "Registered PCIe AER handler for HED%d (GSI: %d)\n", 
+//               GhesV2->SourceId, GhesV2->NotificationStructure.Vector));
 
-    } else if (CompareGuid (Handler->ErrorType, &gEfiPlatformMemoryErrorSectionGuid)) {
-      if (mHandlerStatus.DdrEccHandlerRegistered) {
-        continue; 
-      }
-#if 0
-      //
-      // Configure GHES for DDR ECC
-      //
-      GhesV2->Enabled = TRUE;
-      GhesV2->ErrorStatusBlockLength = sizeof(EFI_MEMORY_ERROR_SECTION);
-      GhesV2->NotificationStructure.Type = EFI_ACPI_6_5_HARDWARE_ERROR_NOTIFICATION_GSIV;
-      GhesV2->NotificationStructure.Vector = PcdGet32(PcdDdrEccGsiv);
+//     } else if (CompareGuid (Handler->ErrorType, &gEfiPlatformMemoryErrorSectionGuid)) {
+//       if (mHandlerStatus.DdrEccHandlerRegistered) {
+//         continue; 
+//       }
+// #if 0
+//       //
+//       // Configure GHES for DDR ECC
+//       //
+//       GhesV2->Enabled = TRUE;
+//       GhesV2->ErrorStatusBlockLength = sizeof(EFI_MEMORY_ERROR_SECTION);
+//       GhesV2->NotificationStructure.Type = EFI_ACPI_6_5_HARDWARE_ERROR_NOTIFICATION_GSIV;
+//       GhesV2->NotificationStructure.Vector = PcdGet32(PcdDdrEccGsiv);
 
-      mHandlerStatus.DdrEccHandlerRegistered = TRUE;
-#endif
-      DEBUG ((DEBUG_INFO, "Registered DDR ECC handler\n"));
-    }
-  }
+//       mHandlerStatus.DdrEccHandlerRegistered = TRUE;
+// #endif
+//       DEBUG ((DEBUG_INFO, "Registered DDR ECC handler\n"));
+//     }
+//   }
 
-  return EFI_SUCCESS;
-}
+//   return EFI_SUCCESS;
+// }
 
 /**
   Initialize HEST table and register error handlers.
@@ -383,8 +390,23 @@ InitHestTable (
   )
 {
   EFI_STATUS Status;
-  EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE GhesV2[MAX_GHES];
+  EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE *GhesV2;
   UINT8 Index;
+  UINT8 TotalErrorSources;
+
+  //
+  // Get total number of error sources from Hest.c
+  //
+  TotalErrorSources = GetTotalErrorSources ();
+
+  //
+  // Allocate memory for GHES structures
+  //
+  GhesV2 = AllocateZeroPool (TotalErrorSources * sizeof (EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE));
+  if (GhesV2 == NULL) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to allocate GHES structures\n", __func__));
+    return EFI_OUT_OF_RESOURCES;
+  }
 
   //
   // Create HEST header
@@ -392,34 +414,36 @@ InitHestTable (
   Status = HestHeaderCreator (&mHestContext, HEST_TABLE_SIZE);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "%a: Failed to create HEST header - %r\n", __func__, Status));
+    FreePool (GhesV2);
     return Status;
   }
 
   //
   // Initialize GHES structures
   //
-  Status = GhesV2ContextForHest (GhesV2, MAX_GHES);
+  Status = GhesV2ContextForHest (GhesV2, TotalErrorSources);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "%a: Failed to create GHES context - %r\n", __func__, Status));
+    FreePool (GhesV2);
     return Status;
   }
 
   //
   // Register error handlers
   //
-  for (Index = 0; Index < MAX_GHES; Index++) {
-    Status = RegisterErrorHandlers (&GhesV2[Index]);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "%a: Failed to register handlers for GHES[%d] - %r\n",
-              __func__, Index, Status));
-      return Status;
-    }
-  }
+  // for (Index = 0; Index < MAX_GHES; Index++) {
+  //   Status = RegisterErrorHandlers (&GhesV2[Index]);
+  //   if (EFI_ERROR (Status)) {
+  //     DEBUG ((DEBUG_ERROR, "%a: Failed to register handlers for GHES[%d] - %r\n",
+  //             __func__, Index, Status));
+  //     return Status;
+  //   }
+  // }
 
   //
   // Add error source descriptors to HEST
   //
-  for (Index = 0; Index < MAX_GHES; Index++) {
+  for (Index = 0; Index < TotalErrorSources; Index++) {
     Status = HestAddErrorSourceDescriptor (
                &mHestContext,
                &GhesV2[Index],
@@ -428,8 +452,67 @@ InitHestTable (
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_ERROR, "%a: Failed to add error source %d - %r\n", 
               __func__, Index, Status));
+      FreePool (GhesV2);
       return Status;
     }
+  }
+
+  //
+  // Free allocated memory
+  //
+  FreePool (GhesV2);
+
+  //
+  // Install HEST table
+  //
+  Status = mAcpiTableProtocol->InstallAcpiTable (
+                                mAcpiTableProtocol,
+                                mHestContext.HestHeader,
+                                mHestContext.HestHeader->Header.Length,
+                                &mHestTableKey
+                                );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to install HEST table - %r\n", Status));
+    return Status;
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
+  Initialize BERT table.
+
+  @retval EFI_SUCCESS           BERT initialized successfully
+  @retval Others                Initialization failed
+**/
+EFI_STATUS
+InitBertTable (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+
+  //
+  // Initialize BERT table using Bert.c implementation
+  //
+  Status = BertInitTable ();
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to initialize BERT table - %r\n", Status));
+    return Status;
+  }
+
+  //
+  // Install BERT table
+  //
+  Status = mAcpiTableProtocol->InstallAcpiTable (
+                                mAcpiTableProtocol,
+                                mBertContext.BertHeader,
+                                mBertContext.BertHeader->Header.Length,
+                                &mBertTableKey
+                                );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to install BERT table - %r\n", Status));
+    return Status;
   }
 
   return EFI_SUCCESS;
@@ -453,6 +536,34 @@ ApeiDriverEntryPoint (
   )
 {
   EFI_STATUS  Status;
+
+  //
+  // Map GHES memory regions
+  //
+  Status = gDS->AddMemorySpace (
+                  EfiGcdMemoryTypeSystemMemory,  // Change to system memory
+                  SHARED_MEMORY_BASE,
+                  EFI_SIZE_TO_PAGES(sizeof(GHES_REGISTER) * MAX_ERROR_SOURCES) * EFI_PAGE_SIZE,
+                  EFI_MEMORY_WB | EFI_MEMORY_RUNTIME  // Use write-back caching
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to add shared memory space - %r\n", __func__, Status));
+    return Status;
+  }
+
+  //
+  // Allocate and map the memory
+  //
+  Status = gBS->AllocatePages (
+                  AllocateAddress,
+                  EfiRuntimeServicesData,
+                  EFI_SIZE_TO_PAGES(sizeof(GHES_REGISTER) * MAX_ERROR_SOURCES),
+                  (EFI_PHYSICAL_ADDRESS *)&SHARED_MEMORY_BASE
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to allocate shared memory pages - %r\n", __func__, Status));
+    return Status;
+  }
 
   //
   // Locate ACPI table protocol
@@ -481,37 +592,18 @@ ApeiDriverEntryPoint (
   }
 
   //
-  // Allocate and initialize trusted firmware data
-  //
-  Status = gBS->AllocatePool (
-                  EfiReservedMemoryType,
-                  sizeof (APEI_TRUSTED_FIRMWARE_STRUCTURE),
-                  (VOID **)&mApeiTrustedfirmwareData
-                  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Failed to allocate trusted firmware data - %r\n", Status));
-    return Status;
-  }
-
-  gBS->SetMem (
-         mApeiTrustedfirmwareData,
-         sizeof (APEI_TRUSTED_FIRMWARE_STRUCTURE),
-         0
-         );
-
-  //
   // Initialize APEI tables
   //
   Status = InitBertTable ();
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Failed to initialize BERT table - %r\n", Status));
-    goto Exit;
+    return Status;
   }
 
   Status = InitHestTable ();
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Failed to initialize HEST table - %r\n", Status));
-    goto Exit;
+    return Status;
   }
 
 #if 0
@@ -529,10 +621,4 @@ ApeiDriverEntryPoint (
 #endif
   DEBUG ((DEBUG_INFO, "APEI initialization completed successfully\n"));
   return EFI_SUCCESS;
-
-Exit:
-  if (mApeiTrustedfirmwareData != NULL) {
-    gBS->FreePool (mApeiTrustedfirmwareData);
-  }
-  return Status;
 }

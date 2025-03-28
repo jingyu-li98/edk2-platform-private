@@ -16,18 +16,36 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/IoLib.h>
 #include <Library/PrintLib.h>
-#include <Library/IniParserLib.h>
+#include <Protocol/FdtClient.h>
 #include <IndustryStandard/Acpi65.h>
 #include <Guid/Cper.h>
-#include "Common.h"
+#include <Include/SG2044AcpiHeader.h>
 
 //
 // Constants for table sizes
 //
 #define HEST_TABLE_SIZE                    0x4000
-#define GENERIC_HARDWARE_ERROR_BLOCK_SIZE  0x1000
 #define PCIE_MAX_ROOT_COMPLEXES            10
-#define PCIE_AER_ERROR_BLOCK_SIZE          0x1000
+#define SHARED_MEMORY_BASE                 0x70101D0000ULL
+#define GENERIC_HARDWARE_ERROR_BLOCK_SIZE  SIZE_4KB
+#define PCIE_AER_CAP_BASE                  0x100  // PCIe AER Capability Base Address
+#define PCIE_AER_ERROR_STATUS_OFFSET       0x30  // AER Error Status Register Offset
+
+#define PCIE_ERROR_SOURCE_ID_BASE         0x0000  // PCIe error source id base
+#define DDR_ECC_ERROR_SOURCE_ID_BASE      0x1000  // DDR ECC source id base, far from PCIe IDs
+#define DDR_ECC_STATUS_OFFSET             0x10608  // DDR ECC error status register offset
+#define DDR_ECC_ERROR_ACK_PRESERVE        0xFFFFFFFF
+#define DDR_ECC_ERROR_ACK_WRITE           0x00000001
+
+#define DDR_CTL0_START_ADDRESS             0x02000000
+#define DDR_CTL1_START_ADDRESS             0x02400000
+#define DDR_CFG_BASE_ARRAY_SIZE            16
+static const UINT64 DDR_CFG_BASE_ARRAY[DDR_CFG_BASE_ARRAY_SIZE] = {
+    0x6B40000000, 0x6B44000000, 0x6B50000000, 0x6B54000000,
+    0x6B60000000, 0x6B64000000, 0x6B70000000, 0x6B74000000,
+    0x6B80000000, 0x6B84000000, 0x6B90000000, 0x6B94000000,
+    0x6BA0000000, 0x6BA4000000, 0x6BB0000000, 0x6BB4000000
+};
 
 //
 // PCIe AER Error Masks
@@ -84,10 +102,10 @@ typedef struct {
 typedef struct {
   UINT8   RcId;           ///< Root Complex ID
   BOOLEAN Enabled;        ///< Whether this RC is enabled
-  UINT8   LanesPerPort;   ///< Number of lanes per port
   UINT8   PortCount;      ///< Number of ports
   UINT8   IntxVector;     ///< INTx interrupt vector
   UINT64  AerBaseAddr;    ///< AER register base address
+  UINT64  ConfigBase;     ///< PCIe RC configuration space base address
 } PCIE_RC_CONFIG;
 
 //
@@ -143,6 +161,16 @@ EFI_STATUS
 GhesV2ContextForHest (
   OUT EFI_ACPI_6_5_GENERIC_HARDWARE_ERROR_SOURCE_VERSION_2_STRUCTURE  GhesV2[],
   IN  UINT8                                                           NumOfGhesV2
+  );
+
+/**
+  Get total number of error sources.
+
+  @return Total number of error sources (PCIe AER + DDR ECC)
+**/
+UINT8
+GetTotalErrorSources (
+  VOID
   );
 
 #endif // HEST_H_

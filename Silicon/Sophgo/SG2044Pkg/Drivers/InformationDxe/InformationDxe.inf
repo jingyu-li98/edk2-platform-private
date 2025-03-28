@@ -59,6 +59,16 @@
 
 [Pcd]
   gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultPlatformLangCodes  ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow                       ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn                    ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution       ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution         ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn               ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow                  ## CONSUMES ## SOMETIMES_PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution  ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution    ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString           ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdTestKeyUsed                     ## CONSUMES
 
 [Depex]
   gEfiHiiConfigRoutingProtocolGuid  AND
